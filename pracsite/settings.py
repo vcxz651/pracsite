@@ -66,11 +66,18 @@ WSGI_APPLICATION = 'pracsite.wsgi.application'
 
 
 # Database
-DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
-if DATABASE_URL and not DATABASE_URL.startswith('://'):
-    import dj_database_url
-    DATABASES = {'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
 else:
+    # 로컬 개발용 (Railway 변수가 없을 때만 실행)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
