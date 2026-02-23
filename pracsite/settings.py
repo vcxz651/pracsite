@@ -127,3 +127,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if RAILWAY_PUBLIC_DOMAIN:
     CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
+
+# 일단 모든 도메인에서 CSRF 허용 (테스트용)
+CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_PUBLIC_DOMAIN}"] if RAILWAY_PUBLIC_DOMAIN else []
+CSRF_TRUSTED_ORIGINS.append("https://*.up.railway.app")
