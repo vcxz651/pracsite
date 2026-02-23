@@ -19,7 +19,6 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     'pracsite-production.up.railway.app',
-    'pracsite-staging.up.railway.app',
     'pracsite-dev.up.railway.app',
 ]
 
