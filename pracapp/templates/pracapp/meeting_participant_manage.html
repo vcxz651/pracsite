@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block content %}
+<script>
+    function closeParticipantModal() {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({type: 'participant_modal_close'}, window.location.origin);
+            return false;
+        }
+        window.history.back();
+        return false;
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    async function refreshParticipantTables() {
+        const root = document.getElementById('participantTablesRoot');
+        if (!root) return;
+        const url = "{{ request.path }}?modal=1&fragment=1";
+        const res = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!res.ok) return;
+        root.innerHTML = await res.text();
+    }
+
+    async function submitParticipantAction(action, userId, triggerEl) {
+        if (!action || !userId) return;
+        if (triggerEl) triggerEl.disabled = true;
+        try {
+            const body = new URLSearchParams();
+            body.append('action', action);
+            body.append('user_id', userId);
+            const res = await fetch("{{ request.path }}?modal=1", {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: body.toString(),
+            });
+            if (!res.ok) return;
+            await refreshParticipantTables();
+        } finally {
+            if (triggerEl) triggerEl.disabled = false;
+        }
+    }
+
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.js-participant-action');
+        if (!btn) return;
+        e.preventDefault();
+        await submitParticipantAction(btn.dataset.action, btn.dataset.userId, btn);
+    });
+</script>
+
+<div class="container mt-4" style="max-width: 980px;">
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h4 class="fw-bold mb-1">참가자 관리</h4>
+                    <div class="text-muted small">{{ meeting.title }}</div>
+                </div>
+                <a href="#" onclick="return closeParticipantModal();" class="btn btn-outline-secondary btn-sm">닫기</a>
+            </div>
+
+            <div id="participantTablesRoot">
+                {% include 'pracapp/meeting_participant_manage_tables.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

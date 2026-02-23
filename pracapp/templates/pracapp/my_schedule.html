@@ -1,0 +1,427 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* 기본 컨테이너 */
+    .myschedule-container { max-width: 950px; margin: 0 auto; padding: 40px 10px; }
+
+    /* 네비게이션 스타일 */
+    .month-nav {
+        display: flex; align-items: center; justify-content: center;
+        gap: 15px; margin-bottom: 30px;
+    }
+    .month-nav h2 { margin: 0; font-size: 1.5rem; font-weight: 800; color: #343a40; min-width: 160px; text-align: center; }
+    .nav-btn {
+        background: none; border: 1px solid #dee2e6; border-radius: 50%;
+        width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+        color: #868e96; text-decoration: none; transition: 0.2s;
+    }
+    .nav-btn:hover { background: #f8f9fa; color: #333; border-color: #adb5bd; }
+
+    /* 1. 글로벌 요일 헤더 (월요일 시작) */
+    .global-day-header {
+        display: flex;
+        padding-left: 90px; /* 주차 라벨 너비 + 여백 */
+        margin-bottom: 10px;
+        border-bottom: 2px solid #343a40;
+        padding-bottom: 10px;
+    }
+
+    .header-grid {
+        display: grid;
+        grid-template-columns: 30px repeat(7, 1fr);
+        width: 100%;
+    }
+
+    .header-cell { text-align: center; font-weight: 700; color: #495057; font-size: 0.9rem; }
+    /* 토/일 색상 */
+    .header-cell.sat { color: #228be6; }
+    .header-cell.sun { color: #fa5252; }
+
+
+    /* 2. 주차별 행 */
+    .week-row {
+        display: flex;
+        align-items: stretch;
+        margin-bottom: 30px;
+    }
+
+    /* 왼쪽 주차 라벨 */
+    .week-label {
+        width: 80px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        margin-right: 10px;
+        border-right: 1px solid #dee2e6;
+        padding-right: 10px;
+    }
+    .week-number { font-size: 1rem; font-weight: 800; color: #333; margin-bottom: 4px; }
+    .week-range { font-size: 0.75rem; color: #868e96; line-height: 1.2; }
+
+
+    /* 타임라인 그리드 */
+    .timeline-container {
+        flex-grow: 1;
+        display: grid;
+        grid-template-columns: 30px repeat(7, 1fr);
+        position: relative;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    /* 시간 눈금 */
+    .time-marker-col { position: relative; border-right: 1px solid #f1f3f5; }
+    .time-tick {
+        position: absolute; right: 5px; font-size: 0.7rem; font-weight: bold; color: #adb5bd;
+        transform: translateY(-50%); padding: 0 2px; z-index: 2;
+    }
+
+    /* 데이터 셀 */
+    .data-cell {
+        height: 240px;
+        border-top: 1px solid #f1f3f5;
+        border-right: 1px dashed #f8f9fa;
+        position: relative;
+    }
+    .data-cell:nth-child(8n) { border-right: none; }
+
+    /* Bar 스타일 */
+    .avail-bar {
+        position: absolute; left: 1px; right: 1px;
+        background-color: #51cf66; opacity: 0.8; border-radius: 2px;
+        z-index: 5; pointer-events: none;
+    }
+    .busy-bar {
+        position: absolute; left: 1px; right: 1px;
+        background-color: #e9ecef;
+        border-left: 3px solid #ced4da;
+        z-index: 4;
+        border-radius: 4px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        text-align: left;
+        padding: 2px 3px;
+        overflow: hidden;
+    }
+    .busy-bar.rehearsal {
+        background-color: #ffe8cc;
+        border-left: 3px solid #ff922b;
+    }
+    .busy-bar.connected-top {
+        border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;
+        margin-top: -1px; padding-top: 1px;
+    }
+    .busy-bar.connected-bottom {
+        border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none;
+        margin-bottom: -1px; padding-bottom: 1px;
+    }
+    .busy-bar-label {
+        font-size: 0.62rem;
+        line-height: 1.15;
+        color: #495057;
+        font-weight: 600;
+        word-break: keep-all;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+    }
+
+    /* 툴팁 */
+    #global-tooltip {
+        position: fixed; background-color: rgba(33, 37, 41, 0.95);
+        color: #fff; padding: 6px 12px; border-radius: 6px;
+        font-size: 0.8rem; pointer-events: none; z-index: 9999;
+        opacity: 0; transition: opacity 0.2s ease, transform 0.1s ease;
+        transform: translateY(10px); box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-weight: 500;
+    }
+    #global-tooltip.show { opacity: 1; transform: translateY(0); }
+
+    /* 모바일 반응형 */
+    @media (max-width: 768px) {
+        .myschedule-container { padding: 20px 5px; }
+        .global-day-header { padding-left: 55px; }
+        .week-label { width: 50px; margin-right: 5px; padding-right: 5px; }
+        .timeline-container { grid-template-columns: 20px repeat(7, 1fr); }
+        .header-grid { grid-template-columns: 20px repeat(7, 1fr); }
+        .header-cell { font-size: 0.7rem; }
+        .time-tick { font-size: 0.6rem; right: 2px; }
+        .data-cell { height: 120px; }
+        .week-range { font-size: 0.6rem; }
+        .busy-bar-label { font-size: 0.5rem; -webkit-line-clamp: 2; }
+    }
+</style>
+
+<div class="myschedule-container">
+
+    <div class="d-flex justify-content-between align-items-end mb-3">
+        <div style="width: 100px;"></div>
+
+        <div class="month-nav">
+            <a href="?year={{ prev_year }}&month={{ prev_month }}" class="nav-btn">
+                <i class="bi bi-chevron-left">&lt;</i>
+            </a>
+            <h2>{{ current_year }}. {{ current_month }}</h2>
+            <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-btn">
+                <i class="bi bi-chevron-right">&gt;</i>
+            </a>
+        </div>
+
+        <div style="width: 100px; text-align: right;">
+            <a href="{% url 'schedule_list' %}" class="btn btn-outline-secondary fw-bold shadow-sm">
+                <i class="bi bi-list-ul"></i>시간표 수정
+            </a>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-3 mb-4 small text-muted" style="font-size: 0.75rem;">
+        <div class="d-flex align-items-center"><div style="width:12px;height:12px;background:#e9ecef;border-left:3px solid #ced4da;margin-right:4px;"></div>불가 (사유)</div>
+        <div class="d-flex align-items-center"><div style="width:12px;height:12px;background:#ffe8cc;border-left:3px solid #ff922b;margin-right:4px;"></div>합주(자동 반영)</div>
+        <div class="d-flex align-items-center"><div style="width:12px;height:12px;background:#51cf66;margin-right:4px;"></div>가능</div>
+    </div>
+
+    <div class="global-day-header">
+        <div class="header-grid">
+            <div></div> <div class="header-cell">월</div>
+            <div class="header-cell">화</div>
+            <div class="header-cell">수</div>
+            <div class="header-cell">목</div>
+            <div class="header-cell">금</div>
+            <div class="header-cell sat">토</div>
+            <div class="header-cell sun">일</div> </div>
+    </div>
+
+    <div id="weeklyContainer"></div>
+</div>
+
+<div id="global-tooltip"></div>
+
+<script>
+    // 데이터 수신
+    const timelineData = JSON.parse('{{ timeline_data|escapejs }}');
+    const busyData = JSON.parse('{{ busy_data|escapejs }}');
+    const startStr = "{{ start_date }}";
+    const endStr = "{{ end_date }}";
+
+    // 시간 블록 설정
+    const BLOCKS = [9, 12, 15, 18, 21];
+    const BLOCK_HOURS = 3;
+    const SLOTS_PER_BLOCK = BLOCK_HOURS * 2;
+
+    // 툴팁 관련 로직
+    const tooltip = document.getElementById('global-tooltip');
+    function showTooltip(e, text) {
+        tooltip.textContent = text;
+        tooltip.classList.add('show');
+        moveTooltip(e);
+    }
+    function moveTooltip(e) {
+        const x = e.clientX + 15;
+        const y = e.clientY + 15;
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+    }
+    function hideTooltip() { tooltip.classList.remove('show'); }
+
+    function getFmtDate(d) {
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        return `${y}-${m<10?'0'+m:m}-${day<10?'0'+day:day}`;
+    }
+
+    function getShortDate(d) {
+        return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    // 시간 슬롯 병합 로직
+    function mergeTimeSlots(slots) {
+        if (!slots || slots.length === 0) return [];
+        slots.sort((a, b) => a.start - b.start);
+        const merged = [];
+        let current = { ...slots[0] };
+        const normalizeReason = (r) => (r || '').trim();
+        for (let i = 1; i < slots.length; i++) {
+            const next = slots[i];
+            // 병합 규칙:
+            // 1) 타입이 다르면 병합하지 않음
+            // 2) reason 이 다르면 병합하지 않음 (알바/동아리 등 사유 보존)
+            // 3) 타입/사유가 같고 연속 또는 겹치면 병합
+            const sameType = current.type === next.type;
+            const overlapsOrTouches = current.end >= next.start;
+            const sameReason = normalizeReason(current.reason) === normalizeReason(next.reason);
+
+            if (sameType && sameReason && overlapsOrTouches) {
+                current.end = Math.max(current.end, next.end);
+            } else {
+                merged.push(current);
+                current = { ...next };
+            }
+        }
+        merged.push(current);
+        return merged;
+    }
+
+    // ★ 메인 렌더링 함수 (월요일 시작으로 수정됨)
+    function renderAllWeeks() {
+        const container = document.getElementById('weeklyContainer');
+        const endDateObj = new Date(endStr);
+        let curr = new Date(startStr);
+
+        // [수정] 시작일이 '월요일'이 되도록 보정
+        // JS getDay(): 일(0), 월(1), ..., 토(6)
+        // 월요일(1)이면 -0일, 일요일(0)이면 -6일, 화요일(2)이면 -1일
+        const dayIdx = curr.getDay(); // 현재 요일 (0~6)
+
+        // 월요일을 기준(0)으로 삼기 위한 보정값 계산
+        // 일(0) -> 6일 전으로 / 월(1) -> 0일 전으로 / 화(2) -> 1일 전으로
+        const diffToMon = (dayIdx === 0) ? 6 : dayIdx - 1;
+
+        curr.setDate(curr.getDate() - diffToMon);
+
+        let weekCount = 1;
+
+        // [수정] 루프 조건: 월요일 기준으로 주 반복
+        // curr가 endDate보다 작거나 같거나, 아직 마지막 주의 중간일 때
+        while(curr <= endDateObj || (curr > endDateObj && curr.getDay() !== 1)) {
+            const weekStart = new Date(curr);
+
+            // 만약 이번 주의 시작이 표시할 범위(endDate)를 완전히 넘어섰다면 중단
+            // (단, endDate가 일요일인 경우는 포함되어야 함)
+            if (weekStart > endDateObj) break;
+
+            // 해당 주의 끝 날짜 계산 (일요일)
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+
+            // 1. 주차별 Wrapper
+            const weekRow = document.createElement('div');
+            weekRow.className = 'week-row';
+
+            // 2. 왼쪽 주차 라벨
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'week-label';
+            labelDiv.innerHTML = `
+                <div class="week-number">${weekCount}주차</div>
+                <div class="week-range">
+                    ${getShortDate(weekStart)}<br>~<br>${getShortDate(weekEnd)}
+                </div>
+            `;
+            weekRow.appendChild(labelDiv);
+
+            // 3. 오른쪽 타임라인 그리드
+            const grid = document.createElement('div');
+            grid.className = 'timeline-container';
+
+            // 이번 주 7일 날짜 배열 생성
+            const weekDates = [];
+            for(let i=0; i<7; i++) {
+                const d = new Date(weekStart);
+                d.setDate(d.getDate() + i);
+                weekDates.push(d);
+            }
+
+            // 블록 반복
+            BLOCKS.forEach((startHour, idx) => {
+                const isLastBlock = (idx === BLOCKS.length - 1);
+                const endHour = startHour + BLOCK_HOURS;
+                const blockStartIdx = startHour * 2;
+                const blockEndIdx = blockStartIdx + SLOTS_PER_BLOCK;
+
+                const timeCell = document.createElement('div');
+                timeCell.className = 'time-marker-col';
+                timeCell.innerHTML = `<span class=\"time-tick\" style=\"top:0\">${startHour}</span>`;
+                if (isLastBlock) {
+                    timeCell.innerHTML += `<span class=\"time-tick\" style=\"bottom:0;transform:translateY(50%)\">${endHour}</span>`;
+                }
+                grid.appendChild(timeCell);
+
+                for(let day=0; day<7; day++) {
+                    const dObj = weekDates[day];
+                    const dKey = getFmtDate(dObj);
+                    const cell = document.createElement('div');
+                    cell.className = 'data-cell';
+
+                    const rawBusyList = busyData[dKey] || [];
+                    const mergedBusyList = mergeTimeSlots(rawBusyList);
+                    mergedBusyList.forEach(evt => {
+                        const drawStart = Math.max(evt.start, blockStartIdx);
+                        const drawEnd = Math.min(evt.end, blockEndIdx);
+
+                        if (drawStart < drawEnd) {
+                            const topPct = ((drawStart - blockStartIdx) / SLOTS_PER_BLOCK) * 100;
+                            const hPct = ((drawEnd - drawStart) / SLOTS_PER_BLOCK) * 100;
+
+                            const bar = document.createElement('div');
+                            bar.className = 'busy-bar';
+                            if (evt.type === 'rehearsal') {
+                                bar.classList.add('rehearsal');
+                            }
+                            bar.style.top = `${topPct}%`;
+                            bar.style.height = `${hPct}%`;
+
+                            if (evt.start < blockStartIdx) bar.classList.add('connected-top');
+                            if (evt.end > blockEndIdx) bar.classList.add('connected-bottom');
+
+                            const reasonText = evt.reason || '일정 있음';
+                            // 라벨은 연속 구간의 "전체 중앙 슬롯"이 포함된 분할 조각에만 표시한다.
+                            // (3시간 초과 연속 블록에서도 시각적으로 정중앙에 가깝게 배치)
+                            const midSlot = Math.floor((evt.start + evt.end - 1) / 2);
+                            if (drawStart <= midSlot && midSlot < drawEnd) {
+                                const label = document.createElement('span');
+                                label.className = 'busy-bar-label';
+                                label.textContent = reasonText;
+                                bar.appendChild(label);
+                            }
+                            bar.title = reasonText;
+
+                            cell.appendChild(bar);
+                        }
+                    });
+
+                    const daySlots = timelineData[dKey] || [];
+                    const activeSlots = daySlots.filter(s => s >= blockStartIdx && s < blockEndIdx);
+                    if (activeSlots.length > 0) {
+                        activeSlots.sort((a,b) => a-b);
+                        let chunkStart = activeSlots[0];
+                        let prev = chunkStart;
+                        for(let i=1; i<=activeSlots.length; i++) {
+                            const s = (i < activeSlots.length) ? activeSlots[i] : -99;
+                            if (s === prev + 1) {
+                                prev = s;
+                            } else {
+                                const duration = prev - chunkStart + 1;
+                                const topPct = ((chunkStart - blockStartIdx) / SLOTS_PER_BLOCK) * 100;
+                                const heightPct = (duration / SLOTS_PER_BLOCK) * 100;
+
+                                const bar = document.createElement('div');
+                                bar.className = 'avail-bar';
+                                bar.style.top = `${topPct}%`;
+                                bar.style.height = `${heightPct}%`;
+                                cell.appendChild(bar);
+
+                                if (i < activeSlots.length) { chunkStart = s; prev = s; }
+                            }
+                        }
+                    }
+                    grid.appendChild(cell);
+                }
+            });
+
+            weekRow.appendChild(grid);
+            container.appendChild(weekRow);
+
+            curr.setDate(curr.getDate() + 7);
+            weekCount++;
+        }
+    }
+
+    renderAllWeeks();
+</script>
+{% endblock %}

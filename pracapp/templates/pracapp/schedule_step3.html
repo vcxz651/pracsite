@@ -1,0 +1,646 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .no-select { user-select: none; -webkit-user-select: none; }
+    body { overflow-x: hidden; }
+
+    /* --- 달력 스타일 --- */
+    .calendar-wrapper {
+        max-width: 1000px; margin: 0 auto;
+    }
+
+    /* 요일 헤더 */
+    .weekday-header {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;
+        text-align: center; font-weight: bold; margin-bottom: 5px;
+        position: sticky; top: 0; background: white; z-index: 10; /* 헤더 고정 */
+        padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6;
+    }
+    .weekday-item { padding: 5px; color: #868e96; }
+    .weekday-item.sun { color: #e03131; }
+    .weekday-item.sat { color: #1971c2; }
+
+    /* 달력 그리드 (스크롤 방식) */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 10px;
+        padding-bottom: 30px;
+    }
+    .calendar-day {
+        background: white; border: 1px solid #dee2e6; border-radius: 8px;
+        min-height: 100px; padding: 8px; cursor: pointer; transition: 0.2s;
+        min-width: 0;
+        position: relative;
+    }
+    .calendar-day:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-color: #339af0; }
+    
+    .day-header { font-weight: bold; margin-bottom: 5px; color: #495057; font-size: 0.9rem; }
+    
+    .day-badges {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.7rem;
+        overflow: hidden; /* 혹시 모를 넘침 방지 */
+    }
+
+    .badge-recurring, .badge-oneoff {
+        padding: 2px 6px;
+        border-radius: 4px;
+
+        /* ✨ 말줄임표(...) 핵심 스타일 */
+        width: 100%;       /* 부모(날짜칸) 너비를 넘지 않음 */
+        min-width: 0;   /* ← 이게 핵심 */
+        white-space: nowrap;   /* 줄바꿈 금지 (한 줄 유지) */
+        overflow: hidden;      /* 넘치는 텍스트 숨김 */
+        text-overflow: ellipsis; /* 잘리는 부분에 ... 표시 */
+        display: inline-block; /* 크기 제한을 위해 블록 속성 부여 */
+        vertical-align: middle;
+    }
+
+    /* 색상 스타일은 유지 */
+    .badge-recurring {
+        background-color: #ced4da;
+        color: #495057;
+    }
+    .badge-oneoff {
+        background-color: #ffc9c9;
+        color: #c92a2a;
+    }
+
+    /* 월 구분선 */
+    .month-separator {
+        grid-column: 1 / -1; /* 가로 전체 차지 */
+        padding: 20px 5px 10px 5px;
+        margin-top: 10px;
+        font-size: 1.2rem; font-weight: bold; color: #333;
+    }
+
+    /* --- 하단 액션바 --- */
+    .action-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: 20px; padding: 15px;
+        background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;
+        max-width: 1000px; margin-left: auto; margin-right: auto;
+    }
+
+    /* --- 모달 --- */
+    #scheduleModal {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 9000;
+        justify-content: center; align-items: center;
+    }
+    .modal-content {
+        background: white; padding: 20px; border-radius: 12px;
+        width: 95%; max-width: 450px;
+        max-height: 90vh; overflow-y: auto; position: relative;
+    }
+    .modal-header-area {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;
+    }
+
+    /* 모달 내부 시간표 */
+    .time-grid {
+        display: grid; grid-template-columns: 60px 1fr;
+        gap: 1px; background-color: #dee2e6; border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    .time-header { background: #f8f9fa; padding: 8px; text-align: center; font-weight: bold; }
+    .time-label { 
+        background: white; text-align: center; font-size: 0.8rem; padding-top: 6px; color: #888;
+        pointer-events: none;
+    }
+    
+    .grid-cell {
+        background: white; height: 35px;
+        border-bottom: 1px dotted #f0f0f0; cursor: pointer; position: relative;
+    }
+    .grid-cell.locked {
+        background-color: #ced4da !important; color: #495057; font-weight: bold;
+        cursor: pointer; font-size: 0.75rem; display: flex; align-items: center; justify-content: center;
+    }
+    .grid-cell.selecting { background-color: #ffc9c9 !important; }
+    .grid-cell.erasing { background-color: #fff !important; opacity: 0.5; }
+    .grid-cell.confirmed {
+        background-color: #ff8787; color: white; font-size: 0.75rem;
+        display: flex; align-items: center; justify-content: center;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .btn-all-day-modal {
+        width: 100%; padding: 8px 0; font-size: 0.75rem;
+        border: 1px dashed #ced4da; background-color: #fff; color: #adb5bd;
+        border-radius: 4px; cursor: pointer; transition: 0.2s; font-weight: bold;
+    }
+    .btn-all-day-modal:hover { background-color: #ffc9c9; color: #e03131; border-color: #ffc9c9; }
+
+    /* 말풍선 & 애니메이션 */
+    @keyframes bubbleFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    #inputBubble {
+        display: none; position: fixed; z-index: 9999;
+        background: white; border: 1px solid #ccc;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        padding: 10px; border-radius: 8px; width: 220px;
+        animation: bubbleFadeIn 0.2s ease-out;
+    }
+    #deleteBubble {
+        display: none; position: fixed; z-index: 9999;
+        background: white; border: 1px solid #ff6b6b;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        padding: 12px; border-radius: 8px; width: 240px;
+        animation: bubbleFadeIn 0.2s ease-out;
+    }
+</style>
+
+<div class="container mt-4 mb-5">
+    <div class="text-center mb-4">
+        <h2>📅 예외적인 일정 추가</h2>
+        <p class="text-muted small m-0">
+            고정 스케줄 외에 추가로 안 되는 날짜를 선택하세요.<br>
+            <span class="badge bg-secondary">회색</span>은 고정 스케줄입니다. (클릭하여 삭제 가능)
+        </p>
+    </div>
+
+    <div class="calendar-wrapper no-select">
+        
+        <div class="weekday-header">
+            <div class="weekday-item sun">일</div>
+            <div class="weekday-item">월</div>
+            <div class="weekday-item">화</div>
+            <div class="weekday-item">수</div>
+            <div class="weekday-item">목</div>
+            <div class="weekday-item">금</div>
+            <div class="weekday-item sat">토</div>
+        </div>
+
+        <div id="calendar" class="calendar-grid"></div>
+    </div>
+
+    <div class="action-bar">
+        <button onclick="resetToInitialState()" class="btn btn-outline-secondary btn-sm">
+            🔄 페이지 진입 시점 일정으로 초기화
+        </button>
+        <div class="d-flex align-items-center gap-2">
+            <small class="text-muted">입력이 끝났나요?</small>
+            <button onclick="saveAllOneOff()" class="btn btn-success px-4">
+                🎉 최종 확정
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="scheduleModal">
+    <div class="modal-content">
+        <div class="modal-header-area">
+            <div><h5 class="m-0 fw-bold" id="modalDateTitle"></h5><small class="text-muted">드래그하여 일정 추가</small></div>
+            <button class="btn btn-close" onclick="closeModal()"></button>
+        </div>
+        <div class="mb-3"><button class="btn-all-day-modal" onclick="selectAllDayInModal()">All (하루종일 선택)</button></div>
+        <div class="time-grid no-select" id="modalGrid"></div>
+    </div>
+</div>
+
+<div id="inputBubble">
+    <input type="text" id="bubbleInput" class="form-control form-control-sm mb-2" placeholder="예: 가족 행사, MT">
+    <div class="d-flex justify-content-end gap-1">
+        <button class="btn btn-sm btn-secondary" onclick="closeBubble()">취소</button>
+        <button class="btn btn-sm btn-primary" onclick="confirmBubble()">확인</button>
+    </div>
+</div>
+
+<div id="deleteBubble">
+    <p class="small fw-bold mb-2 text-danger">🚫 고정 스케줄이 있습니다.</p>
+    <p class="small text-muted mb-2">이 날만 고정 일정을 삭제하시겠습니까?</p>
+    <div class="d-flex justify-content-end gap-1">
+        <button class="btn btn-sm btn-secondary" onclick="closeDeleteBubble()">아니요</button>
+        <button class="btn btn-sm btn-danger" onclick="confirmDeleteRecurring()">네, 삭제합니다</button>
+    </div>
+</div>
+
+<script>
+    // --- 1. 데이터 준비 ---
+    const startStr = "{{ start_date }}"; // "YYYY-MM-DD"
+    const endStr = "{{ end_date }}";
+    
+    // [날짜 오류 수정 1] 문자열을 그대로 사용하여 로컬 날짜 객체 생성 (시간대 왜곡 방지)
+    function createLocalDate(dateString) {
+        const parts = dateString.split('-');
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    // [날짜 오류 수정 2] "YYYY-MM-DD" 포맷터 (로컬 기준)
+    function getFormatDate(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = dateObj.getMonth() + 1;
+        const d = dateObj.getDate();
+        // 0 채우기
+        const mm = m < 10 ? '0' + m : m;
+        const dd = d < 10 ? '0' + d : d;
+        return `${y}-${mm}-${dd}`;
+    }
+
+    const globalStart = createLocalDate(startStr);
+    const globalEnd = createLocalDate(endStr);
+    
+    const daysKor = ['일', '월', '화', '수', '목', '금', '토'];
+    
+    const recurringData = JSON.parse('{{ recurring_data|escapejs }}'); 
+    
+    const initialOneOffData = JSON.parse('{{ oneoff_data|escapejs }}');
+    let oneOffData = JSON.parse(JSON.stringify(initialOneOffData));
+
+    const initialExceptionData = JSON.parse('{{ exception_data|escapejs }}');
+    let exceptionData = JSON.parse(JSON.stringify(initialExceptionData));
+
+
+    const slotsCount = 30;
+    const startOffset = 18;
+
+    // --- 2. 달력 그리기 (스크롤 방식 + 월 구분선) ---
+    function renderCalendar() {
+        const container = document.getElementById('calendar');
+        container.innerHTML = '';
+
+        let curr = new Date(globalStart); // 복사해서 사용
+        let currentMonth = -1;
+        const thisYear = new Date().getFullYear();
+
+        while (curr <= globalEnd) {
+            const dateStr = getFormatDate(curr); // [수정] 직접 포맷팅 (UTC 문제 해결)
+            const year = curr.getFullYear();
+            const monthIdx = curr.getMonth();
+            const dayIdx = curr.getDay();
+
+            // 월이 바뀌면 구분선 & 빈칸 추가
+            if (monthIdx !== currentMonth) {
+                currentMonth = monthIdx;
+
+                // 1) 구분선
+                const separator = document.createElement('div');
+                separator.className = 'month-separator';
+                if (year !== thisYear) {
+                    separator.innerText = `${year}년 ${monthIdx + 1}월`;
+                } else {
+                    separator.innerText = `${monthIdx + 1}월`;
+                }
+                container.appendChild(separator);
+
+                // 2) 요일 맞추기 위한 빈칸 (그 달의 1일의 요일만큼)
+                // (주의: curr이 그 달의 1일이 아닐 수도 있지만, loop 순서상 월이 바뀌는 순간은 그 달의 첫 날짜임)
+                for (let i = 0; i < dayIdx; i++) {
+                    const empty = document.createElement('div');
+                    container.appendChild(empty);
+                }
+            }
+
+            const el = document.createElement('div');
+            el.className = 'calendar-day';
+            el.onclick = () => openModal(dateStr, dayIdx);
+
+            const header = document.createElement('div');
+            header.className = 'day-header';
+            if (dayIdx === 0) header.style.color = '#e03131'; 
+            if (dayIdx === 6) header.style.color = '#1971c2';
+
+            let dateLabel = `${curr.getMonth()+1}/${curr.getDate()}`;
+            // 연도가 바뀌는 1월 1일 등에는 연도 표시
+            if (year !== thisYear) {
+                dateLabel = `${year.toString().slice(-2)}/${dateLabel}`;
+            }
+            header.innerText = dateLabel; 
+            el.appendChild(header);
+
+            const badgeBox = document.createElement('div');
+            badgeBox.className = 'day-badges';
+
+            const dbDayIdx = (dayIdx + 6) % 7; 
+
+            // 1) 고정 스케줄
+            if (recurringData[dbDayIdx]) {
+                const exceptions = exceptionData[dateStr] || [];
+                recurringData[dbDayIdx].forEach(b => {
+                    // 삭제된 일정은 패스
+                    if (exceptions.includes(b.start)) return;
+
+                    const sp = document.createElement('span');
+                    sp.className = 'badge-recurring';
+                    sp.innerText = b.reason;
+                    badgeBox.appendChild(sp);
+                });
+            }
+            // 2) 단발 스케줄
+            if (oneOffData[dateStr]) {
+                oneOffData[dateStr].forEach(b => {
+                    const sp = document.createElement('span');
+                    sp.className = 'badge-oneoff';
+                    sp.innerText = b.reason;
+                    badgeBox.appendChild(sp);
+                });
+            }
+            el.appendChild(badgeBox);
+            container.appendChild(el);
+
+            // 날짜 하루 증가
+            curr.setDate(curr.getDate() + 1);
+        }
+    }
+
+    // --- 3. 초기화 함수 ---
+    function resetToInitialState() {
+    window.location.href = "{% url 'schedule_oneoff' %}";
+    }
+
+
+    // --- 4. 모달 & 그리드 ---
+    let currentTargetDate = null;
+    let currentTargetDayIdx = null;
+    let tempScheduleMap = new Map(); 
+
+    function openModal(dateStr, dayIdx) {
+        currentTargetDate = dateStr;
+        currentTargetDayIdx = (dayIdx + 6) % 7;
+        
+        const [yyyy, mm, dd] = dateStr.split('-');
+        const targetYear = parseInt(yyyy);
+        const thisYear = new Date().getFullYear();
+
+        let titleText = `${parseInt(mm)}월 ${parseInt(dd)}일`;
+        if (targetYear !== thisYear) titleText = `${targetYear}년 ${titleText}`;
+        
+        document.getElementById('modalDateTitle').innerText = `${titleText} (${daysKor[dayIdx]})`;
+        document.getElementById('scheduleModal').style.display = 'flex';
+        
+        tempScheduleMap.clear();
+        if (oneOffData[dateStr]) {
+            oneOffData[dateStr].forEach(b => {
+                for(let i=b.start; i<b.end; i++) tempScheduleMap.set(i, b.reason);
+            });
+        }
+        renderModalGrid();
+    }
+
+    function closeModal() {
+        document.getElementById('scheduleModal').style.display = 'none';
+        closeBubble();
+        renderCalendar(); // 모달 닫을 때 뱃지 갱신
+    }
+
+    function renderModalGrid() {
+        const grid = document.getElementById('modalGrid');
+        grid.innerHTML = '';
+        grid.appendChild(createDiv('time-header', 'Time'));
+        grid.appendChild(createDiv('time-header', '일정'));
+
+        const lockedSlots = new Map();
+        try {
+            if (recurringData && recurringData[currentTargetDayIdx]) {
+                recurringData[currentTargetDayIdx].forEach(b => {
+                    for(let i = b.start; i < b.end; i++) lockedSlots.set(i, b.reason);
+                });
+            }
+        } catch(e) {}
+
+        const currentExceptions = exceptionData[currentTargetDate] || [];
+
+        for (let i = 0; i < slotsCount; i++) {
+            const realIdx = i + startOffset;
+            const hour = 9 + Math.floor(i / 2);
+            const min = i % 2 === 0 ? '00' : '30';
+
+            grid.appendChild(createDiv('time-label', `${hour}:${min}`));
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.time = realIdx;
+
+            const isRecurring = lockedSlots.has(realIdx);
+            const isException = currentExceptions.includes(realIdx);
+
+            if (isRecurring && !isException) {
+                cell.classList.add('locked');
+                cell.innerText = lockedSlots.get(realIdx);
+                cell.onclick = (e) => showDeleteBubble(e, realIdx);
+            } else {
+                if (tempScheduleMap.has(realIdx)) {
+                    cell.classList.add('confirmed');
+                    cell.innerText = tempScheduleMap.get(realIdx);
+                }
+                cell.addEventListener('mousedown', startDrag);
+                cell.addEventListener('mouseenter', onMouseEnter);
+            }
+            grid.appendChild(cell);
+        }
+    }
+
+    function createDiv(cls, txt) {
+        const d = document.createElement('div');
+        d.className = cls; d.innerText = txt; return d;
+    }
+
+    // --- 삭제 로직 (기존 동일) ---
+    const deleteBubble = document.getElementById('deleteBubble');
+    let targetDeleteIdx = -1;
+
+    function showDeleteBubble(e, idx) {
+        e.stopPropagation(); 
+        targetDeleteIdx = idx;
+        deleteBubble.style.display = 'block';
+        let x = e.clientX + 10; let y = e.clientY + 10;
+        if (x + 240 > window.innerWidth) x -= 250;
+        deleteBubble.style.left = x + 'px';
+        deleteBubble.style.top = y + 'px';
+    }
+
+    function closeDeleteBubble() {
+        deleteBubble.style.display = 'none';
+        targetDeleteIdx = -1;
+    }
+
+    function confirmDeleteRecurring() {
+        if (targetDeleteIdx === -1) return;
+        const blocks = recurringData[currentTargetDayIdx];
+        let targetBlock = null;
+        if (blocks) {
+            targetBlock = blocks.find(b => targetDeleteIdx >= b.start && targetDeleteIdx < b.end);
+        }
+        if (!exceptionData[currentTargetDate]) exceptionData[currentTargetDate] = [];
+
+        if (targetBlock) {
+            for (let i = targetBlock.start; i < targetBlock.end; i++) {
+                if (!exceptionData[currentTargetDate].includes(i)) {
+                    exceptionData[currentTargetDate].push(i);
+                }
+            }
+        } else {
+            exceptionData[currentTargetDate].push(targetDeleteIdx);
+        }
+        closeDeleteBubble();
+        renderModalGrid();
+        renderCalendar(); // 즉시 반영
+    }
+
+    // --- 드래그 & 기타 로직 (기존 동일) ---
+    function selectAllDayInModal() {
+        closeBubble();
+        currentSelection = [];
+        dragMode = 'create';
+        for(let i=0; i<slotsCount; i++) {
+            const realIdx = i + startOffset;
+            const cell = document.querySelector(`#modalGrid .grid-cell[data-time="${realIdx}"]`);
+            if(cell && !cell.classList.contains('locked') && !cell.classList.contains('confirmed')) {
+                cell.classList.add('selecting');
+                currentSelection.push(cell);
+            }
+        }
+        if (currentSelection.length > 0) {
+            const rect = document.querySelector('.modal-content').getBoundingClientRect();
+            showBubble(rect.left + rect.width/2 - 100, rect.top + rect.height/2);
+        }
+    }
+
+    let isDragging = false;
+    let startIdx = -1;
+    let dragMode = null; 
+    let currentSelection = [];
+
+    function startDrag(e) {
+        closeBubble();
+        isDragging = true;
+        startIdx = parseInt(this.dataset.time);
+        currentSelection = [];
+        const isConfirmed = this.classList.contains('confirmed');
+        dragMode = isConfirmed ? 'erase' : 'create';
+        processRange(this);
+    }
+    function onMouseEnter(e) {
+        if (!isDragging) return;
+        processRange(this);
+    }
+    function processRange(targetCell) {
+        const currentIdx = parseInt(targetCell.dataset.time);
+        const min = Math.min(startIdx, currentIdx);
+        const max = Math.max(startIdx, currentIdx);
+        currentSelection.forEach(c => c.classList.remove('selecting', 'erasing'));
+        currentSelection = [];
+        for (let i = min; i <= max; i++) {
+            const cell = document.querySelector(`#modalGrid .grid-cell[data-time="${i}"]`);
+            if (!cell || cell.classList.contains('locked')) continue;
+            const isConfirmed = cell.classList.contains('confirmed');
+            if (dragMode === 'create' && !isConfirmed) {
+                cell.classList.add('selecting');
+                currentSelection.push(cell);
+            } else if (dragMode === 'erase' && isConfirmed) {
+                cell.classList.add('erasing');
+                currentSelection.push(cell);
+            }
+        }
+    }
+    document.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        if (currentSelection.length > 0) {
+            if (dragMode === 'create') {
+                showBubble(e.clientX, e.clientY);
+            } else {
+                currentSelection.forEach(c => {
+                    tempScheduleMap.delete(parseInt(c.dataset.time));
+                    c.classList.remove('erasing', 'confirmed');
+                    c.innerText = '';
+                    c.style.backgroundColor = '';
+                });
+                updateMainData();
+            }
+        }
+    });
+
+    const bubble = document.getElementById('inputBubble');
+    const bubbleInput = document.getElementById('bubbleInput');
+
+    function showBubble(x, y) {
+        bubble.style.display = 'block';
+        let fx = x; let fy = y;
+        if(x + 220 > window.innerWidth) fx = x - 220;
+        if(y + 100 > window.innerHeight) fy = y - 100;
+        bubble.style.left = fx + 'px';
+        bubble.style.top = fy + 'px';
+        bubbleInput.value = '';
+        bubbleInput.focus();
+        bubbleInput.onkeydown = (e) => {
+            if (e.key === 'Enter') confirmBubble();
+            if (e.key === 'Escape') closeBubble();
+        };
+    }
+    function closeBubble() {
+        bubble.style.display = 'none';
+        currentSelection.forEach(c => c.classList.remove('selecting'));
+        currentSelection = [];
+    }
+    function confirmBubble() {
+        const reason = bubbleInput.value.trim();
+        if (!reason) return;
+        currentSelection.forEach(c => {
+            const t = parseInt(c.dataset.time);
+            tempScheduleMap.set(t, reason);
+            c.classList.remove('selecting');
+            c.classList.add('confirmed');
+            c.innerText = reason;
+        });
+        closeBubble();
+        updateMainData();
+    }
+    function updateMainData() {
+        const blocks = [];
+        let start = -1;
+        let currR = null;
+        for(let i=startOffset; i<startOffset+slotsCount; i++) {
+            const reason = tempScheduleMap.get(i);
+            if (reason && start === -1) {
+                start = i; currR = reason;
+            } else if ((!reason || reason !== currR) && start !== -1) {
+                blocks.push({ start: start, end: i, reason: currR });
+                start = -1;
+                if (reason) { start = i; currR = reason; }
+            }
+        }
+        if (start !== -1) {
+            blocks.push({ start: start, end: startOffset+slotsCount, reason: currR });
+        }
+        oneOffData[currentTargetDate] = blocks;
+    }
+
+    function saveAllOneOff() {
+        // [중요] oneOffData(추가됨)와 exceptionData(삭제됨)를 묶어서 전송
+        const payload = {
+            oneoff: oneOffData,
+            exceptions: exceptionData
+        };
+
+        fetch("{% url 'schedule_oneoff' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // [핵심] 저장이 성공하면 다음 단계(확인 페이지)로 이동
+                window.location.href = "{% url 'schedule_confirm' %}";
+            } else {
+                alert('저장 실패: ' + (data.message || '알 수 없는 오류'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('서버 통신 중 오류가 발생했습니다.');
+        });
+    }
+
+    renderCalendar();
+</script>
+{% endblock %}

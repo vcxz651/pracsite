@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    /* 회원가입 폼 전용 스타일 */
+    .signup-card {
+        max-width: 500px; /* 너무 퍼지지 않게 폭 제한 */
+        margin: 50px auto; /* 중앙 정렬 */
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* 부드러운 그림자 */
+        background-color: white;
+    }
+
+    /* 꿀팁: 라벨 스타일 */
+    .form-label {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+
+    /* 🔥 핵심 기능: 설명 문구(규칙) 숨기기/보이기 마법 */
+    .field-container .help-text {
+        display: none; /* 평소엔 숨김 */
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 5px;
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        border-left: 3px solid #ffc107; /* 노란색 포인트 */
+    }
+
+    /* 입력창을 클릭(focus)했을 때만 형제 요소인 help-text를 보여줘라 */
+    .field-container:focus-within .help-text {
+        display: block;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    /* 스르륵 나타나는 애니메이션 */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .error-msg {
+        color: #dc3545;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+</style>
+
+<div class="container">
+    <div class="signup-card">
+        <h2 class="text-center fw-bold mb-4">🤘 Join the Band</h2>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="mb-3 field-container">
+                    <label for="{{ field.id_for_label }}" class="form-label">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.errors %}
+                        <div class="error-msg">
+                            {% for error in field.errors %}
+                                ⚠ {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if field.help_text %}
+                        <div class="help-text">
+                            {{ field.help_text|safe }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="d-grid gap-2 mt-5">
+                <button type="submit" class="btn btn-dark btn-lg fw-bold">가입 완료</button>
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary">홈으로 돌아가기</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="card shadow-sm p-4 border-0">
+        <h2 class="fw-bold mb-4 text-center">{% if object %}🎸 밴드 정보 수정{% else %}🎸 밴드 만들기{% endif %}</h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">밴드 이름</label>
+                {{ form.name }}
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">학교</label>
+                    {{ form.school }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">소속</label>
+                    {{ form.department }}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">소속 상세</label>
+                {{ form.department_detail }}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">한 줄 소개</label>
+                {{ form.introduce }}
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">상세 설명</label>
+                {{ form.description }}
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded mb-4">
+
+                <label class="form-check-label flex-grow-1 me-3" for="{{ form.is_public.id_for_label }}" style="cursor: pointer;">
+                    <strong>밴드 전체 공개</strong><br>
+                    <small class="text-muted" style="font-size: 0.85rem; line-height: 1.2;">
+                        체크 해제 시 초대 링크로만 가입 가능
+                    </small>
+                </label>
+
+                <div class="form-check form-switch m-0">
+                    {{ form.is_public }}
+                </div>
+
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-dark btn-lg">{% if object %}수정하기{% else %}생성하기{% endif %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // id_department는 장고가 자동으로 만들어주는 ID (id_필드명)
+    const deptSelect = document.getElementById('id_department');
+    const detailInput = document.getElementById('detail-input'); // forms.py에서 지정한 ID
+
+    // 선택 바꿀 때마다 실행
+    deptSelect.addEventListener('change', function() {
+        const val = this.value; // CENTER, COLLEGE, MAJOR, ETC 중 하나
+
+        if (val === 'CENTER') {
+            detailInput.placeholder = 'ex. 동아리방 위치 등';
+        } else if (val === 'COLLEGE') {
+            detailInput.placeholder = 'ex. 사회과학대';
+        } else if (val === 'MAJOR') {
+            detailInput.placeholder = 'ex. 사회학과';
+        } else {
+            detailInput.placeholder = '상세 소속을 입력해주세요.';
+        }
+    });
+</script>
+
+{% endblock %}

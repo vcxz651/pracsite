@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="row justify-content-center mb-5 mt-3">
+    <div class="col-md-8 col-lg-6 text-center">
+        <h2 class="fw-bold mb-4">🎸 밴드 찾기</h2>
+        <form method="get" action="" class="input-group shadow-sm" id="band-search-form">
+            <input type="text" name="band_search" id="band-search-input" class="form-control form-control-lg border-0"
+                   placeholder="밴드 이름 검색 (ex: 헤게모니, 헤게)"
+                   value="{{ request.GET.band_search }}">
+            <button type="submit" class="btn btn-dark px-4">🔍 검색</button>
+        </form>
+    </div>
+</div>
+
+
+<div class="row g-4" id="band-card-grid">
+    {% for band in searched_band_list %}
+
+    <div class="col-md-6 col-lg-4 band-card-col" data-band-name="{{ band.name|lower }}">
+        <div class="card h-100 shadow-sm border-0 hover-effect" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-body d-flex flex-column p-4">
+
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h4 class="card-title fw-bold text-dark mb-0">{{ band.name }}</h4>
+                    <span class="badge bg-light text-dark border rounded-pill">
+                        👥 {{ band.active_member_count }}명
+                    </span>
+                </div>
+
+                <div class="mb-4 text-muted small">
+                    <p class="mb-1">
+                        👑 <strong class="text-dark">리더:</strong> {{ band.leader }}
+                    </p>
+                    <p class="mb-0 text-truncate">
+                        {{ band.introduce }}
+                    </p>
+                </div>
+
+                <div class="mt-auto">
+                    {% if request.user not in band.member.all %}
+                        <a href="{% url 'member_enlist' band.id %}" class="btn btn-primary w-100 fw-bold py-2" style="border-radius: 10px;">
+                            🚀 가입 신청하기
+                        </a>
+
+                    {% else %}
+                        {% for ms in request.user.user_memberships.all %}
+                            {% if ms.band.id == band.id %}
+
+                                {% if ms.is_approved %}
+                                    <button class="btn btn-outline-secondary w-100 fw-bold py-2 disabled" style="border-radius: 10px; opacity: 0.7;">
+                                        ✅ 이미 가입된 밴드입니다
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-warning w-100 fw-bold py-2 disabled" style="border-radius: 10px; color: #856404;">
+                                        ⏳ 가입 승인 대기 중...
+                                    </button>
+                                {% endif %}
+
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+    {% empty %}
+        <div class="col-12 text-center py-5" id="band-empty-server">
+            <h5 class="text-muted">아무도 없어요 😢</h5>
+            <p class="text-secondary small">새로운 밴드를 직접 만들어보는 건 어때요?</p>
+            <a href="{% url 'band_create' %}" class="btn btn-outline-primary mt-2">
+                + 새 밴드 만들기
+            </a>
+        </div>
+    {% endfor %}
+    <div class="col-12 text-center py-5 d-none" id="band-empty-client">
+        <h5 class="text-muted">검색 결과가 없습니다.</h5>
+        <p class="text-secondary small">다른 이름으로 검색해보세요.</p>
+    </div>
+</div>
+
+<style>
+    /* 배경색을 살짝 깔아주면 더 이쁨 (body 배경색이 흰색이라 가정) */
+    .card {
+        background: #ffffff;
+        transition: all 0.3s ease;
+    }
+
+    .hover-effect:hover {
+        transform: translateY(-5px); /* 위로 둥둥 */
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; /* 그림자 진하게 */
+    }
+
+    /* 검색창 focus 효과 */
+    .form-control:focus {
+        box-shadow: none;
+        background-color: #f8f9fa;
+    }
+</style>
+
+<script>
+    (function () {
+        const input = document.getElementById('band-search-input');
+        const cards = Array.from(document.querySelectorAll('.band-card-col'));
+        const emptyClient = document.getElementById('band-empty-client');
+        const emptyServer = document.getElementById('band-empty-server');
+        if (!input || !cards.length || !emptyClient) return;
+
+        function applyRealtimeFilter() {
+            const q = (input.value || '').trim().toLowerCase();
+            let visibleCount = 0;
+            cards.forEach((card) => {
+                const name = card.dataset.bandName || '';
+                const matched = !q || name.includes(q);
+                card.classList.toggle('d-none', !matched);
+                if (matched) visibleCount += 1;
+            });
+            emptyClient.classList.toggle('d-none', visibleCount > 0);
+            if (emptyServer) emptyServer.classList.add('d-none');
+        }
+
+        input.addEventListener('input', applyRealtimeFilter);
+    })();
+</script>
+
+{% endblock %}

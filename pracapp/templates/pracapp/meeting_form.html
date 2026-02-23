@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block content %}
+<script>
+    function closeMeetingModal() {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({type: 'meeting_modal_close'}, window.location.origin);
+            return false;
+        }
+        window.history.back();
+        return false;
+    }
+</script>
+
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="card shadow-sm p-4 border-0">
+
+        <h2 class="fw-bold mb-4">📅 공연 및 선곡회의 정보</h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">공연 이름</label>
+                {{ form.title }}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">공연 일시 (선택)</label>
+                {{ form.performance_datetime }}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">선곡회의 일시</label>
+                {{ form.schedule }}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">선곡회의 장소</label>
+                {{ form.location }}
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">메모</label>
+                {{ form.description }}
+            </div>
+
+            <h5 class="fw-bold border-bottom pb-2 mb-3 mt-4">🔐 접근/참가 설정</h5>
+            <div class="mb-3">
+                <label class="form-label fw-bold">{{ form.visibility.label }}</label>
+                <div class="btn-group w-100 equal-split" role="group" aria-label="목록 노출 여부">
+                    {% for radio in form.visibility %}
+                        {{ radio.tag }}
+                        <label class="btn btn-outline-dark" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">{{ form.join_policy.label }}</label>
+                <div class="btn-group w-100 equal-split" role="group" aria-label="참가 신청 방식">
+                    {% for radio in form.join_policy %}
+                        {{ radio.tag }}
+                        <label class="btn btn-outline-dark" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <h5 class="fw-bold border-bottom pb-2 mb-3 mt-5">🎸 합주 기간 설정</h5>
+            <p class="text-muted small mb-3">
+                이 기간 내에서 멤버들의 시간표를 분석해 합주 시간을 자동으로 분배해줍니다.<br>
+                (보통 <strong>첫 합주 시작일</strong>부터 <strong>공연날</strong>까지로 설정합니다.)
+            </p>
+
+            <div class="row">
+                <div class="col-6 mb-3">
+                    <label class="form-label fw-bold text-primary">시작일</label>
+                    {{ form.practice_start_date }}
+                </div>
+                <div class="col-6 mb-3">
+                    <label class="form-label fw-bold text-danger">종료일</label>
+                    {{ form.practice_end_date }}
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-5">
+                <button type="submit" class="btn btn-dark flex-grow-1 py-2 fw-bold">
+                    완료
+                </button>
+
+                <a href="#" onclick="return closeMeetingModal();" class="btn btn-outline-secondary flex-grow-1 py-2">
+                    취소
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const performanceInput = document.getElementById('id_performance_datetime');
+        const practiceEndInput = document.getElementById('id_practice_end_date');
+        if (!performanceInput || !practiceEndInput) return;
+
+        function toDateOnly(value) {
+            if (!value) return '';
+            return value.slice(0, 10);
+        }
+
+        function applyDefaultFromPerformanceDate() {
+            const performanceDate = toDateOnly(performanceInput.value);
+            if (!performanceDate) return;
+            if (!practiceEndInput.value) {
+                practiceEndInput.value = performanceDate;
+            }
+        }
+
+        performanceInput.addEventListener('change', applyDefaultFromPerformanceDate);
+        applyDefaultFromPerformanceDate();
+    })();
+</script>
+
+<style>
+    .equal-split {
+        display: flex;
+    }
+    .equal-split .btn {
+        flex: 1 1 0;
+    }
+</style>
+
+{% endblock %}

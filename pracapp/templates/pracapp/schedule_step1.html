@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="text-center mb-4">
+        <h2>📅 스케줄링 기간 설정</h2>
+        <p class="text-muted">일정을 등록할 기간을 설정해주세요.</p>
+    </div>
+
+    <form method="post" id="setupForm">
+        {% csrf_token %}
+        <div class="card p-4 shadow-sm border-0">
+            <div class="alert alert-info small">
+                <i class="bi bi-info-circle-fill"></i>
+                <b>Tip:</b> 학기 중, 방학 등 <strong>큰 단위</strong>로 설정하는 것이 좋습니다.
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">시작일</label>
+                <input type="date" name="start_date" class="form-control" required id="startDate">
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">종료일</label>
+                <input type="date" name="end_date" class="form-control" required id="endDate">
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">
+                다음 단계로 (고정 스케줄 입력)
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="modal fade" id="conflictModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger bg-opacity-10">
+                <h5 class="modal-title fw-bold text-danger">⚠️ 생성 불가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="conflictMessage" class="fw-bold text-dark mb-3"></p>
+            </div>
+            <div class="modal-footer">
+                <a href="{% url 'schedule_list' %}" class="btn btn-outline-secondary">내 목록 보기</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">확인</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDateModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">📅 기간 설정 확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">설정하신 기간:</p>
+                <h4 class="fw-bold text-primary mb-3" id="periodCheckText"></h4>
+
+                <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                    <div>
+                        <strong>주의!</strong><br>
+                        생성 후에는 <b>스케줄 내용</b>은 수정할 수 있지만,<br>
+                        <u>기간(날짜)은 변경할 수 없습니다.</u>
+                    </div>
+                </div>
+                <p class="text-muted small mb-0 text-center">이대로 진행하시겠습니까?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">아니요 (다시 설정)</button>
+                <button type="button" class="btn btn-primary px-4 fw-bold" onclick="finalSubmit()">
+                    네, 진행합니다
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const startInput = document.getElementById('startDate');
+        const endInput = document.getElementById('endDate');
+        const form = document.getElementById('setupForm');
+
+        // 모달 인스턴스
+        const conflictModal = new bootstrap.Modal(document.getElementById('conflictModal'));
+        const confirmDateModal = new bootstrap.Modal(document.getElementById('confirmDateModal'));
+
+        // 날짜 기본값 세팅
+        const today = new Date().toISOString().split('T')[0];
+        startInput.value = today;
+        startInput.setAttribute('min', today); // 과거 날짜 금지 (선택사항)
+
+        // 종료일 자동 계산 (4개월 뒤)
+        const defaultEnd = new Date();
+        defaultEnd.setMonth(defaultEnd.getMonth() + 4);
+        endInput.value = defaultEnd.toISOString().split('T')[0];
+
+        // 시작일 변경 시 종료일 min 조정
+        startInput.addEventListener('change', function() {
+            endInput.setAttribute('min', this.value);
+            if(endInput.value < this.value) endInput.value = this.value;
+        });
+
+        // 폼 제출 가로채기
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const s = startInput.value;
+            const eDate = endInput.value;
+
+            // 1. 서버에 중복 체크 요청
+            fetch(`{% url 'schedule_setup' %}?start=${s}&end=${eDate}`, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'conflict') {
+                    // [경우 A] 중복 발생 -> Conflict 모달 띄움 (생성 차단)
+                    document.getElementById('conflictMessage').innerHTML = data.message;
+                    conflictModal.show();
+                } else {
+                    // [경우 B] 중복 없음 -> 확인 사살 모달 띄움
+                    document.getElementById('periodCheckText').innerText = `${s} ~ ${eDate}`;
+                    confirmDateModal.show();
+                }
+            });
+        });
+
+        // 최종 제출 함수 (모달 속 '네' 버튼)
+        window.finalSubmit = function() {
+            form.submit();
+        }
+    });
+</script>
+{% endblock %}

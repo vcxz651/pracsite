@@ -1,0 +1,26 @@
+{% extends "admin/index.html" %}
+
+{% block sidebar %}
+    {{ block.super }}
+
+    <div class="module" style="background-color: #fff5f5; border: 1px solid #ffc9c9; margin-top: 20px;">
+        <h2 style="background-color: #e03131; color: white;">🚨 긴급 데이터 초기화</h2>
+        <div style="padding: 15px;">
+            <p style="color: #c92a2a; font-weight: bold; margin-bottom: 15px;">
+                경고: 슈퍼유저(관리자)를 제외한<br>
+                모든 유저, 밴드, 곡, 스케줄이 영구 삭제됩니다.
+            </p>
+            
+            <form action="{% url 'reset_db_data' %}" method="post" 
+                  onsubmit="return confirm('정말 싹 다 지우시겠습니까?\n슈퍼유저 계정만 남고 모두 삭제됩니다.');">
+                {% csrf_token %}
+                <button type="submit" style="
+                    background: #ff6b6b; color: white; border: none; 
+                    padding: 10px 100%; cursor: pointer; font-weight: bold;
+                    border-radius: 4px;">
+                    💣 모든 데이터 삭제 실행
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

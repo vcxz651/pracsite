@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% if user.is_authenticated %}
+
+<div class="container mt-4 home-wrap">
+    <div class="card shadow-sm border-0 mb-4 schedule-card">
+        <div class="card-body p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+            <div>
+                <h4 class="fw-bold mb-1">내 일정</h4>
+                {% if has_schedule %}
+                    <p class="text-muted mb-0 small">등록된 시간표가 있습니다. 언제든 수정 가능합니다.</p>
+                {% else %}
+                    <p class="text-danger mb-0 small fw-bold">아직 시간표가 없습니다. 먼저 등록해주세요.</p>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2">
+                {% if has_schedule %}
+                    <a href="{% url 'my_schedule' %}" class="btn btn-light border fw-bold">조회</a>
+                    <a href="{% url 'schedule_list' %}" class="btn btn-outline-secondary fw-bold">수정</a>
+                {% else %}
+                    <a href="{% url 'schedule_setup' %}" class="btn btn-dark fw-bold px-4">시간표 만들기</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold m-0">내 밴드</h4>
+    </div>
+    <div class="row g-3">
+        {% for band in my_band %}
+            <div class="col-12 col-lg-6">
+                <div class="card h-100 shadow-sm border-0 home-card hover-effect position-relative">
+                    <div class="card-body position-relative">
+                        <a href="{% url 'dashboard' %}?band_id={{ band.id }}" class="stretched-link" aria-label="{{ band.name }} 대시보드로 이동"></a>
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <h5 class="card-title fw-bold text-dark mb-1">{{ band.name }}</h5>
+                                <p class="card-text text-muted small mb-0">멤버 {{ band.active_member_count }}명</p>
+                            </div>
+                            {% if band.id in editable_band_ids %}
+                                <a href="{% url 'band_update' band.id %}" class="btn btn-outline-secondary btn-sm position-relative z-2">
+                                    밴드 정보 수정
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="card border-0 shadow-sm home-card">
+                    <div class="card-body py-5 text-center text-muted">
+                        가입된 밴드가 없습니다.
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 shadow-sm home-card create-join-card">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center text-center gap-2">
+                    <h5 class="card-title fw-bold text-dark mb-1">새로운 밴드 생성/가입</h5>
+                    <p class="card-text text-muted small mb-2">새 밴드를 만들거나 기존 밴드에 가입할 수 있습니다.</p>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'band_create' %}" class="btn btn-dark btn-sm">밴드 생성</a>
+                        <a href="{% url 'band_list' %}" class="btn btn-outline-dark btn-sm">밴드 가입</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-wrap {
+        max-width: 1100px;
+    }
+    .schedule-card {
+        background: linear-gradient(145deg, #f3f6fa 0%, #ffffff 100%);
+    }
+    .home-card {
+        border-radius: 14px;
+    }
+    .create-join-card {
+        border: 2px dashed #adb5bd !important;
+        background: #fafbfc;
+    }
+    .hover-effect {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-effect:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important;
+    }
+</style>
+
+{% else %}
+<div class="text-center mt-5 pt-5">
+    <h1 class="fw-bold display-4 mb-3">Band Matcher</h1>
+    <p class="lead text-muted mb-4">합주 시간 조율, 이제 스트레스 받지 마세요.</p>
+    <a href="{% url 'login' %}" class="btn btn-dark btn-lg px-5 rounded-pill shadow">시작하기</a>
+</div>
+{% endif %}
+
+{% endblock %}

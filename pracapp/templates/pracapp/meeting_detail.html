@@ -1,0 +1,3930 @@
+{% extends 'base.html' %}
+{% load cache %}
+{% block content %}
+
+<style>
+    :root {
+        --session-gap: 4px;
+        --session-btn-font: 0.75rem;
+        --session-empty-h: 28px;
+        --session-chip-bg: #f7fbff;
+        --session-chip-border: #dbe7f3;
+        --session-stats-panel-w: 283px;
+    }
+
+    .session-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: var(--session-gap);
+        align-items: start;
+        width: 100%;
+        max-width: none;
+    }
+    .session-grid.session-grid-basic {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .session-grid.session-grid-extra {
+        margin-top: var(--session-gap);
+    }
+
+    .session-grid-wrapper {
+        overflow: visible !important;
+        width: 100%;
+        padding: 2px 0;
+    }
+    .session-grid > div {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        min-height: var(--session-empty-h);
+    }
+
+    @media (max-width: 992px) {
+        .session-grid-wrapper {
+            overflow: visible !important;
+        }
+
+        .session-grid {
+            min-width: 100%;
+        }
+    }
+
+    .btn-truncate {
+        width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-left: 2px;
+        padding-right: 2px;
+        font-size: var(--session-btn-font);
+        font-weight: 700;
+        border-radius: 4px;
+    }
+    .js-session-slot-btn.session-assigned-text {
+        font-weight: 200;
+    }
+    .manager-page .js-session-slot-btn.session-assigned-text {
+        font-weight: 700;
+    }
+    .session-applicant-count-badge {
+        background-color: #f1f3f5;
+        color: #5c6770;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        font-size: 0.64rem;
+        font-weight: 600;
+        line-height: 1.1;
+        min-width: 1.15rem;
+        padding: 0.1rem 0.32rem;
+        vertical-align: middle;
+    }
+    @media (max-width: 500px) {
+        .container.mt-4:not(.manager-page) .session-applicant-count-badge {
+            display: none !important;
+        }
+    }
+
+    .empty-slot {
+        border: 0;
+        border-radius: 4px;
+        background-color: transparent;
+        height: var(--session-empty-h);
+        min-height: var(--session-empty-h);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: transparent;
+        font-size: 0.7rem;
+    }
+
+    .btn-group-full { width: 100%; }
+    .btn-group-full .btn { width: 100%; }
+
+    .applicant-chip {
+        width: 100%;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default !important;
+        pointer-events: none;
+    }
+
+    .applicant-chip:hover,
+    .applicant-chip:focus {
+        color: var(--bs-secondary-color);
+        background-color: var(--bs-light);
+        border-color: var(--bs-border-color);
+    }
+
+    .applicant-hover-btn {
+        width: 100%;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .applicant-hover-btn.is-assigned {
+        background-color: #8fd3a2;
+        border-color: #74c58f;
+        color: #143823;
+    }
+    .applicant-hover-btn.is-assigned:hover,
+    .applicant-hover-btn.is-assigned:focus,
+    .applicant-hover-btn.is-assigned:active {
+        background-color: #82ca97;
+        border-color: #68bc84;
+        color: #102f1d;
+    }
+
+    .applicant-stack {
+        margin-top: 4px;
+        padding: 4px;
+        border: 1px solid var(--session-chip-border);
+        border-radius: 6px;
+        background: var(--session-chip-bg);
+    }
+    .applicant-stack.applicant-collapsible {
+        margin-top: 0;
+        padding: 0;
+        border-width: 0;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transform: translateY(-4px);
+        pointer-events: none;
+        transition: max-height 260ms ease, opacity 220ms ease, transform 220ms ease, padding 220ms ease, margin-top 220ms ease, border-width 220ms ease;
+    }
+    .applicant-stack.applicant-collapsible.is-open {
+        margin-top: 4px;
+        padding: 4px;
+        border-width: 1px;
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+    }
+
+    /* 멤버 현황판 */
+    .member-stat-row {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+        line-height: 1.4;
+        background-color: var(--member-load-bg, transparent);
+        transition: background-color 320ms ease, box-shadow 320ms ease, color 320ms ease;
+    }
+    .member-stat-name {
+        white-space: normal;
+        word-break: keep-all;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        line-height: 1.25;
+    }
+    .js-member-row,
+    .js-member-row * {
+        cursor: pointer;
+        user-select: none;
+    }
+    .member-stat-row.member-active {
+        background-color: rgba(13, 110, 253, 0.24) !important;
+        box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.38);
+        color: #0b2a66;
+    }
+    .member-stat-row.member-active .member-stat-count,
+    .member-stat-row.member-active .member-stat-meta-label {
+        color: #0b2a66;
+    }
+    .member-stat-row.member-hovered {
+        background-color: rgba(13, 110, 253, 0.18) !important;
+        box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.42);
+        color: #0b2a66;
+    }
+    .member-stat-row.member-hovered .member-stat-count,
+    .member-stat-row.member-hovered .member-stat-meta-label {
+        color: #0b2a66;
+    }
+    .js-session-slot-btn.session-member-hovered {
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.62), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+        filter: saturate(1.1) brightness(1.02);
+        transform: translateY(-1px);
+        position: relative;
+        z-index: 2;
+    }
+    .applicant-hover-btn.member-hovered,
+    .applicant-chip.member-hovered {
+        box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.45);
+        border-color: rgba(13, 110, 253, 0.7) !important;
+        background-color: rgba(13, 110, 253, 0.12) !important;
+    }
+    .member-stat-count {
+        font-weight: 600;
+        white-space: nowrap;
+        margin-top: 1px;
+        color: #6c757d;
+        font-size: 0.74rem;
+        transition: color 320ms ease;
+    }
+    .member-stat-meta-label {
+        color: #868e96;
+        font-weight: 500;
+        transition: color 320ms ease;
+    }
+    .session-stats-two-col {
+        position: relative;
+    }
+    .session-stats-two-col::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        bottom: 2px;
+        left: 50%;
+        width: 1px;
+        background: #dee2e6;
+        transform: translateX(-0.5px);
+        pointer-events: none;
+    }
+    @media (max-width: 991.98px) {
+        .member-stat-name { max-width: 80px; }
+    }
+
+    .session-stats-card {
+        max-height: calc(50vh - 1rem);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    .session-stats-panel-head {
+        cursor: move;
+    }
+    .session-stats-panel-head .btn,
+    .session-stats-panel-head button,
+    .session-stats-panel-head a,
+    .session-stats-panel-head input,
+    .session-stats-panel-head select,
+    .session-stats-panel-head textarea,
+    .session-stats-panel-head label {
+        cursor: pointer;
+    }
+    body.session-stats-panel-dragging {
+        user-select: none;
+    }
+    .session-stats-resize-handle {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 14px;
+        cursor: ns-resize;
+        border-top: 1px dashed #c3d2e4;
+        border-radius: 0 0 10px 10px;
+        z-index: 3;
+        background:
+            linear-gradient(to right, transparent 0, transparent 42%, #9db4d0 42%, #9db4d0 58%, transparent 58%, transparent 100%);
+        opacity: 0.72;
+    }
+    .session-stats-resize-handle:hover {
+        opacity: 1;
+        border-top-color: #8ba8c9;
+    }
+    @media (min-width: 1024px) and (max-width: 1919.98px) {
+        #liveMeetingRow {
+            display: flex;
+            flex-wrap: nowrap;
+        }
+        #sessionStatsSidebar {
+            position: static;
+            width: auto;
+            max-width: none;
+            flex: 0 0 var(--session-stats-panel-w);
+            padding: 0 !important;
+            margin: 0 !important;
+            pointer-events: auto;
+            overflow: visible;
+        }
+        #sessionStatsSidebar #sessionStatsStickyWrap {
+            position: sticky;
+            top: 1rem !important;
+            width: 100%;
+            left: auto;
+            pointer-events: auto;
+            z-index: 10;
+        }
+        #sessionStatsSidebar .session-stats-card {
+            width: 100%;
+            max-height: calc(100vh - 2rem);
+            position: relative;
+            z-index: 11;
+        }
+        #liveMeetingMainCol {
+            flex: 1 1 0;
+            max-width: calc(100% - var(--session-stats-panel-w));
+            min-width: 0;
+        }
+    }
+    @media (min-width: 1920px) {
+        #liveMeetingRow {
+            position: relative;
+        }
+        #sessionStatsSidebar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 0;
+            max-width: 0;
+            flex: 0 0 0;
+            padding: 0 !important;
+            margin: 0 !important;
+            pointer-events: none;
+            overflow: visible;
+        }
+        #sessionStatsSidebar #sessionStatsStickyWrap {
+            pointer-events: auto;
+            z-index: 7000;
+        }
+        #sessionStatsSidebar .session-stats-card {
+            width: min(var(--session-stats-panel-w), 26.7vw);
+            max-height: calc(100vh - 2rem);
+            position: relative;
+            z-index: 7001;
+        }
+    }
+
+    .session-stats-scroll {
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .session-group-head {
+        min-height: 26px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #e9ecef;
+        gap: 6px;
+    }
+
+    .session-group-title {
+        position: static;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--bs-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+    .session-group-count {
+        color: #6c757d;
+        font-size: 0.72rem;
+        font-weight: 600;
+        margin-left: 4px;
+    }
+
+    .session-sort-btn {
+        font-size: 0.7rem;
+        line-height: 1.2;
+        padding: 2px 6px;
+        flex: 0 0 auto;
+    }
+    a[data-filter="assigned"].btn-success {
+        --bs-btn-color: #143823;
+        --bs-btn-bg: #8fd3a2;
+        --bs-btn-border-color: #74c58f;
+        --bs-btn-hover-color: #102f1d;
+        --bs-btn-hover-bg: #82ca97;
+        --bs-btn-hover-border-color: #68bc84;
+        --bs-btn-active-color: #102f1d;
+        --bs-btn-active-bg: #82ca97;
+        --bs-btn-active-border-color: #68bc84;
+        color: #143823 !important;
+        background-color: #8fd3a2 !important;
+        border-color: #74c58f !important;
+    }
+    a[data-filter="applied"].btn-primary {
+        --bs-btn-color: #143823;
+        --bs-btn-bg: #dff3e6;
+        --bs-btn-border-color: #b9dfc6;
+        --bs-btn-hover-color: #163f26;
+        --bs-btn-hover-bg: #cfead9;
+        --bs-btn-hover-border-color: #a8d4b7;
+        --bs-btn-active-color: #163f26;
+        --bs-btn-active-bg: #cfead9;
+        --bs-btn-active-border-color: #a8d4b7;
+        color: #143823 !important;
+        background-color: #dff3e6 !important;
+        border-color: #b9dfc6 !important;
+    }
+    a[data-filter="assigned"].btn-outline-secondary,
+    a[data-filter="applied"].btn-outline-secondary {
+        color: #5c6770;
+        border-color: #ced4da;
+        background-color: #fff;
+    }
+    a[data-filter="assigned"].btn-outline-secondary:hover,
+    a[data-filter="applied"].btn-outline-secondary:hover {
+        color: #495057;
+        border-color: #c6cdd4;
+        background-color: #f8f9fa;
+    }
+    .js-song-card {
+        transition: background-color 220ms ease, --bs-bg-opacity 220ms ease;
+    }
+    .js-song-card.bg-success.bg-opacity-10 {
+        background-color: #e8f5e9 !important;
+    }
+    .js-song-card .js-session-slot-btn {
+        transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease, box-shadow 240ms ease;
+    }
+    .js-song-card .js-session-slot-btn.btn-success {
+        background-color: #8fd3a2;
+        border-color: #74c58f;
+        color: #143823;
+    }
+    .js-song-card .js-session-slot-btn.btn-primary {
+        --bs-btn-color: #143823;
+        --bs-btn-bg: #dff3e6;
+        --bs-btn-border-color: #b9dfc6;
+        --bs-btn-hover-color: #163f26;
+        --bs-btn-hover-bg: #cfead9;
+        --bs-btn-hover-border-color: #a8d4b7;
+        --bs-btn-active-color: #163f26;
+        --bs-btn-active-bg: #cfead9;
+        --bs-btn-active-border-color: #a8d4b7;
+        --bs-btn-disabled-color: #143823;
+        --bs-btn-disabled-bg: #dff3e6;
+        --bs-btn-disabled-border-color: #b9dfc6;
+        background-color: #dff3e6 !important;
+        border-color: #b9dfc6 !important;
+        color: #143823 !important;
+    }
+    .js-song-card .js-session-slot-btn.btn-success:hover,
+    .js-song-card .js-session-slot-btn.btn-success:focus,
+    .js-song-card .js-session-slot-btn.btn-success:active {
+        background-color: #82ca97;
+        border-color: #68bc84;
+        color: #102f1d;
+    }
+    .js-song-card .js-session-slot-btn.btn-primary:hover,
+    .js-song-card .js-session-slot-btn.btn-primary:focus,
+    .js-song-card .js-session-slot-btn.btn-primary:active {
+        background-color: #cfead9 !important;
+        border-color: #a8d4b7 !important;
+        color: #163f26 !important;
+    }
+    #sessionManageModal .btn-success {
+        background-color: #8fd3a2;
+        border-color: #74c58f;
+        color: #143823;
+    }
+    #sessionManageModal .btn-success:hover,
+    #sessionManageModal .btn-success:focus,
+    #sessionManageModal .btn-success:active {
+        background-color: #82ca97;
+        border-color: #68bc84;
+        color: #102f1d;
+    }
+    #sessionManageModal .js-modal-applicant-toggle.btn-primary {
+        --bs-btn-color: #143823;
+        --bs-btn-bg: #dff3e6;
+        --bs-btn-border-color: #b9dfc6;
+        --bs-btn-hover-color: #163f26;
+        --bs-btn-hover-bg: #cfead9;
+        --bs-btn-hover-border-color: #a8d4b7;
+        --bs-btn-active-color: #163f26;
+        --bs-btn-active-bg: #cfead9;
+        --bs-btn-active-border-color: #a8d4b7;
+        --bs-btn-disabled-color: #143823;
+        --bs-btn-disabled-bg: #dff3e6;
+        --bs-btn-disabled-border-color: #b9dfc6;
+        background-color: #dff3e6 !important;
+        border-color: #b9dfc6 !important;
+        color: #143823 !important;
+    }
+    #sessionManageModal .js-modal-applicant-badge {
+        color: #143823 !important;
+        background-color: #dff3e6 !important;
+        border: 1px solid #b9dfc6;
+    }
+    .session-assignee-name {
+        font-weight: 700;
+    }
+    .manager-page .session-assignee-name {
+        font-weight: inherit;
+    }
+    @media (max-width: 535px) {
+        .container.mt-4:not(.manager-page) .session-assignee-sep,
+        .container.mt-4:not(.manager-page) .session-assignee-name {
+            display: none !important;
+        }
+    }
+    .js-song-card.sheet-mode .js-session-slot-btn[data-session-has-sheet="1"] {
+        border-color: #0d6efd !important;
+        background-color: rgba(13, 110, 253, 0.30) !important;
+        color: #062a63 !important;
+        box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.55);
+    }
+    .js-song-card.sheet-mode .js-session-slot-btn[data-session-has-sheet="0"] {
+        border-style: dashed !important;
+        border-color: #6c757d !important;
+        background-color: rgba(108, 117, 125, 0.06) !important;
+        color: #5c636a !important;
+        box-shadow: inset 0 0 0 1px rgba(108, 117, 125, 0.25);
+    }
+    .song-main-row {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .song-order-badge {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.12rem;
+        font-weight: 700;
+        color: #6c757d;
+        user-select: none;
+        border-right: 1px solid #a8b2bd;
+    }
+    .song-meta-col {
+        flex: 0 0 260px;
+        width: 260px;
+        max-width: 260px;
+        padding-left: 10px;
+        padding-right: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .song-session-col {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding-left: 10px;
+        display: flex;
+        align-items: center;
+    }
+    .js-song-card.song-applicants-expanded .session-grid > .empty-slot {
+        justify-content: center;
+        align-items: center;
+    }
+    .song-session-col .session-grid-wrapper {
+        width: 100%;
+    }
+    .song-footer-row {
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr);
+        padding-top: 6px;
+        margin-top: 6px;
+        align-items: center;
+        column-gap: 8px;
+    }
+    .song-footer-row > div:first-child {
+        display: flex;
+        align-items: center;
+    }
+    .song-footer-row .d-flex {
+        align-items: center;
+    }
+    .song-footer-row > div {
+        display: flex;
+        align-items: center;
+        min-height: 34px;
+    }
+    .song-footer-row > div:last-child {
+        justify-content: flex-end;
+        align-self: center;
+    }
+    .song-footer-row form {
+        margin: 0;
+        display: inline-flex;
+        align-items: center;
+    }
+    .song-footer-row .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 30px;
+        line-height: 1;
+        vertical-align: middle;
+    }
+    .song-footer-row > .js-song-applicants-toggle {
+        justify-self: end;
+        width: auto;
+    }
+    .js-song-card {
+        position: relative;
+        padding-top: 0.6rem !important;
+        padding-bottom: 0.6rem !important;
+        padding-left: 45px !important;
+        border-color: #a8b2bd !important;
+    }
+    .js-song-card.song-card-collapsible {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    .song-main-interactive {
+        position: relative;
+        padding: 0.6rem 0 0.6rem 2px;
+        margin: 0 -1rem 0 -2px;
+        padding-right: 1rem;
+        border-radius: 0;
+        transition: background-color 180ms ease, box-shadow 180ms ease;
+        cursor: pointer;
+    }
+    .song-main-interactive:hover {
+        background-color: rgba(108, 117, 125, 0.14);
+        box-shadow: inset 0 0 0 1px rgba(108, 117, 125, 0.30);
+    }
+    .song-main-interactive:focus-visible {
+        outline: none;
+        background-color: rgba(108, 117, 125, 0.18);
+        box-shadow: inset 0 0 0 2px rgba(108, 117, 125, 0.34);
+    }
+    .song-footer-collapsible {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        margin-top: 0;
+        pointer-events: none;
+        transition: max-height 220ms ease, opacity 180ms ease, padding-top 180ms ease, margin-top 180ms ease;
+    }
+    .song-footer-collapsible.is-expanded {
+        max-height: 260px;
+        opacity: 1;
+        padding-top: 6px;
+        margin-top: 6px;
+        pointer-events: auto;
+    }
+    .song-card-collapsible .song-main-interactive[aria-expanded="false"] {
+        margin-bottom: 0;
+    }
+    .manager-page .song-main-row {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .manager-page .song-meta-col {
+        flex: 0 0 260px;
+        width: 260px;
+        max-width: 260px;
+        padding-left: 10px;
+        padding-right: 10px;
+        margin-bottom: 0;
+    }
+    .manager-page .song-session-col {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding-left: 10px;
+        display: flex;
+        align-items: center;
+    }
+    .manager-page .song-session-col .session-grid-wrapper {
+        width: 100%;
+    }
+    .manager-page .song-footer-row {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    @media (max-width: 991.98px) {
+        .song-main-row {
+            flex-direction: column;
+            gap: 8px;
+        }
+        .manager-page .song-main-row {
+            flex-direction: column;
+            gap: 8px;
+        }
+        .song-order-badge {
+            width: 38px;
+            font-size: 0.95rem;
+        }
+        .song-meta-col {
+            flex: 1 1 auto;
+            width: 100%;
+            max-width: none;
+            padding-right: 0;
+            padding-bottom: 8px;
+        }
+        .song-session-col {
+            padding-left: 0;
+        }
+        .manager-page .song-meta-col {
+            flex: 1 1 auto;
+            width: 100%;
+            max-width: none;
+            padding-right: 0;
+            padding-bottom: 8px;
+        }
+        .manager-page .song-session-col {
+            padding-left: 0;
+        }
+    }
+    #matchActionPanel .js-match-run-btn {
+        transition: background-color 260ms ease, color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, opacity 260ms ease;
+    }
+</style>
+
+<script>
+    const currentUserId = '{{ request.user.id }}';
+    const meetingId = '{{ meeting.id }}';
+    const isManagerPage = {{ is_manager|yesno:"true,false" }};
+    const isFinalLockedPage = {{ is_final_locked|yesno:"true,false" }};
+    const sessionStatsDataUrl = '{{ session_stats_data_url|default:"" }}';
+    const matchStatusDataUrl = '{% if is_leader and not is_final_locked %}{% url "meeting_match_status_data" meeting.id %}{% endif %}';
+    const matchSettingsUrl = '{% if is_leader and not is_final_locked %}{% url "schedule_match_settings" meeting.id %}{% endif %}';
+    const roomCreateUrl = '{% if is_leader and not is_final_locked %}{% url "meeting_room_create" meeting.id %}{% endif %}';
+    const sessionStatsSortStorageKey = `meetingSessionStatsSort:${meetingId}`;
+    const sessionStatsPanelPosStorageKey = `meetingSessionStatsPanelPos:${window.location.pathname}`;
+    const sessionStatsPanelSizeStorageKey = `meetingSessionStatsPanelSize:${window.location.pathname}`;
+    const songApplicantsLoadPromises = new Map();
+    const activeMemberFilterUserIds = new Set();
+    let hoverMemberUserId = '';
+    let activeSongQuickFilter = '';
+    let activeSongSearchQuery = '';
+    let searchRestoreUrl = '';
+    let pendingAssignmentResetForm = null;
+    let sessionStatsPanelDragInitialized = false;
+
+    function normalizeSearchText(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function escapeHtml(raw) {
+        return String(raw || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function syncSongSearchInputs() {
+        document.querySelectorAll('.js-song-search-input').forEach((input) => {
+            const value = String(input.value || '');
+            if (value !== activeSongSearchQuery) {
+                input.value = activeSongSearchQuery;
+            }
+        });
+    }
+
+    function confirmApply(formEl) {
+        const alreadyAppliedHere = formEl.dataset.myApplied === '1';
+        if (alreadyAppliedHere) {
+            // 현재 세션에서 "내 지원 취소"하는 경우는 경고 없이 진행
+            return true;
+        }
+
+        const songCard = formEl.closest('li.list-group-item');
+        const scope = songCard || document;
+        const appliedForms = scope.querySelectorAll('.js-session-apply[data-my-applied="1"]');
+        const appliedCount = appliedForms.length;
+        if (appliedCount === 0) {
+            return true;
+        }
+
+        const currentSession = formEl.dataset.sessionName || '해당 세션';
+        return confirm(`이미 다른 세션에 지원한 상태입니다.\n그래도 [${currentSession}] 세션에 추가 지원하시겠습니까?`);
+    }
+
+    function rememberScroll() {
+        try {
+            sessionStorage.setItem('meetingDetailScrollY', String(window.scrollY || 0));
+        } catch (e) {}
+    }
+
+    function clampSessionStatsPanelPosition(stickyWrap, left, top) {
+        const margin = 8;
+        const maxLeft = Math.max(margin, window.innerWidth - stickyWrap.offsetWidth - margin);
+        const maxTop = Math.max(margin, window.innerHeight - stickyWrap.offsetHeight - margin);
+        return {
+            left: Math.max(margin, Math.min(Number(left), maxLeft)),
+            top: Math.max(margin, Math.min(Number(top), maxTop)),
+        };
+    }
+
+    function applySessionStatsPanelPosition(sidebar, stickyWrap, left, top, persist = false) {
+        if (!sidebar || !stickyWrap) return;
+        const width = sidebar.clientWidth;
+        if (width > 0) {
+            stickyWrap.style.width = `${width}px`;
+        }
+        stickyWrap.style.position = 'fixed';
+        const clamped = clampSessionStatsPanelPosition(stickyWrap, left, top);
+        stickyWrap.style.left = `${Math.round(clamped.left)}px`;
+        stickyWrap.style.top = `${Math.round(clamped.top)}px`;
+        sidebar.style.position = 'relative';
+        sidebar.style.minHeight = `${stickyWrap.offsetHeight}px`;
+        if (persist) {
+            localStorage.setItem(sessionStatsPanelPosStorageKey, JSON.stringify({
+                left: Math.round(clamped.left),
+                top: Math.round(clamped.top),
+            }));
+        }
+    }
+
+    function initSessionStatsFloatingPanel(sidebar, stickyWrap) {
+        if (!sidebar || !stickyWrap) return;
+        const card = stickyWrap.querySelector('.session-stats-card');
+        const sidebarRect = sidebar.getBoundingClientRect();
+        let left = sidebarRect.left;
+        let top = 16;
+        const savedRaw = localStorage.getItem(sessionStatsPanelPosStorageKey);
+        if (savedRaw) {
+            try {
+                const saved = JSON.parse(savedRaw);
+                if (saved && Number.isFinite(Number(saved.left)) && Number.isFinite(Number(saved.top))) {
+                    left = Number(saved.left);
+                    top = Number(saved.top);
+                }
+            } catch (_) {}
+        }
+        if (card) {
+            const savedSizeRaw = localStorage.getItem(sessionStatsPanelSizeStorageKey);
+            if (savedSizeRaw) {
+                try {
+                    const saved = JSON.parse(savedSizeRaw);
+                    const h = Number(saved?.height || 0);
+                    if (Number.isFinite(h) && h > 220) {
+                        const maxH = Math.max(260, Math.floor(window.innerHeight * 0.92));
+                        card.style.height = `${Math.min(h, maxH)}px`;
+                    }
+                } catch (_) {}
+            }
+        }
+        applySessionStatsPanelPosition(sidebar, stickyWrap, left, top, false);
+
+        if (sessionStatsPanelDragInitialized) return;
+        sessionStatsPanelDragInitialized = true;
+        const dragHandle = stickyWrap.querySelector('.session-stats-panel-head') || stickyWrap;
+        dragHandle.addEventListener('mousedown', (ev) => {
+            if (!window.matchMedia('(min-width: 1920px)').matches) return;
+            if (ev.button !== 0) return;
+            if (ev.target.closest('button, a, input, select, textarea, label')) return;
+            ev.preventDefault();
+            const rect = stickyWrap.getBoundingClientRect();
+            const startLeft = rect.left;
+            const startTop = rect.top;
+            const startX = ev.clientX;
+            const startY = ev.clientY;
+            stickyWrap.dataset.dragging = '1';
+            document.body.classList.add('session-stats-panel-dragging');
+
+            const onMove = (moveEv) => {
+                const nextLeft = startLeft + (moveEv.clientX - startX);
+                const nextTop = startTop + (moveEv.clientY - startY);
+                applySessionStatsPanelPosition(sidebar, stickyWrap, nextLeft, nextTop, false);
+            };
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                stickyWrap.dataset.dragging = '';
+                document.body.classList.remove('session-stats-panel-dragging');
+                const now = stickyWrap.getBoundingClientRect();
+                applySessionStatsPanelPosition(sidebar, stickyWrap, now.left, now.top, true);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+        const resizeHandle = stickyWrap.querySelector('.session-stats-resize-handle');
+        if (resizeHandle && card) {
+            resizeHandle.addEventListener('mousedown', (ev) => {
+                if (!window.matchMedia('(min-width: 1920px)').matches) return;
+                if (ev.button !== 0) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                const rect = card.getBoundingClientRect();
+                const startH = rect.height;
+                const startY = ev.clientY;
+                const minH = 240;
+                const maxH = Math.max(280, Math.floor(window.innerHeight * 0.92));
+                document.body.classList.add('session-stats-panel-dragging');
+                const onMove = (moveEv) => {
+                    const nextH = Math.max(minH, Math.min(maxH, startH + (moveEv.clientY - startY)));
+                    card.style.height = `${Math.round(nextH)}px`;
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    document.body.classList.remove('session-stats-panel-dragging');
+                    const currentH = Math.round(card.getBoundingClientRect().height || 0);
+                    if (currentH > 220) {
+                        localStorage.setItem(sessionStatsPanelSizeStorageKey, JSON.stringify({ height: currentH }));
+                    }
+                    initSessionStatsSticky();
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+    }
+
+    function initSessionStatsSticky() {
+        const sidebar = document.getElementById('sessionStatsSidebar');
+        const stickyWrap = document.getElementById('sessionStatsStickyWrap');
+        if (!sidebar || !stickyWrap) return;
+
+        const enable = window.matchMedia('(min-width: 992px)').matches;
+        if (!enable) {
+            sidebar.style.position = '';
+            sidebar.style.minHeight = '';
+            stickyWrap.style.position = '';
+            stickyWrap.style.top = '';
+            stickyWrap.style.width = '';
+            stickyWrap.style.left = '';
+            return;
+        }
+
+        const floatingMode = window.matchMedia('(min-width: 1920px)').matches;
+        if (!floatingMode) {
+            sidebar.style.position = '';
+            sidebar.style.minHeight = '';
+            stickyWrap.style.position = '';
+            stickyWrap.style.top = '1rem';
+            stickyWrap.style.width = '';
+            stickyWrap.style.left = '';
+            return;
+        }
+
+        if (stickyWrap.dataset.dragging === '1') return;
+        initSessionStatsFloatingPanel(sidebar, stickyWrap);
+    }
+
+    function setSongApplicantsVisible(songId, visible) {
+        const lists = document.querySelectorAll(`.song-applicants-${songId}`);
+        lists.forEach((el) => {
+            if (!el.dataset.animBound) {
+                el.addEventListener('transitionend', function (event) {
+                    if (event.propertyName !== 'max-height') return;
+                    if (el.classList.contains('is-open')) {
+                        el.style.maxHeight = 'none';
+                    }
+                });
+                el.dataset.animBound = '1';
+            }
+            if (visible) {
+                el.classList.add('is-open');
+                el.style.maxHeight = `${el.scrollHeight + 8}px`;
+            } else {
+                if (el.style.maxHeight === 'none') {
+                    el.style.maxHeight = `${el.scrollHeight + 8}px`;
+                }
+                // reflow to ensure transition start point is applied
+                void el.offsetHeight;
+                el.classList.remove('is-open');
+                el.style.maxHeight = '0px';
+            }
+        });
+        const btn = document.querySelector(`.js-song-applicants-toggle[data-song-id="${songId}"]`);
+        if (btn) {
+            btn.dataset.expanded = visible ? '1' : '0';
+            if (isManagerPage) {
+                btn.textContent = visible ? '지원자 접기' : '지원자 펼치기';
+            } else {
+                btn.textContent = '지원자';
+                btn.classList.toggle('btn-secondary', !!visible);
+                btn.classList.toggle('btn-outline-secondary', !visible);
+            }
+        }
+        const card = document.querySelector(`.js-song-card[data-song-id="${songId}"]`);
+        if (card) {
+            card.classList.toggle('song-applicants-expanded', !!visible);
+        }
+    }
+
+    function renderApplicantButton(listEl, sessionId, applicant, canAssign) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const isAssigned = !!applicant.is_assigned;
+        if (canAssign && isManagerPage && !isFinalLockedPage) {
+            btn.className = `btn btn-sm btn-outline-secondary applicant-hover-btn${isAssigned ? ' is-assigned' : ''}`;
+            btn.dataset.sessionId = String(sessionId || '');
+            btn.dataset.applicantId = String(applicant.id || '');
+            btn.title = applicant.realname || applicant.username || '';
+            btn.textContent = applicant.realname || applicant.username || '';
+            btn.addEventListener('click', () => (
+                handleApplicantClick(
+                    btn,
+                    String(applicant.assign_url || ''),
+                    '',
+                    String(applicant.id || ''),
+                    isAssigned,
+                    !!applicant.has_assignee
+                )
+            ));
+        } else {
+            btn.className = 'btn btn-sm btn-light border applicant-chip';
+            btn.dataset.applicantId = String(applicant.id || '');
+            btn.title = applicant.realname || applicant.username || '';
+            btn.textContent = applicant.realname || applicant.username || '';
+        }
+        listEl.appendChild(btn);
+    }
+
+    async function loadSongApplicants(songId) {
+        const sid = String(songId || '');
+        const btn = document.querySelector(`.js-song-applicants-toggle[data-song-id="${sid}"]`);
+        if (!btn) return false;
+        if (btn.dataset.loaded === '1') return true;
+        if (songApplicantsLoadPromises.has(sid)) {
+            return await songApplicantsLoadPromises.get(sid);
+        }
+
+        const loadUrl = String(btn.dataset.loadUrl || '');
+        if (!loadUrl) return false;
+
+        const promise = (async () => {
+            try {
+                const res = await fetch(loadUrl, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    throw new Error((data && data.message) || '지원자 목록을 불러오지 못했습니다.');
+                }
+
+                const sessionMap = new Map((data.sessions || []).map((s) => [String(s.session_id || ''), s]));
+                document.querySelectorAll(`.song-applicants-${sid}`).forEach((listEl) => {
+                    const sessionId = String(listEl.dataset.sessionId || '');
+                    const payload = sessionMap.get(sessionId);
+                    listEl.innerHTML = '';
+                    if (!payload || !Array.isArray(payload.applicants) || !payload.applicants.length) {
+                        listEl.dataset.applicantCount = '0';
+                        listEl.dataset.loaded = '1';
+                        return;
+                    }
+                    listEl.dataset.applicantCount = String(payload.applicants.length);
+                    payload.applicants.forEach((applicant) => {
+                        renderApplicantButton(listEl, sessionId, applicant, !!data.can_assign);
+                    });
+                    listEl.dataset.loaded = '1';
+                });
+                btn.dataset.loaded = '1';
+                return true;
+            } catch (err) {
+                console.error(err);
+                alert(err.message || '지원자 목록을 불러오지 못했습니다.');
+                return false;
+            } finally {
+                songApplicantsLoadPromises.delete(sid);
+            }
+        })();
+
+        songApplicantsLoadPromises.set(sid, promise);
+        return await promise;
+    }
+
+    function toggleSongApplicants(songId) {
+        const first = document.querySelector(`.song-applicants-${songId}`);
+        if (!first) return false;
+        const shouldOpen = !first.classList.contains('is-open');
+        if (shouldOpen) {
+            loadSongApplicants(songId).then((ok) => {
+                if (!ok) return;
+                setSongApplicantsVisible(songId, true);
+                syncGlobalApplicantsToggleButton();
+            });
+        } else {
+            setSongApplicantsVisible(songId, false);
+            syncGlobalApplicantsToggleButton();
+        }
+        return false;
+    }
+
+    function setAllApplicantsVisible(visible) {
+        const songIds = new Set(
+            Array.from(document.querySelectorAll('.js-song-applicants-toggle'))
+                .map((btn) => btn.dataset.songId)
+                .filter(Boolean)
+        );
+        if (!visible) {
+            songIds.forEach((songId) => setSongApplicantsVisible(songId, false));
+            document.querySelectorAll('.js-song-applicants-toggle').forEach((btn) => {
+                btn.dataset.expanded = '0';
+                btn.textContent = isManagerPage ? '지원자 펼치기' : '지원자';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+            });
+            document.querySelectorAll('.js-toggle-all-applicants').forEach((allBtn) => {
+                allBtn.dataset.expanded = '0';
+                allBtn.textContent = isManagerPage ? '지원자 전체 펼치기' : '지원자';
+                allBtn.classList.remove('btn-secondary');
+                allBtn.classList.add('btn-outline-secondary');
+            });
+            return;
+        }
+
+        Promise.all(Array.from(songIds).map((songId) => loadSongApplicants(songId))).then(() => {
+            songIds.forEach((songId) => setSongApplicantsVisible(songId, true));
+            document.querySelectorAll('.js-song-applicants-toggle').forEach((btn) => {
+                btn.dataset.expanded = '1';
+                if (isManagerPage) {
+                    btn.textContent = '지원자 접기';
+                } else {
+                    btn.textContent = '지원자';
+                    btn.classList.add('btn-secondary');
+                    btn.classList.remove('btn-outline-secondary');
+                }
+            });
+            document.querySelectorAll('.js-toggle-all-applicants').forEach((allBtn) => {
+                allBtn.dataset.expanded = '1';
+                allBtn.textContent = isManagerPage ? '지원자 전체 접기' : '지원자';
+                allBtn.classList.toggle('btn-secondary', !isManagerPage);
+                allBtn.classList.toggle('btn-outline-secondary', isManagerPage);
+            });
+            syncGlobalApplicantsToggleButton();
+        });
+    }
+
+    function toggleAllApplicants(triggerBtn) {
+        const allBtn = triggerBtn || document.querySelector('.js-toggle-all-applicants');
+        if (!allBtn) return false;
+        const shouldExpand = allBtn.dataset.expanded !== '1';
+        setAllApplicantsVisible(shouldExpand);
+        return false;
+    }
+
+    function syncGlobalApplicantsToggleButton() {
+        const allBtns = document.querySelectorAll('.js-toggle-all-applicants');
+        if (!allBtns.length) return;
+        const lists = Array.from(document.querySelectorAll('.js-applicant-list'));
+        const activeLists = lists.filter((el) => Number(el.dataset.applicantCount || 0) > 0);
+        if (!activeLists.length) {
+            allBtns.forEach((allBtn) => {
+                allBtn.disabled = true;
+                allBtn.dataset.expanded = '0';
+                allBtn.textContent = isManagerPage ? '지원자 전체 펼치기' : '지원자';
+                allBtn.classList.remove('btn-secondary');
+                allBtn.classList.add('btn-outline-secondary');
+            });
+            return;
+        }
+        const visibleCount = activeLists.filter((el) => el.classList.contains('is-open')).length;
+        const allVisible = visibleCount > 0 && visibleCount === activeLists.length;
+        allBtns.forEach((allBtn) => {
+            allBtn.disabled = false;
+            allBtn.dataset.expanded = allVisible ? '1' : '0';
+            if (isManagerPage) {
+                allBtn.textContent = allVisible ? '지원자 전체 접기' : '지원자 전체 펼치기';
+            } else {
+                allBtn.textContent = '지원자';
+                allBtn.classList.toggle('btn-secondary', allVisible);
+                allBtn.classList.toggle('btn-outline-secondary', !allVisible);
+            }
+        });
+    }
+
+    function syncSongApplicantsToggleButton(songId) {
+        const sid = String(songId || '');
+        if (!sid) return;
+        const btn = document.querySelector(`.js-song-applicants-toggle[data-song-id="${sid}"]`);
+        if (!btn) return;
+        const lists = Array.from(document.querySelectorAll(`.song-applicants-${sid}`));
+        const hasApplicants = lists.some((el) => Number(el.dataset.applicantCount || 0) > 0);
+        btn.dataset.hasApplicants = hasApplicants ? '1' : '0';
+        if (!hasApplicants) {
+            btn.disabled = true;
+            btn.dataset.expanded = '0';
+            btn.textContent = isManagerPage ? '지원자 없음' : '지원자';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+            setSongApplicantsVisible(sid, false);
+            return;
+        }
+        btn.disabled = false;
+        if (isManagerPage) {
+            btn.textContent = btn.dataset.expanded === '1' ? '지원자 접기' : '지원자 펼치기';
+        } else {
+            const expanded = btn.dataset.expanded === '1';
+            btn.textContent = '지원자';
+            btn.classList.toggle('btn-secondary', expanded);
+            btn.classList.toggle('btn-outline-secondary', !expanded);
+        }
+    }
+
+    function initApplicantsToggleState() {
+        document.querySelectorAll('.js-song-applicants-toggle').forEach((btn) => {
+            const songId = btn.dataset.songId;
+            const hasApplicants = btn.dataset.hasApplicants === '1';
+            if (!songId || !hasApplicants) {
+                btn.disabled = true;
+                btn.dataset.expanded = '0';
+                btn.textContent = isManagerPage ? '지원자 없음' : '지원자';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+                return;
+            }
+            btn.disabled = false;
+            btn.dataset.expanded = '0';
+            btn.textContent = isManagerPage ? '지원자 펼치기' : '지원자';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+            setSongApplicantsVisible(songId, false);
+        });
+        syncGlobalApplicantsToggleButton();
+    }
+
+    function invalidateSongApplicantsCache(songId) {
+        const sid = String(songId || '');
+        if (!sid) return;
+        const btn = document.querySelector(`.js-song-applicants-toggle[data-song-id="${sid}"]`);
+        if (btn) btn.dataset.loaded = '0';
+        document.querySelectorAll(`.song-applicants-${sid}`).forEach((el) => {
+            el.dataset.loaded = '0';
+        });
+    }
+
+    function refreshSongApplicantsAfterApply(songId) {
+        const sid = String(songId || '');
+        if (!sid) return;
+        const lists = Array.from(document.querySelectorAll(`.song-applicants-${sid}`));
+        const hasOpen = lists.some((el) => el.classList.contains('is-open'));
+        invalidateSongApplicantsCache(sid);
+        if (!hasOpen) return;
+        loadSongApplicants(sid).then((ok) => {
+            if (!ok) return;
+            setSongApplicantsVisible(sid, true);
+            syncGlobalApplicantsToggleButton();
+        });
+    }
+
+    function initSongCardsBaselineOrder() {
+        document.querySelectorAll('.js-song-card').forEach((card, idx) => {
+            if (!card.dataset.baseOrder) {
+                card.dataset.baseOrder = String(idx);
+            }
+        });
+    }
+
+    function getSongCardSessionButtons(songCard) {
+        if (!songCard) return [];
+        return Array.from(songCard.querySelectorAll('.js-session-slot-btn[data-session-slot-id]'));
+    }
+
+    function parseSlotApplicantCount(slotBtn) {
+        const raw = slotBtn?.dataset?.applicantCount;
+        if (raw !== undefined && raw !== null && raw !== '') {
+            const n = Number(raw);
+            if (Number.isFinite(n)) return n;
+        }
+        const badge = slotBtn ? slotBtn.querySelector('.badge') : null;
+        if (!badge) return 0;
+        const n = Number((badge.textContent || '').trim());
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    function updateSongCardVisual(songCard) {
+        if (!songCard) return;
+        const slots = getSongCardSessionButtons(songCard);
+        const total = slots.length;
+        const assigned = slots.filter((btn) => String(btn.dataset.assigneeId || '').trim() !== '').length;
+        const hasMissingApplicants = total > 0 && slots.some((btn) => parseSlotApplicantCount(btn) === 0);
+        const allAssigned = total > 0 && assigned === total;
+        const hasUnassignedButApplicantsFull = total > 0 && !allAssigned && !hasMissingApplicants;
+
+        songCard.classList.remove('bg-success', 'bg-warning', 'bg-danger', 'bg-opacity-10');
+        if (allAssigned) {
+            songCard.classList.add('bg-success', 'bg-opacity-10');
+        } else if (hasUnassignedButApplicantsFull) {
+            songCard.classList.add('bg-warning', 'bg-opacity-10');
+        }
+    }
+
+    function updateAllSongCardVisuals() {
+        document.querySelectorAll('.js-song-card').forEach((card) => updateSongCardVisual(card));
+    }
+
+    function getAssignedCountForMemberInSong(songCard, userId) {
+        if (!songCard || !userId) return 0;
+        return getSongCardSessionButtons(songCard)
+            .filter((btn) => String(btn.dataset.assigneeId || '') === String(userId))
+            .length;
+    }
+
+    function parseApplicantIdsFromSlot(slotBtn) {
+        const raw = String(slotBtn?.dataset?.applicantIds || '').trim();
+        if (!raw) return [];
+        return raw.split(',').map((x) => String(x).trim()).filter(Boolean);
+    }
+
+    function getAppliedCountForMemberInSong(songCard, userId) {
+        if (!songCard || !userId) return 0;
+        const uid = String(userId);
+        return getSongCardSessionButtons(songCard)
+            .filter((btn) => parseApplicantIdsFromSlot(btn).includes(uid))
+            .length;
+    }
+
+    function isSongTouchedByMember(songCard, userId) {
+        if (!songCard || !userId) return false;
+        const uid = String(userId);
+        const assigned = getAssignedCountForMemberInSong(songCard, uid);
+        const applied = getAppliedCountForMemberInSong(songCard, uid);
+        return (assigned + applied) > 0;
+    }
+
+    function syncActiveMemberStatRows() {
+        document.querySelectorAll('.js-member-row').forEach((row) => {
+            const rowUid = String(row.dataset.userId || '');
+            const on = !!rowUid && activeMemberFilterUserIds.has(rowUid);
+            row.classList.toggle('member-active', on);
+            const inner = row.querySelector('.member-stat-row');
+            if (inner) inner.classList.toggle('member-active', on);
+        });
+    }
+
+    function syncMemberFilterResetButtons() {
+        const hasActiveFilter = activeMemberFilterUserIds.size > 0;
+        document.querySelectorAll('.js-clear-member-filters').forEach((btn) => {
+            btn.classList.toggle('d-none', !hasActiveFilter);
+        });
+    }
+
+    function syncHoverMemberHighlights() {
+        const uid = String(hoverMemberUserId || '');
+        document.querySelectorAll('.js-member-row').forEach((row) => {
+            const on = !!uid && String(row.dataset.userId || '') === uid;
+            row.classList.toggle('member-hovered', on);
+            const inner = row.querySelector('.member-stat-row');
+            if (inner) inner.classList.toggle('member-hovered', on);
+        });
+        document.querySelectorAll('.js-session-slot-btn[data-session-slot-id]').forEach((btn) => {
+            const assigneeId = String(btn.dataset.assigneeId || '');
+            const applicantIds = parseApplicantIdsFromSlot(btn);
+            const matched = !!uid && (assigneeId === uid || applicantIds.includes(uid));
+            btn.classList.toggle('session-member-hovered', matched);
+        });
+        document.querySelectorAll('.applicant-hover-btn[data-applicant-id], .applicant-chip[data-applicant-id]').forEach((btn) => {
+            const on = !!uid && String(btn.dataset.applicantId || '') === uid;
+            btn.classList.toggle('member-hovered', on);
+        });
+    }
+
+    function setHoverMemberUserId(userId) {
+        const next = String(userId || '');
+        if (hoverMemberUserId === next) return;
+        hoverMemberUserId = next;
+        syncHoverMemberHighlights();
+    }
+
+    function applyMemberSongSort(userId) {
+        const list = document.getElementById('setlistList');
+        if (!list) return;
+        const uid = String(userId || '');
+        const cards = Array.from(list.querySelectorAll('.js-song-card'));
+        cards.sort((a, b) => {
+            const aAssigned = getAssignedCountForMemberInSong(a, uid);
+            const bAssigned = getAssignedCountForMemberInSong(b, uid);
+            const aApplied = getAppliedCountForMemberInSong(a, uid);
+            const bApplied = getAppliedCountForMemberInSong(b, uid);
+            const aTouched = (aAssigned + aApplied) > 0 ? 1 : 0;
+            const bTouched = (bAssigned + bApplied) > 0 ? 1 : 0;
+            if (bTouched !== aTouched) return bTouched - aTouched;
+            const aScore = (aAssigned * 10) + aApplied;
+            const bScore = (bAssigned * 10) + bApplied;
+            if (bScore !== aScore) return bScore - aScore;
+            return Number(a.dataset.baseOrder || 0) - Number(b.dataset.baseOrder || 0);
+        });
+        cards.forEach((card) => list.appendChild(card));
+    }
+
+    function applyCombinedSongVisibility() {
+        const cards = document.querySelectorAll('.js-song-card');
+        const activeFilterIds = Array.from(activeMemberFilterUserIds);
+        const searchTokens = normalizeSearchText(activeSongSearchQuery).split(' ').filter(Boolean);
+        cards.forEach((card) => {
+            const assignedCount = Number(card.dataset.myAssignedCount || 0);
+            const appliedCount = Number(card.dataset.myAppliedCount || 0);
+            let visible = true;
+            if (activeSongQuickFilter === 'assigned') {
+                visible = assignedCount > 0;
+            } else if (activeSongQuickFilter === 'applied') {
+                visible = appliedCount > 0;
+            }
+            if (visible && activeFilterIds.length) {
+                visible = activeFilterIds.some((uid) => isSongTouchedByMember(card, uid));
+            }
+            if (visible && searchTokens.length) {
+                const haystack = normalizeSearchText(`${card.dataset.songTitle || ''} ${card.dataset.songArtist || ''}`);
+                visible = searchTokens.every((token) => haystack.includes(token));
+            }
+            card.style.display = visible ? '' : 'none';
+        });
+        syncMemberFilterResetButtons();
+    }
+
+    function resetSongSortToBaseline() {
+        const list = document.getElementById('setlistList');
+        if (!list) return;
+        const cards = Array.from(list.querySelectorAll('.js-song-card'));
+        cards.sort((a, b) => Number(a.dataset.baseOrder || 0) - Number(b.dataset.baseOrder || 0));
+        cards.forEach((card) => list.appendChild(card));
+    }
+
+    async function ensureAllSongsLoadedForInteractive(options = {}) {
+        const forSearch = !!options.forSearch;
+        const params = new URLSearchParams(window.location.search);
+        if ((params.get('list_mode') || 'paged') === 'all') {
+            return true;
+        }
+        if (forSearch && !searchRestoreUrl) {
+            searchRestoreUrl = `${window.location.pathname}?${params.toString()}`;
+        }
+        params.set('list_mode', 'all');
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        try {
+            const res = await fetch(nextUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!res.ok) throw new Error('member sort fetch failed');
+            const html = await res.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextContainer = doc.querySelector('#setlistAjaxContainer');
+            const currentContainer = document.querySelector('#setlistAjaxContainer');
+            if (!nextContainer || !currentContainer) throw new Error('setlist container missing');
+            currentContainer.replaceWith(nextContainer);
+            window.history.replaceState({}, '', nextUrl);
+            initSongCardsBaselineOrder();
+            initApplicantsToggleState();
+            updateAllSongCardVisuals();
+            refreshMatchActionPanel();
+            initLazyYoutubeEmbeds();
+            initSongAuthorNoteTooltips();
+            syncSongSearchInputs();
+            applySongQuickFilter();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function restoreSongsAfterSearchIfNeeded() {
+        if (!searchRestoreUrl) return true;
+        const restoreUrl = searchRestoreUrl;
+        searchRestoreUrl = '';
+        try {
+            const res = await fetch(restoreUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!res.ok) throw new Error('search restore fetch failed');
+            const html = await res.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextContainer = doc.querySelector('#setlistAjaxContainer');
+            const currentContainer = document.querySelector('#setlistAjaxContainer');
+            if (!nextContainer || !currentContainer) throw new Error('setlist container missing');
+            currentContainer.replaceWith(nextContainer);
+            window.history.replaceState({}, '', restoreUrl);
+            initSongCardsBaselineOrder();
+            initApplicantsToggleState();
+            updateAllSongCardVisuals();
+            refreshMatchActionPanel();
+            initLazyYoutubeEmbeds();
+            initSongAuthorNoteTooltips();
+            syncSongSearchInputs();
+            return true;
+        } catch (_) {
+            window.location.href = restoreUrl;
+            return false;
+        }
+    }
+
+    async function ensureAllSongsLoadedForMemberSort() {
+        return await ensureAllSongsLoadedForInteractive();
+    }
+
+    async function toggleMemberSongSort(userId) {
+        const uid = String(userId || '');
+        if (!uid) return false;
+        const loaded = await ensureAllSongsLoadedForMemberSort();
+        if (!loaded) return false;
+        if (activeMemberFilterUserIds.has(uid)) {
+            activeMemberFilterUserIds.delete(uid);
+        } else {
+            activeMemberFilterUserIds.add(uid);
+        }
+        applyCombinedSongVisibility();
+        syncActiveMemberStatRows();
+        return false;
+    }
+
+    function refreshMemberSongSortIfActive() {
+        if (!activeMemberFilterUserIds.size) return;
+        applyCombinedSongVisibility();
+        syncActiveMemberStatRows();
+    }
+
+    function clearMemberSongFilters() {
+        if (!activeMemberFilterUserIds.size) return false;
+        activeMemberFilterUserIds.clear();
+        applyCombinedSongVisibility();
+        syncActiveMemberStatRows();
+        return false;
+    }
+
+    function setSongQuickFilter(mode) {
+        const next = (activeSongQuickFilter === mode) ? '' : mode;
+        activeSongQuickFilter = next;
+        document.querySelectorAll('.js-song-quick-filter').forEach((btn) => {
+            const on = String(btn.dataset.filter || '') === next;
+            btn.classList.toggle('btn-primary', on);
+            btn.classList.toggle('btn-outline-secondary', !on);
+        });
+        applySongQuickFilter();
+        return false;
+    }
+
+    function applySongQuickFilter() {
+        applyCombinedSongVisibility();
+        syncHoverMemberHighlights();
+    }
+
+    function setSongSheetMode(songId, on) {
+        const sid = String(songId || '');
+        if (!sid) return;
+        const card = document.querySelector(`.js-song-card[data-song-id="${sid}"]`);
+        if (!card) return;
+        card.classList.toggle('sheet-mode', !!on);
+    }
+
+    function initSheetHoldButtons() {
+        document.querySelectorAll('.js-sheet-toggle-btn').forEach((btn) => {
+            if (btn.dataset.holdBound === '1') return;
+            btn.dataset.holdBound = '1';
+            const songId = String(btn.dataset.songId || '');
+            if (!songId) return;
+
+            const start = (e) => {
+                e.preventDefault();
+                setSongSheetMode(songId, true);
+            };
+            const end = () => setSongSheetMode(songId, false);
+
+            btn.addEventListener('pointerdown', start);
+            btn.addEventListener('pointerup', end);
+            btn.addEventListener('pointerleave', end);
+            btn.addEventListener('pointercancel', end);
+            btn.addEventListener('blur', end);
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') start(e);
+            });
+            btn.addEventListener('keyup', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') end();
+            });
+        });
+    }
+
+    function collectCurrentMemberRowBgMap() {
+        const m = new Map();
+        document.querySelectorAll('.js-session-group').forEach((groupEl) => {
+            const groupLabel = String(groupEl.dataset.groupLabel || '');
+            groupEl.querySelectorAll('.js-member-row').forEach((row) => {
+                const uid = String(row.dataset.userId || '');
+                if (!groupLabel || !uid) return;
+                const key = `${groupLabel}:${uid}`;
+                const target = row.querySelector('.member-stat-row') || row;
+                m.set(key, getComputedStyle(target).backgroundColor || '');
+            });
+        });
+        return m;
+    }
+
+    function buildSessionMemberRow(member, mobile = false, groupLabel = '', prevBgMap = null) {
+        const row = document.createElement('div');
+        row.className = mobile ? 'col js-member-row' : 'member-stat-row js-member-row';
+        row.dataset.name = String(member.name || '');
+        row.dataset.userId = String(member.user_id || '');
+        row.dataset.assigned = String(member.assigned || 0);
+        row.dataset.applied = String(member.applied || 0);
+
+        const statRow = mobile ? document.createElement('div') : row;
+        if (mobile) {
+            statRow.className = 'member-stat-row';
+            row.appendChild(statRow);
+        }
+        const targetBg = String(member.load_bg || 'transparent');
+        const prevKey = `${String(groupLabel || '')}:${String(member.user_id || '')}`;
+        const prevBg = prevBgMap instanceof Map ? (prevBgMap.get(prevKey) || '') : '';
+        if (prevBg) {
+            statRow.style.setProperty('--member-load-bg', prevBg);
+            requestAnimationFrame(() => {
+                statRow.style.setProperty('--member-load-bg', targetBg);
+            });
+        } else {
+            statRow.style.setProperty('--member-load-bg', targetBg);
+        }
+        const onRowClick = () => toggleMemberSongSort(String(member.user_id || ''));
+        row.addEventListener('click', onRowClick);
+        row.tabIndex = 0;
+        row.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onRowClick();
+            }
+        });
+        row.addEventListener('mouseenter', () => setHoverMemberUserId(String(member.user_id || '')));
+        row.addEventListener('mouseleave', () => setHoverMemberUserId(''));
+
+        const nameEl = document.createElement('span');
+        nameEl.className = mobile ? 'member-stat-name text-truncate me-1' : 'member-stat-name text-truncate me-2';
+        nameEl.textContent = String(member.name || '-');
+        statRow.appendChild(nameEl);
+
+        const countEl = document.createElement('span');
+        countEl.className = 'member-stat-count';
+        countEl.innerHTML = '<span class="member-stat-meta-label">배정</span> '
+            + `${Number(member.assigned || 0)} / <span class="member-stat-meta-label">지원</span> ${Number(member.applied || 0)}`;
+        statRow.appendChild(countEl);
+        return row;
+    }
+
+    function buildSessionGroupBlock(group, mobile = false, marginClass = '', prevBgMap = null) {
+        const wrap = document.createElement('div');
+        wrap.className = `${marginClass} js-session-group`.trim();
+        wrap.dataset.groupLabel = String(group.label || '');
+
+        const head = document.createElement('div');
+        head.className = mobile ? 'session-group-head px-1' : 'session-group-head';
+
+        const title = document.createElement('div');
+        title.className = 'session-group-title';
+        title.textContent = String(group.label || '-');
+        const countEl = document.createElement('span');
+        countEl.className = 'session-group-count';
+        const memberCount = Number(group.member_count || (Array.isArray(group.members) ? group.members.length : 0));
+        countEl.textContent = `(${memberCount}명)`;
+        title.appendChild(countEl);
+        head.appendChild(title);
+
+        const sortBtn = document.createElement('button');
+        sortBtn.type = 'button';
+        sortBtn.className = 'btn btn-sm btn-outline-secondary session-sort-btn js-session-sort-btn';
+        sortBtn.dataset.groupLabel = String(group.label || '');
+        sortBtn.dataset.mode = 'assigned_desc';
+        sortBtn.textContent = '배정순';
+        sortBtn.addEventListener('click', () => toggleSessionGroupSort(String(group.label || '')));
+        head.appendChild(sortBtn);
+        wrap.appendChild(head);
+
+        const list = document.createElement('div');
+        list.className = mobile ? 'row row-cols-1 g-1 js-session-member-list' : 'd-grid gap-1 js-session-member-list';
+        (group.members || []).forEach((member) => (
+            list.appendChild(buildSessionMemberRow(member, mobile, String(group.label || ''), prevBgMap))
+        ));
+        wrap.appendChild(list);
+        return wrap;
+    }
+
+    function renderSessionStatsColumn(targetEl, groups, mobile = false, prevBgMap = null) {
+        if (!targetEl) return;
+        targetEl.innerHTML = '';
+        if (!Array.isArray(groups) || !groups.length) return;
+        groups.forEach((group, idx) => {
+            const marginClass = idx === 0 ? '' : (mobile ? 'mt-2' : 'mt-3');
+            targetEl.appendChild(buildSessionGroupBlock(group, mobile, marginClass, prevBgMap));
+        });
+    }
+
+    function renderSessionStatsPayload(data) {
+        const prevBgMap = collectCurrentMemberRowBgMap();
+        renderSessionStatsColumn(document.getElementById('sessionStatsDesktopCol1'), data.col1 || [], false, prevBgMap);
+        renderSessionStatsColumn(document.getElementById('sessionStatsDesktopCol2'), data.col2 || [], false, prevBgMap);
+        renderSessionStatsColumn(document.getElementById('sessionStatsMobileCol1'), data.col1 || [], true, prevBgMap);
+        renderSessionStatsColumn(document.getElementById('sessionStatsMobileCol2'), data.col2 || [], true, prevBgMap);
+        applyStoredSessionGroupSortModes();
+        syncActiveMemberStatRows();
+        syncHoverMemberHighlights();
+    }
+
+    async function loadSessionStatsForManager() {
+        if (!isManagerPage || !sessionStatsDataUrl) return;
+        try {
+            const res = await fetch(sessionStatsDataUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const data = await res.json();
+            if (!res.ok || data.status !== 'success') {
+                throw new Error((data && data.message) || '세션 현황판 데이터를 불러오지 못했습니다.');
+            }
+            renderSessionStatsPayload(data);
+        } catch (err) {
+            console.error(err);
+            const fallback = document.querySelectorAll('.js-session-stats-loading');
+            fallback.forEach((el) => {
+                el.classList.remove('text-muted');
+                el.classList.add('text-danger');
+                el.textContent = '지원 현황판 로드 실패';
+            });
+        }
+    }
+
+    function renderMatchActionPanel(status) {
+        const panel = document.getElementById('matchActionPanel');
+        if (!panel) return;
+        const body = panel.querySelector('.js-match-action-body');
+        if (!body) return;
+
+        const roomCount = Number(status.room_count || 0);
+        const assignedSongCount = Number(status.assigned_song_count || 0);
+        const hasUnassignedSongs = !!status.has_unassigned_songs;
+        const isClosed = !!status.is_session_application_closed;
+
+        if (!isClosed) {
+            body.innerHTML = `
+                <div class="d-inline-block text-end">
+                    <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
+                        <i class="bi bi-lock-fill"></i> 매칭 준비 중
+                    </button>
+                    <div class="text-danger small mt-1 fw-bold">* 먼저 세션 지원을 마감해주세요.</div>
+                </div>
+            `;
+            return;
+        }
+        if (roomCount <= 0) {
+            body.innerHTML = `
+                <div class="d-inline-block text-end">
+                    <button type="button"
+                            class="btn btn-warning fw-bold shadow-sm px-4 js-open-match-settings-btn">
+                        <i class="bi bi-exclamation-triangle-fill"></i> 합주실 없슴
+                    </button>
+                    <div class="text-danger small mt-1 fw-bold">* 먼저 합주실 등록이 필요합니다.</div>
+                </div>
+            `;
+            const openBtn = body.querySelector('.js-open-match-settings-btn');
+            if (openBtn) {
+                openBtn.addEventListener('click', () => {
+                    openMatchSettingsPopup(roomCreateUrl ? matchSettingsUrl : '', 0, roomCreateUrl);
+                });
+            }
+            return;
+        }
+        if (assignedSongCount <= 0) {
+            body.innerHTML = `
+                <div class="d-inline-block text-end">
+                    <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
+                        <i class="bi bi-lock-fill"></i> 매칭 준비 중
+                    </button>
+                    <div class="text-danger small mt-1 fw-bold">* 배정 완료된 곡이 없어 매칭할 수 없습니다.</div>
+                </div>
+            `;
+            return;
+        }
+        let wrap = body.querySelector('.js-match-run-wrap');
+        if (!wrap) {
+            body.innerHTML = `
+                <div class="js-match-run-wrap d-inline-block text-end">
+                    <button type="button" class="btn fw-bold shadow-sm px-4 js-match-run-btn">
+                        <i class="bi bi-magic"></i> 합주 시간 자동 매칭
+                    </button>
+                    <div class="js-match-run-note small mt-1 fw-bold"></div>
+                </div>
+            `;
+            wrap = body.querySelector('.js-match-run-wrap');
+        }
+        const btn = wrap ? wrap.querySelector('.js-match-run-btn') : null;
+        const note = wrap ? wrap.querySelector('.js-match-run-note') : null;
+        if (btn) {
+            btn.classList.remove('btn-warning', 'btn-primary', 'text-dark');
+            btn.classList.add(hasUnassignedSongs ? 'btn-warning' : 'btn-primary');
+            if (hasUnassignedSongs) btn.classList.add('text-dark');
+            btn.onclick = function () {
+                return openMatchFromMeetingDetail(matchSettingsUrl, roomCount, roomCreateUrl, hasUnassignedSongs);
+            };
+        }
+        if (note) {
+            note.className = `js-match-run-note small mt-1 fw-bold ${hasUnassignedSongs ? 'text-warning' : ''}`;
+            note.textContent = hasUnassignedSongs ? '* 아직 배정이 안된 노래가 있습니다.' : '';
+        }
+    }
+
+    function buildLocalMatchStatusFallback() {
+        const panel = document.getElementById('matchActionPanel');
+        const roomCount = panel ? Number(panel.dataset.roomCount || 0) : 0;
+        const isClosed = panel ? panel.dataset.isClosed === '1' : false;
+        const cards = Array.from(document.querySelectorAll('.js-song-card'));
+        let assignedSongCount = 0;
+        cards.forEach((card) => {
+            const slots = Array.from(card.querySelectorAll('.js-session-slot-btn[data-session-slot-id]'));
+            if (!slots.length) return;
+            const allAssigned = slots.every((btn) => String(btn.dataset.assigneeId || '').trim() !== '');
+            if (allAssigned) assignedSongCount += 1;
+        });
+        const totalSongCount = cards.length;
+        return {
+            room_count: roomCount,
+            is_session_application_closed: isClosed,
+            assigned_song_count: assignedSongCount,
+            total_song_count: totalSongCount,
+            has_unassigned_songs: totalSongCount > assignedSongCount,
+        };
+    }
+
+    async function refreshMatchActionPanel() {
+        const panel = document.getElementById('matchActionPanel');
+        if (!panel || !matchStatusDataUrl) return;
+        try {
+            const res = await fetch(matchStatusDataUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const data = await res.json();
+            if (!res.ok || data.status !== 'success') throw new Error('match status fetch failed');
+            renderMatchActionPanel(data);
+        } catch (_) {
+            renderMatchActionPanel(buildLocalMatchStatusFallback());
+        }
+    }
+
+    function sortSessionMemberRows(rows, mode) {
+        if (mode === 'assigned_desc') {
+            rows.sort((a, b) => {
+                const assignedDiff = Number(b.dataset.assigned || 0) - Number(a.dataset.assigned || 0);
+                if (assignedDiff !== 0) return assignedDiff;
+                const appliedDiff = Number(b.dataset.applied || 0) - Number(a.dataset.applied || 0);
+                if (appliedDiff !== 0) return appliedDiff;
+                return (a.dataset.name || '').localeCompare((b.dataset.name || ''), 'ko');
+            });
+            return;
+        }
+        rows.sort((a, b) => (a.dataset.name || '').localeCompare((b.dataset.name || ''), 'ko'));
+    }
+
+    function getSessionStatsSortMap() {
+        try {
+            const raw = localStorage.getItem(sessionStatsSortStorageKey);
+            const parsed = raw ? JSON.parse(raw) : {};
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function setSessionStatsSortMap(nextMap) {
+        try {
+            localStorage.setItem(sessionStatsSortStorageKey, JSON.stringify(nextMap || {}));
+        } catch (_) {}
+    }
+
+    function getSessionGroupSortMode(groupLabel) {
+        const m = getSessionStatsSortMap();
+        const mode = m[String(groupLabel || '')];
+        return mode === 'name' ? 'name' : 'assigned_desc';
+    }
+
+    function setSessionGroupSortMode(groupLabel, mode) {
+        const m = getSessionStatsSortMap();
+        m[String(groupLabel || '')] = (mode === 'name') ? 'name' : 'assigned_desc';
+        setSessionStatsSortMap(m);
+    }
+
+    function applyStoredSessionGroupSortModes() {
+        const labels = new Set();
+        document.querySelectorAll('.js-session-group').forEach((el) => {
+            const lbl = String(el.dataset.groupLabel || '');
+            if (lbl) labels.add(lbl);
+        });
+        labels.forEach((lbl) => {
+            applySessionGroupSortMode(lbl, getSessionGroupSortMode(lbl));
+        });
+    }
+
+    function applySessionGroupSortMode(groupLabel, mode) {
+        document.querySelectorAll('.js-session-group').forEach((groupEl) => {
+            if (groupEl.dataset.groupLabel !== groupLabel) return;
+            const listEl = groupEl.querySelector('.js-session-member-list');
+            if (!listEl) return;
+            const rows = Array.from(listEl.querySelectorAll('.js-member-row'));
+            sortSessionMemberRows(rows, mode);
+            rows.forEach((row) => listEl.appendChild(row));
+        });
+        document.querySelectorAll('.js-session-sort-btn').forEach((btn) => {
+            if (btn.dataset.groupLabel !== groupLabel) return;
+            btn.dataset.mode = mode;
+            btn.textContent = mode === 'assigned_desc' ? '배정순' : '이름순';
+            btn.classList.toggle('active', mode === 'assigned_desc');
+            btn.classList.toggle('btn-secondary', mode === 'assigned_desc');
+            btn.classList.toggle('btn-outline-secondary', mode !== 'assigned_desc');
+        });
+    }
+
+    function toggleSessionGroupSort(groupLabel) {
+        const anyBtn = Array.from(document.querySelectorAll('.js-session-sort-btn'))
+            .find((btn) => btn.dataset.groupLabel === groupLabel);
+        if (!anyBtn) return false;
+        const nextMode = (anyBtn.dataset.mode || 'assigned_desc') === 'assigned_desc' ? 'name' : 'assigned_desc';
+        setSessionGroupSortMode(groupLabel, nextMode);
+        applySessionGroupSortMode(groupLabel, nextMode);
+        return false;
+    }
+
+    function parseSessionIdFromAssignUrl(assignUrl) {
+        const m = String(assignUrl || '').match(/\/session\/([^/]+)\/assign\//);
+        return m ? m[1] : '';
+    }
+
+    function applySessionAssignUi(sessionId, assigneeId, assigneeName, applicantCount = null) {
+        const sid = String(sessionId || '');
+        if (!sid) return;
+        const aid = assigneeId ? String(assigneeId) : '';
+        const aName = String(assigneeName || '').trim();
+        const hasAssignee = !!aid;
+        const parsedApplicantCount = Number(applicantCount);
+        const hasApplicantCount = Number.isFinite(parsedApplicantCount);
+        let songIdForSession = '';
+
+        document.querySelectorAll(`.js-session-slot-btn[data-session-slot-id="${sid}"]`).forEach((btn) => {
+            const abbr = String(btn.dataset.sessionAbbr || '').trim();
+            const myApplied = String(btn.dataset.myApplied || '') === '1';
+            const badge = btn.querySelector('.badge');
+            const fallbackBadgeHtml = badge ? badge.outerHTML : '';
+            const normalizedCount = hasApplicantCount ? Math.max(0, parsedApplicantCount) : 0;
+            const badgeHtml = hasApplicantCount
+                ? (normalizedCount > 0 ? `<span class="badge session-applicant-count-badge ms-1">${normalizedCount}</span>` : '')
+                : fallbackBadgeHtml;
+            const isDisabledSlot = btn.dataset.slotType === 'disabled';
+            const isApplySlot = btn.dataset.slotType === 'apply';
+            btn.dataset.assigneeId = hasAssignee ? aid : '';
+            if (hasApplicantCount) {
+                btn.dataset.applicantCount = String(normalizedCount);
+            }
+            if (hasAssignee) {
+                const currentIds = new Set(parseApplicantIdsFromSlot(btn));
+                currentIds.add(aid);
+                btn.dataset.applicantIds = Array.from(currentIds).join(',');
+            }
+            if (!songIdForSession) {
+                const card = btn.closest('.js-song-card');
+                if (card && card.dataset.songId) {
+                    songIdForSession = String(card.dataset.songId || '');
+                }
+            }
+
+            btn.classList.remove('btn-success', 'btn-warning', 'btn-outline-secondary', 'btn-primary');
+            btn.classList.toggle('session-assigned-text', hasAssignee);
+            if (hasAssignee) {
+                btn.classList.add(aid === String(currentUserId) ? 'btn-warning' : 'btn-success');
+                btn.innerHTML = `${abbr}<span class="session-assignee-sep">: </span><span class="session-assignee-name">${aName}</span>${badgeHtml ? ` ${badgeHtml}` : ''}`;
+            } else {
+                if (myApplied && !isDisabledSlot) {
+                    btn.classList.add('btn-primary');
+                } else if (isApplySlot) {
+                    btn.classList.add('btn-outline-secondary');
+                } else if (isDisabledSlot) {
+                    btn.classList.add('btn-outline-secondary');
+                } else {
+                    btn.classList.add('btn-outline-secondary');
+                }
+                btn.innerHTML = `${abbr}${badgeHtml ? ` ${badgeHtml}` : ''}`;
+            }
+            const card = btn.closest('.js-song-card');
+            if (card) updateSongCardVisual(card);
+        });
+
+        document.querySelectorAll(`.applicant-hover-btn[data-session-id="${sid}"]`).forEach((btn) => {
+            const uid = String(btn.dataset.applicantId || '');
+            btn.classList.toggle('is-assigned', hasAssignee && uid === aid);
+        });
+
+        document.querySelectorAll(`.js-modal-assign-btn[data-session-id="${sid}"]`).forEach((btn) => {
+            const uid = String(btn.dataset.userId || '');
+            const isNowAssignee = hasAssignee && uid === aid;
+            const isNowAssigneeMe = isNowAssignee && uid === String(currentUserId || '');
+            btn.dataset.isAssignee = isNowAssignee ? '1' : '0';
+            btn.classList.remove('btn-success', 'btn-outline-secondary', 'btn-warning');
+            btn.classList.add(isNowAssignee ? (isNowAssigneeMe ? 'btn-warning' : 'btn-success') : 'btn-outline-secondary');
+            btn.textContent = isNowAssignee ? '배정 해제' : '배정하기';
+        });
+        if (hasAssignee) {
+            document.querySelectorAll(`.js-modal-applicant-badge[data-session-id="${sid}"][data-user-id="${aid}"]`).forEach((el) => {
+                el.classList.remove('d-none');
+            });
+            document.querySelectorAll(`.js-modal-applicant-toggle[data-session-id="${sid}"][data-user-id="${aid}"]`).forEach((btn) => {
+                btn.classList.remove('btn-outline-secondary', 'btn-outline-primary');
+                btn.classList.add('btn-primary');
+                btn.textContent = '지원 해제';
+            });
+        }
+        if (hasApplicantCount && songIdForSession) {
+            document.querySelectorAll(`.song-applicants-${songIdForSession}[data-session-id="${sid}"]`).forEach((el) => {
+                el.dataset.applicantCount = String(Math.max(0, parsedApplicantCount));
+            });
+            if (songIdForSession) {
+                syncSongApplicantsToggleButton(songIdForSession);
+            }
+            syncGlobalApplicantsToggleButton();
+        }
+        syncHoverMemberHighlights();
+        refreshMemberSongSortIfActive();
+    }
+
+    async function assignSessionViaAjax(assignUrl) {
+        const res = await fetch(assignUrl, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+            throw new Error((data && data.message) || '세션 배정 처리에 실패했습니다.');
+        }
+        return data;
+    }
+
+    async function handleApplicantClick(triggerBtn, assignUrl, userName, userId, isAssigned, hasAssignee) {
+        const btnIsAssigned =
+            String(triggerBtn?.dataset?.isAssignee || '') === '1'
+            || triggerBtn?.classList?.contains('is-assigned');
+
+        const hintedSessionId = String(triggerBtn?.dataset?.sessionId || parseSessionIdFromAssignUrl(assignUrl) || '');
+        const sessionSlotBtn = hintedSessionId
+            ? document.querySelector(`.js-session-slot-btn[data-session-slot-id="${hintedSessionId}"]`)
+            : null;
+        const songCard = triggerBtn.closest('li.list-group-item') || sessionSlotBtn?.closest('li.list-group-item');
+        const scope = songCard || document;
+        const sessionId = hintedSessionId;
+        const currentHasAssignee = !!Array.from(
+            scope.querySelectorAll(`.js-session-slot-btn[data-session-slot-id="${sessionId}"]`)
+        ).find((btn) => String(btn.dataset.assigneeId || '').trim() !== '');
+
+        if (btnIsAssigned) {
+            try {
+                const data = await assignSessionViaAjax(assignUrl);
+                applySessionAssignUi(data.session_id, data.assignee_id, data.assignee_name, data.applicant_count);
+                refreshMatchActionPanel();
+                if (isManagerPage) loadSessionStatsForManager();
+            } catch (_) {
+                rememberScroll();
+                window.location.href = assignUrl; // fallback
+            }
+            return false;
+        }
+
+        const assignedInSameSong = Array.from(
+            scope.querySelectorAll(`.js-session-slot-btn[data-assignee-id="${userId}"]`)
+        ).filter((btn) => String(btn.dataset.sessionSlotId || '') !== sessionId).length;
+        if (assignedInSameSong > 0) {
+            const okAssigned = confirm('이 사람은 이미 이 곡의 다른 악기에 배정되어 있습니다. 그래도 배정하시겠습니까?');
+            if (!okAssigned) return false;
+        }
+
+        if (currentHasAssignee) {
+            const ok = confirm('이미 배정된 사람이 있습니다. 이 사람으로 바꾸시겠습니까?');
+            if (!ok) return false;
+        }
+
+        try {
+            const data = await assignSessionViaAjax(assignUrl);
+            applySessionAssignUi(data.session_id, data.assignee_id, data.assignee_name, data.applicant_count);
+            refreshMatchActionPanel();
+            if (isManagerPage) loadSessionStatsForManager();
+        } catch (_) {
+            rememberScroll();
+            window.location.href = assignUrl; // fallback
+        }
+        return false;
+    }
+
+    function confirmRandomAssignAndRemember() {
+        const ok = confirm('모든 세션을 임의로 배정합니다. 기존 배정이 덮어씌워집니다.');
+        if (!ok) return false;
+        rememberScroll();
+        return true;
+    }
+
+    function openAssignmentResetConfirm(formEl, titleText, bodyText) {
+        if (!formEl) return false;
+        const modalEl = document.getElementById('assignmentResetConfirmModal');
+        if (!modalEl || !window.bootstrap) return true;
+        pendingAssignmentResetForm = formEl;
+        const titleEl = document.getElementById('assignmentResetConfirmTitle');
+        const bodyEl = document.getElementById('assignmentResetConfirmBody');
+        if (titleEl) titleEl.textContent = titleText || '배정 초기화 확인';
+        if (bodyEl) bodyEl.textContent = bodyText || '정말 초기화하시겠습니까?';
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return false;
+    }
+
+    function submitAssignmentResetConfirmed() {
+        if (!pendingAssignmentResetForm) return;
+        rememberScroll();
+        const targetForm = pendingAssignmentResetForm;
+        pendingAssignmentResetForm = null;
+        targetForm.submit();
+    }
+
+    function confirmForceAssignFromModal(isAssignee, hasAssignee) {
+        if (isAssignee) {
+            rememberScroll();
+            return true;
+        }
+        if (hasAssignee) {
+            const ok = confirm('이미 배정자가 있는데 변경할꺼임?');
+            if (!ok) return false;
+        }
+        rememberScroll();
+        return true;
+    }
+
+    function updateSessionApplyUiFromAjax(form, data) {
+        const applied = !!data.applied;
+        const count = Math.max(0, Number(data.applicant_count || 0));
+        const sessionId = String(data.session_id || '');
+        form.dataset.myApplied = applied ? '1' : '0';
+        if (sessionId) {
+            document.querySelectorAll(`.js-session-slot-btn[data-session-slot-id="${sessionId}"]`).forEach((btn) => {
+                btn.dataset.myApplied = applied ? '1' : '0';
+                const currentIds = new Set(parseApplicantIdsFromSlot(btn));
+                const uid = String(currentUserId || '');
+                if (uid) {
+                    if (applied) currentIds.add(uid);
+                    else currentIds.delete(uid);
+                    btn.dataset.applicantIds = Array.from(currentIds).join(',');
+                }
+            });
+        }
+        syncHoverMemberHighlights();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.dataset.applicantCount = String(count);
+            submitBtn.classList.toggle('btn-primary', applied);
+            submitBtn.classList.toggle('btn-outline-secondary', !applied);
+            const badges = submitBtn.querySelectorAll('.badge');
+            if (count > 0) {
+                if (!badges.length) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge session-applicant-count-badge ms-1';
+                    badge.textContent = String(count);
+                    submitBtn.appendChild(badge);
+                } else {
+                    badges.forEach((b) => { b.textContent = String(count); });
+                }
+            } else {
+                badges.forEach((b) => b.remove());
+            }
+            const card = submitBtn.closest('.js-song-card');
+            if (card) updateSongCardVisual(card);
+        }
+
+        const songCard = form.closest('.js-song-card');
+        if (songCard && songCard.dataset.songId) {
+            const songId = String(songCard.dataset.songId || '');
+            if (sessionId) {
+                document.querySelectorAll(`.song-applicants-${songId}[data-session-id="${sessionId}"]`).forEach((el) => {
+                    el.dataset.applicantCount = String(count);
+                });
+            }
+            syncSongApplicantsToggleButton(songId);
+            syncGlobalApplicantsToggleButton();
+            refreshSongApplicantsAfterApply(songId);
+        }
+    }
+
+    function initLazyYoutubeEmbeds() {
+        document.querySelectorAll('.collapse[id^="songYoutube"]').forEach((collapseEl) => {
+            collapseEl.addEventListener('show.bs.collapse', function () {
+                const iframe = collapseEl.querySelector('iframe[data-src]');
+                if (!iframe) return;
+                if (!iframe.getAttribute('src')) {
+                    let src = String(iframe.dataset.src || '').trim();
+                    if (!src) return;
+                    try {
+                        const u = new URL(src, window.location.origin);
+                        if ((u.hostname.includes('youtube.com') || u.hostname.includes('youtube-nocookie.com'))) {
+                            if (!u.searchParams.has('rel')) u.searchParams.set('rel', '0');
+                            if (!u.searchParams.has('modestbranding')) u.searchParams.set('modestbranding', '1');
+                            if (!u.searchParams.has('playsinline')) u.searchParams.set('playsinline', '1');
+                        }
+                        src = u.toString();
+                    } catch (_) {}
+                    iframe.setAttribute('src', src);
+                }
+            });
+        });
+    }
+
+    function initSongAuthorNoteTooltips() {
+        if (!window.bootstrap || !bootstrap.Tooltip) return;
+        document.querySelectorAll('.js-song-card[data-author-note]').forEach((el) => {
+            const note = String(el.dataset.authorNote || '').trim();
+            if (!note) return;
+            bootstrap.Tooltip.getOrCreateInstance(el, {
+                trigger: 'hover',
+                placement: 'top',
+                container: 'body',
+                title: note,
+            });
+        });
+    }
+
+    async function applySortWithoutReload(selectEl) {
+        if (!selectEl) return false;
+        const form = selectEl.closest('form');
+        if (!form) return false;
+
+        const params = new URLSearchParams(window.location.search);
+        const formData = new FormData(form);
+        for (const [k, v] of formData.entries()) {
+            if (k === 'sort') {
+                params.set('sort', String(v || 'default'));
+            } else if (k === 'list_mode' || k === 'quick_filter') {
+                params.set(k, String(v || ''));
+            }
+        }
+        params.delete('page');
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+
+        try {
+            const res = await fetch(nextUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!res.ok) throw new Error('sort fetch failed');
+
+            const html = await res.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextContainer = doc.querySelector('#setlistAjaxContainer');
+            const currentContainer = document.querySelector('#setlistAjaxContainer');
+            if (!nextContainer || !currentContainer) throw new Error('setlist container missing');
+
+            currentContainer.replaceWith(nextContainer);
+            window.history.replaceState({}, '', nextUrl);
+
+            initSongCardsBaselineOrder();
+            initApplicantsToggleState();
+            updateAllSongCardVisuals();
+            refreshMatchActionPanel();
+            initLazyYoutubeEmbeds();
+            initSongAuthorNoteTooltips();
+            syncSongSearchInputs();
+            applySongQuickFilter();
+        } catch (_) {
+            form.submit();
+        }
+        return false;
+    }
+
+    function applyQuickFilterWithoutReload(linkEl) {
+        if (!linkEl) return false;
+        const targetFilter = String(linkEl.dataset.filter || '').trim();
+        if (!targetFilter) return false;
+
+        const params = new URLSearchParams(window.location.search);
+        const current = String(params.get('quick_filter') || '').trim();
+        if (current === targetFilter) {
+            params.delete('quick_filter');
+        } else {
+            params.set('quick_filter', targetFilter);
+        }
+        params.delete('page');
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        (async () => {
+            try {
+                const res = await fetch(nextUrl, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!res.ok) throw new Error('quick filter fetch failed');
+
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const nextContainer = doc.querySelector('#setlistAjaxContainer');
+                const currentContainer = document.querySelector('#setlistAjaxContainer');
+                if (!nextContainer || !currentContainer) throw new Error('setlist container missing');
+
+                currentContainer.replaceWith(nextContainer);
+                window.history.replaceState({}, '', nextUrl);
+
+                initSongCardsBaselineOrder();
+                initApplicantsToggleState();
+                updateAllSongCardVisuals();
+                refreshMatchActionPanel();
+                initLazyYoutubeEmbeds();
+                initSongAuthorNoteTooltips();
+                syncSongSearchInputs();
+                applySongQuickFilter();
+            } catch (_) {
+                window.location.href = nextUrl;
+            }
+        })();
+        return false;
+    }
+
+    document.addEventListener('submit', async function (event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (form.classList.contains('js-session-apply')) {
+            if (!confirmApply(form)) {
+                event.preventDefault();
+                return;
+            }
+            event.preventDefault();
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+            try {
+                const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                const csrf = csrfInput ? csrfInput.value : '';
+                const body = new URLSearchParams(new FormData(form));
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrf,
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    },
+                    body: body.toString(),
+                    credentials: 'same-origin',
+                });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    alert((data && data.message) || '세션 지원 처리에 실패했습니다.');
+                    return;
+                }
+                updateSessionApplyUiFromAjax(form, data);
+            } catch (_) {
+                alert('네트워크 오류가 발생했습니다.');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+    }, true);
+
+    document.addEventListener('input', async function (event) {
+        const input = event.target.closest('.js-song-search-input');
+        if (!input) return;
+        activeSongSearchQuery = normalizeSearchText(input.value);
+        syncSongSearchInputs();
+        if (activeSongSearchQuery) {
+            const loaded = await ensureAllSongsLoadedForInteractive({ forSearch: true });
+            if (!loaded) return;
+        } else if (searchRestoreUrl && activeMemberFilterUserIds.size === 0) {
+            const restored = await restoreSongsAfterSearchIfNeeded();
+            if (!restored) return;
+        }
+        applySongQuickFilter();
+    });
+
+    function toggleSongFooterActionsByMainRow(mainRow) {
+        if (!mainRow) return;
+        const card = mainRow.closest('.js-song-card');
+        if (!card) return;
+        const footerRows = Array.from(card.querySelectorAll('.js-song-footer-actions'));
+        if (!footerRows.length) return;
+        const willShow = footerRows.some((row) => !row.classList.contains('is-expanded'));
+        footerRows.forEach((row) => row.classList.toggle('is-expanded', willShow));
+        mainRow.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+        if (!willShow) {
+            card.querySelectorAll('.collapse[id^="songYoutube"].show').forEach((collapseEl) => {
+                if (window.bootstrap && bootstrap.Collapse) {
+                    bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).hide();
+                } else {
+                    collapseEl.classList.remove('show');
+                }
+            });
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        const mainRow = event.target.closest('.js-song-main-toggle');
+        if (!mainRow) return;
+        const blocked = event.target.closest('a, button, input, select, textarea, label, form, .js-session-slot-btn, .applicant-hover-btn, .applicant-chip');
+        if (blocked) return;
+        toggleSongFooterActionsByMainRow(mainRow);
+    });
+
+    document.addEventListener('click', function (event) {
+        const participantManageBtn = event.target.closest('#openParticipantManageBtn');
+        if (participantManageBtn) {
+            event.preventDefault();
+            openParticipantManageModal('{% url "meeting_participant_manage" meeting.id %}');
+            return;
+        }
+
+        const meetingEditBtn = event.target.closest('#openMeetingEditBtn');
+        if (meetingEditBtn) {
+            event.preventDefault();
+            openMeetingModal('{% url "meeting_update" meeting.id %}');
+            return;
+        }
+
+        const toggleAllApplicantsBtn = event.target.closest('.js-toggle-all-applicants');
+        if (toggleAllApplicantsBtn) {
+            event.preventDefault();
+            toggleAllApplicants(toggleAllApplicantsBtn);
+            return;
+        }
+
+        const clearFiltersBtn = event.target.closest('.js-clear-member-filters');
+        if (clearFiltersBtn) {
+            event.preventDefault();
+            clearMemberSongFilters();
+            return;
+        }
+
+        const manageBtn = event.target.closest('.js-session-slot-btn[data-slot-type="manager"][data-manage-url]');
+        if (manageBtn) {
+            event.preventDefault();
+            openSessionManageModal(manageBtn);
+            return;
+        }
+
+        const songDeleteBtn = event.target.closest('[data-song-delete-btn="1"][data-delete-url]');
+        if (songDeleteBtn) {
+            event.preventDefault();
+            openDeleteSongModal(
+                String(songDeleteBtn.dataset.songTitle || '-'),
+                String(songDeleteBtn.dataset.deleteUrl || ''),
+            );
+            return;
+        }
+
+        const applicantsToggleBtn = event.target.closest('.js-song-applicants-toggle[data-song-id]');
+        if (applicantsToggleBtn) {
+            event.preventDefault();
+            toggleSongApplicants(String(applicantsToggleBtn.dataset.songId || ''));
+            return;
+        }
+
+        const quickFilterBtn = event.target.closest('a[data-filter]');
+        if (quickFilterBtn) {
+            event.preventDefault();
+            applyQuickFilterWithoutReload(quickFilterBtn);
+            return;
+        }
+
+        const simulationBtn = event.target.closest('#openSimulationBtn');
+        if (simulationBtn) {
+            event.preventDefault();
+            window.open(
+                '{% url "schedule_match_run" meeting.id %}?d=30&c=1&p=continuity,member_continuity,weekday,time_pref&r={% for room in rooms %}{{ room.id }}{% if not forloop.last %},{% endif %}{% endfor %}&w=0&h=0&ts=18&te=48&simulation=1',
+                'simulation_window',
+                'width=1400,height=900,left=100,top=50',
+            );
+            return;
+        }
+
+        const matchFromDetailBtn = event.target.closest('#openMatchFromDetailBtn');
+        if (matchFromDetailBtn) {
+            event.preventDefault();
+            openMatchFromMeetingDetail(
+                String(matchFromDetailBtn.dataset.matchSettingsUrl || ''),
+                Number(matchFromDetailBtn.dataset.roomCount || 0),
+                String(matchFromDetailBtn.dataset.roomCreateUrl || ''),
+                String(matchFromDetailBtn.dataset.hasUnassigned || '0') === '1',
+            );
+            return;
+        }
+
+        const noRoomBtn = event.target.closest('#openMatchSettingsNoRoomBtn');
+        if (noRoomBtn) {
+            event.preventDefault();
+            openMatchSettingsPopup(
+                '{% url "schedule_match_settings" meeting.id %}',
+                0,
+                '{% url "meeting_room_create" meeting.id %}',
+            );
+            return;
+        }
+
+        const assignmentResetConfirmBtn = event.target.closest('#submitAssignmentResetConfirmBtn');
+        if (assignmentResetConfirmBtn) {
+            event.preventDefault();
+            submitAssignmentResetConfirmed();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        const mainRow = event.target.closest('.js-song-main-toggle');
+        if (!mainRow) return;
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        toggleSongFooterActionsByMainRow(mainRow);
+    });
+
+    document.addEventListener('submit', function (event) {
+        const formEl = event.target;
+        if (!(formEl instanceof HTMLFormElement)) return;
+
+        if (formEl.matches('[data-random-assign-form="1"]')) {
+            if (!confirmRandomAssignAndRemember()) {
+                event.preventDefault();
+            }
+            return;
+        }
+
+        if (formEl.matches('[data-assignment-reset-title][data-assignment-reset-message]')) {
+            event.preventDefault();
+            openAssignmentResetConfirm(
+                formEl,
+                String(formEl.dataset.assignmentResetTitle || '배정 초기화 확인'),
+                String(formEl.dataset.assignmentResetMessage || '정말 초기화하시겠습니까?'),
+            );
+            return;
+        }
+
+        if (formEl.matches('[data-delete-confirm-message]')) {
+            const msg = String(formEl.dataset.deleteConfirmMessage || '').trim();
+            if (msg && !window.confirm(msg)) {
+                event.preventDefault();
+            }
+        }
+    });
+
+    document.addEventListener('mouseover', function (event) {
+        const slotBtn = event.target.closest('.js-session-slot-btn[data-session-slot-id]');
+        if (slotBtn) {
+            const uid = String(slotBtn.dataset.assigneeId || '');
+            if (uid) {
+                setHoverMemberUserId(uid);
+                return;
+            }
+        }
+        const applicantBtn = event.target.closest('.applicant-hover-btn[data-applicant-id], .applicant-chip[data-applicant-id]');
+        if (!applicantBtn) return;
+        const uid = String(applicantBtn.dataset.applicantId || '');
+        if (uid) setHoverMemberUserId(uid);
+    });
+
+    document.addEventListener('mouseout', function (event) {
+        const slotBtn = event.target.closest('.js-session-slot-btn[data-session-slot-id]');
+        if (slotBtn) {
+            const related = event.relatedTarget;
+            if (related && slotBtn.contains(related)) return;
+            const stillInLinkedTarget = related && related.closest && (
+                related.closest('.js-session-slot-btn[data-session-slot-id]') ||
+                related.closest('.js-member-row') ||
+                related.closest('.applicant-hover-btn[data-applicant-id], .applicant-chip[data-applicant-id]')
+            );
+            if (!stillInLinkedTarget) setHoverMemberUserId('');
+            return;
+        }
+        const applicantBtn = event.target.closest('.applicant-hover-btn[data-applicant-id], .applicant-chip[data-applicant-id]');
+        if (!applicantBtn) return;
+        const related = event.relatedTarget;
+        const stillInLinkedTarget = related && related.closest && (
+            related.closest('.js-session-slot-btn[data-session-slot-id]') ||
+            related.closest('.js-member-row') ||
+            related.closest('.applicant-hover-btn[data-applicant-id], .applicant-chip[data-applicant-id]')
+        );
+        if (!stillInLinkedTarget) setHoverMemberUserId('');
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            const saved = sessionStorage.getItem('meetingDetailScrollY');
+            if (saved !== null) {
+                sessionStorage.removeItem('meetingDetailScrollY');
+                const y = parseInt(saved, 10);
+                if (!Number.isNaN(y)) {
+                    window.scrollTo(0, y);
+                }
+            }
+        } catch (e) {}
+
+        initSongCardsBaselineOrder();
+        updateAllSongCardVisuals();
+        applySongQuickFilter();
+        syncSongSearchInputs();
+        initApplicantsToggleState();
+        initSheetHoldButtons();
+        initSongAuthorNoteTooltips();
+        if (isManagerPage) {
+            setAllApplicantsVisible(true);
+        }
+        initLazyYoutubeEmbeds();
+        if (isManagerPage) {
+            loadSessionStatsForManager().finally(() => {
+                initSessionStatsSticky();
+            });
+        } else {
+            initSessionStatsSticky();
+        }
+        window.addEventListener('scroll', initSessionStatsSticky, { passive: true });
+        window.addEventListener('resize', initSessionStatsSticky);
+    });
+
+    function openDeleteSongModal(songTitle, deleteUrl) {
+        const modalTitleEl = document.getElementById('deleteSongModalTitle');
+        const formEl = document.getElementById('deleteSongForm');
+        if (modalTitleEl) modalTitleEl.textContent = songTitle || '-';
+        if (formEl) formEl.action = deleteUrl || '#';
+
+        const modalEl = document.getElementById('deleteSongModal');
+        if (!modalEl) return false;
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        return false;
+    }
+
+    function openMeetingModal(baseUrl) {
+        const frame = document.getElementById('meetingFormFrame');
+        const modalEl = document.getElementById('meetingFormModal');
+        if (!frame || !modalEl) return false;
+        frame.src = baseUrl + (baseUrl.indexOf('?') >= 0 ? '&' : '?') + 'modal=1';
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        return false;
+    }
+
+    function openParticipantManageModal(baseUrl) {
+        const frame = document.getElementById('participantManageFrame');
+        const modalEl = document.getElementById('participantManageModal');
+        if (!frame || !modalEl) return false;
+        frame.src = baseUrl + (baseUrl.indexOf('?') >= 0 ? '&' : '?') + 'modal=1';
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        return false;
+    }
+
+    function openMatchFromMeetingDetail(baseUrl, roomCount, roomCreateUrl, hasUnassigned) {
+        if (!hasUnassigned) {
+            openMatchSettingsPopup(baseUrl, roomCount, roomCreateUrl);
+            return false;
+        }
+
+        const listEl = document.getElementById('unassignedSongList');
+        if (listEl) {
+            const titlesEl = document.getElementById('unassignedSongTitlesData');
+            let titles = [];
+            if (titlesEl) {
+                try {
+                    titles = JSON.parse(titlesEl.textContent || '[]');
+                } catch (_) {
+                    titles = [];
+                }
+            }
+            listEl.innerHTML = '';
+            if (titles.length) {
+                titles.forEach((title) => {
+                    const li = document.createElement('li');
+                    li.textContent = title;
+                    listEl.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = '미배정 곡';
+                listEl.appendChild(li);
+            }
+        }
+
+        const proceedBtn = document.getElementById('proceedMatchSettingsBtn');
+        if (proceedBtn) {
+            proceedBtn.onclick = function () {
+                const modalEl = document.getElementById('unassignedSongsWarningModal');
+                if (modalEl) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                }
+                openMatchSettingsPopup(baseUrl, roomCount, roomCreateUrl);
+            };
+        }
+
+        const modalEl = document.getElementById('unassignedSongsWarningModal');
+        if (!modalEl) return false;
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return false;
+    }
+
+    async function openSessionManageModal(triggerBtn) {
+        const fetchUrl = triggerBtn ? triggerBtn.getAttribute('data-manage-url') : '';
+        if (!fetchUrl) return false;
+        const bodyEl = document.getElementById('sessionManageModalBody');
+        const titleEl = document.getElementById('sessionManageModalTitle');
+        if (!bodyEl || !titleEl) return false;
+
+        titleEl.textContent = '세션 관리';
+        bodyEl.innerHTML = '<div class="text-muted small">불러오는 중...</div>';
+        const modalEl = document.getElementById('sessionManageModal');
+        if (!modalEl) return false;
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+
+        try {
+            const res = await fetch(fetchUrl, { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok || data.status !== 'success') {
+                bodyEl.innerHTML = `<div class="text-danger small">${escapeHtml((data && data.message) || '데이터를 불러오지 못했습니다.')}</div>`;
+                return false;
+            }
+
+            titleEl.textContent = `${data.song_title} - ${data.role} 관리`;
+            const rows = (data.members || []).map((m) => {
+                const isAssigneeMe = m.is_assignee && String(m.id || '') === String(currentUserId || '');
+                const markAssignedClass = isAssigneeMe ? 'text-bg-warning text-dark' : 'text-bg-success';
+                const markAssigned = m.is_assignee ? `<span class="badge ${markAssignedClass} ms-1">현재 배정</span>` : '';
+                const markApplicant = `<span class="badge ms-1 js-modal-applicant-badge ${m.is_applicant ? '' : 'd-none'}" data-session-id="${escapeHtml(data.session_id)}" data-user-id="${escapeHtml(m.id)}">지원중</span>`;
+                const applicantBtnClass = m.is_applicant ? 'btn-primary' : 'btn-outline-secondary';
+                const applicantBtnLabel = m.is_applicant ? '지원 해제' : '지원자 추가';
+                const assignBtnClass = m.is_assignee ? (isAssigneeMe ? 'btn-warning' : 'btn-success') : 'btn-outline-secondary';
+                const assignBtnLabel = m.is_assignee ? '배정 해제' : '배정하기';
+                return `
+                    <div class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                        <div>
+                            <span class="fw-bold">${escapeHtml(m.realname)}</span>
+                            <span class="text-muted small">(${escapeHtml(m.username)})</span>
+                            ${markAssigned}
+                            ${markApplicant}
+                        </div>
+                        <div class="d-flex gap-1">
+                            <form method="post" action="${escapeHtml(m.manage_url)}">
+                                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                                <input type="hidden" name="sort" value="${escapeHtml(data.sort || '')}">
+                                <button type="submit"
+                                        class="btn btn-sm ${applicantBtnClass} js-modal-applicant-toggle"
+                                        data-session-id="${escapeHtml(data.session_id)}"
+                                        data-user-id="${escapeHtml(m.id)}">${applicantBtnLabel}</button>
+                            </form>
+                            <button type="button"
+                               class="btn btn-sm ${assignBtnClass} js-modal-assign-btn"
+                               data-session-id="${escapeHtml(data.session_id)}"
+                               data-user-id="${escapeHtml(m.id)}"
+                               data-assign-url="${escapeHtml(m.assign_url)}"
+                               data-is-assignee="${m.is_assignee ? '1' : '0'}"
+                               data-has-assignee="${m.has_assignee ? '1' : '0'}">${assignBtnLabel}</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            bodyEl.innerHTML = `
+                <p class="small text-muted mb-3">지원자 추가하고 배정인 바꾸기</p>
+                <div class="list-group">${rows}</div>
+            `;
+            bodyEl.querySelectorAll('.js-modal-assign-btn').forEach((btnEl) => {
+                btnEl.addEventListener('click', function () {
+                    const assignUrl = String(btnEl.dataset.assignUrl || '');
+                    const userId = String(btnEl.dataset.userId || '');
+                    const isAssignee = String(btnEl.dataset.isAssignee || '0') === '1';
+                    const hasAssignee = String(btnEl.dataset.hasAssignee || '0') === '1';
+                    return handleApplicantClick(btnEl, assignUrl, '', userId, isAssignee, hasAssignee);
+                });
+            });
+        } catch (_) {
+            bodyEl.innerHTML = '<div class="text-danger small">데이터를 불러오지 못했습니다.</div>';
+        }
+        return false;
+    }
+
+    window.addEventListener('message', function (event) {
+        if (event.origin !== window.location.origin || !event.data) return;
+        if (event.data.type === 'meeting_modal_saved') {
+            const modalEl = document.getElementById('meetingFormModal');
+            const frame = document.getElementById('meetingFormFrame');
+            if (modalEl) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+            if (frame) {
+                frame.src = 'about:blank';
+            }
+            window.location.reload();
+        } else if (event.data.type === 'meeting_modal_close') {
+            const modalEl = document.getElementById('meetingFormModal');
+            const frame = document.getElementById('meetingFormFrame');
+            if (modalEl) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+            if (frame) {
+                frame.src = 'about:blank';
+            }
+        } else if (event.data.type === 'participant_modal_close') {
+            const modalEl = document.getElementById('participantManageModal');
+            const frame = document.getElementById('participantManageFrame');
+            if (modalEl) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+            if (frame) {
+                frame.src = 'about:blank';
+            }
+            window.location.reload();
+        }
+    });
+
+</script>
+
+<div class="container mt-4 {% if is_manager %}manager-page{% endif %}" style="max-width: 1280px;"> <div class="mb-4 d-flex justify-content-between align-items-start">
+        {% cache 300 meeting_detail_header meeting.id %}
+        <div>
+            <h2 class="fw-bold mb-4">{{ meeting.title }}</h2>
+            <p class="text-muted mb-2">📅 {{ meeting.schedule|date:"Y-m-d H:i" }} | 📍 {{ meeting.location }}</p>
+            {% if meeting.practice_start_date and meeting.practice_end_date %}
+            <p class="text-muted mb-0">🎸 합주 기간: {{ meeting.practice_start_date|date:"Y-m-d" }} ~ {{ meeting.practice_end_date|date:"Y-m-d" }}</p>
+            {% endif %}
+        </div>
+        {% endcache %}
+        {% if is_manager and not is_final_locked %}
+            <div class="d-flex gap-2">
+                <a href="#"
+                   id="openParticipantManageBtn"
+                   class="btn btn-outline-primary btn-sm">
+                    참가자 관리
+                </a>
+                <a href="#"
+                   id="openMeetingEditBtn"
+                   class="btn btn-outline-secondary btn-sm">
+                    선곡회의 정보 수정
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    {% if is_manager %}
+    <div class="mb-3 p-3 border rounded bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="m-0 fw-bold">🏠 합주실</h6>
+            {% if not is_final_locked %}
+                <a href="{% url 'meeting_room_create' meeting.id %}" class="btn btn-sm btn-outline-primary">+ 합주실 생성</a>
+            {% endif %}
+        </div>
+        {% if rooms %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for room in rooms %}
+                    <div class="badge text-bg-light border d-flex align-items-center gap-2">
+                        <span>{{ room.name }} / 정원 {{ room.capacity }}{% if room.location %} / {{ room.location }}{% endif %}</span>
+                        {% if not is_final_locked %}
+                            <a href="{% url 'meeting_room_edit' meeting.id room.id %}" class="text-decoration-none">수정</a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-muted small">등록된 합주실이 없습니다.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+    <hr>
+
+    <div id="liveMeetingRow" class="row g-0 g-lg-3 align-items-start">
+
+    {# 데스크탑 좌측 sticky 현황판 #}
+    <div id="sessionStatsSidebar" class="col-lg-3 col-xl-3 d-none d-lg-block">
+        <div id="sessionStatsStickyWrap" class="pt-2" style="top: 1rem;">
+            <div class="card border shadow-sm session-stats-card">
+                {% if is_manager %}
+                    <div class="card-header py-3 px-3 bg-white session-stats-panel-head">
+                        {% if show_session_details and song_count > 0 %}
+                        <div class="mb-2">
+                            <input type="search"
+                                   class="form-control form-control-sm js-song-search-input mb-2"
+                                   placeholder="제목/아티스트 검색">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary w-100 js-toggle-all-applicants"
+                                    data-expanded="0">
+                                지원자 전체 펼치기
+                            </button>
+                        </div>
+                        {% endif %}
+                        <div class="fw-bold text-center mb-1">지원 현황판</div>
+                        <div class="text-center">
+                            <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정/지원한 곡 필터링</small>
+                            <div class="mt-1">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary d-none js-clear-member-filters">
+                                    필터링 전체 해제
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-2 session-stats-scroll">
+                        <div class="row g-2 session-stats-two-col">
+                            <div id="sessionStatsDesktopCol1" class="col-6">
+                                <div class="small text-muted text-center py-2 js-session-stats-loading">불러오는 중...</div>
+                            </div>
+                            <div id="sessionStatsDesktopCol2" class="col-6">
+                                <div class="small text-muted text-center py-2 js-session-stats-loading">불러오는 중...</div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="p-2">
+                        {% if show_session_details and song_count > 0 %}
+                        <input type="search"
+                               class="form-control form-control-sm js-song-search-input mb-2"
+                               placeholder="제목/아티스트 검색">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary w-100 js-toggle-all-applicants"
+                                data-expanded="0">
+                            지원자
+                        </button>
+                        {% else %}
+                        <div class="text-muted small text-center py-2">지원자 없음</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <div class="session-stats-resize-handle" aria-label="현황판 높이 조절"></div>
+            </div>
+        </div>
+    </div>
+
+    {# 메인 콘텐츠 열 #}
+    <div id="liveMeetingMainCol" class="col-12 col-lg-12 col-xl-12">
+
+    {% if is_manager %}
+    {# 모바일 토글 현황판 #}
+    <div class="d-lg-none mb-3">
+        <button class="btn btn-outline-secondary btn-sm w-100 d-flex justify-content-between align-items-center"
+                type="button" data-bs-toggle="collapse" data-bs-target="#memberStatusMobile" aria-expanded="false">
+            <span>🎛 지원 현황판</span>
+            <i class="bi bi-chevron-down"></i>
+        </button>
+        <div class="text-center mt-1">
+            <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정/지원한 곡 필터링</small>
+            <div class="mt-1">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary d-none js-clear-member-filters">
+                    필터링 전체 해제
+                </button>
+            </div>
+        </div>
+        <div class="collapse" id="memberStatusMobile">
+            <div class="border rounded p-2 mt-1 bg-white">
+                {% if show_session_details and song_count > 0 %}
+                <div class="mb-2">
+                    <input type="search"
+                           class="form-control form-control-sm js-song-search-input mb-2"
+                           placeholder="제목/아티스트 검색">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary w-100 js-toggle-all-applicants"
+                            data-expanded="0">
+                        세션 지원자 펼치기
+                    </button>
+                </div>
+                {% endif %}
+                {% if is_manager %}
+                <div class="row g-2 session-stats-two-col">
+                    <div id="sessionStatsMobileCol1" class="col-6">
+                        <div class="small text-muted text-center py-2 js-session-stats-loading">불러오는 중...</div>
+                    </div>
+                    <div id="sessionStatsMobileCol2" class="col-6">
+                        <div class="small text-muted text-center py-2 js-session-stats-loading">불러오는 중...</div>
+                    </div>
+                </div>
+                <div class="mt-1 px-2">
+                    <small class="text-muted" style="font-size: 0.7rem;">배정수/지원수</small><br>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not can_participate_meeting and not is_manager %}
+    <div class="alert {% if is_participation_rejected %}alert-danger{% elif is_participation_pending %}alert-warning{% else %}alert-info{% endif %} d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            {% if is_participation_rejected %}
+                참가 신청이 반려되었습니다. 필요하면 다시 신청하세요.
+            {% elif is_participation_pending %}
+                참가 승인 대기중입니다. 리더/매니저 승인 후 세션 지원이 가능합니다.
+            {% else %}
+                이 선곡회의에 아직 참여하지 않았습니다. 먼저 참가 신청을 해주세요.
+            {% endif %}
+        </div>
+        <form method="post" action="{% url 'meeting_join_request' meeting.id %}" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="sort" value="{{ sort_option }}">
+            <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
+            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+            <button type="submit" class="btn btn-sm btn-primary">
+                {% if is_join_policy_approval %}참가 신청{% else %}참여하기{% endif %}
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if is_manager and pending_participants %}
+    <div class="card border-warning mb-3">
+        <div class="card-header bg-warning-subtle fw-bold">참가 승인 대기 ({{ pending_participants|length }}명)</div>
+        <div class="list-group list-group-flush">
+            {% for p in pending_participants %}
+            <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <strong>{{ p.user.realname }}</strong>
+                    <span class="text-muted small">({{ p.user.username }})</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <form method="post" action="{% url 'meeting_participant_approve' meeting.id p.user.id %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">승인</button>
+                    </form>
+                    <form method="post" action="{% url 'meeting_participant_reject' meeting.id p.user.id %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">반려</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if show_session_details %}
+    {% if meeting.is_session_application_closed %}
+    <div class="mb-3">
+        {% if final_schedule_available and meeting.is_final_schedule_confirmed %}
+            <a href="{% url 'schedule_final' meeting.id %}" class="btn btn-primary w-100 py-3 fw-bold">
+                최종 합주 시간표 확인하기
+            </a>
+        {% elif is_manager and not meeting.is_final_schedule_confirmed %}
+            {% if has_my_work_draft or meeting.is_final_schedule_released %}
+                {% if meeting.is_booking_in_progress %}
+                    <a href="{% url 'schedule_final' meeting.id %}?mode=booking" class="btn btn-primary w-100 py-3 fw-bold">
+                        예약 마저하기
+                    </a>
+                {% else %}
+                    <a href="{% url 'schedule_match_run' meeting.id %}?{% if has_my_work_draft %}load_saved=1{% else %}from_final=1{% endif %}" class="btn btn-primary w-100 py-3 fw-bold">
+                        합주 일정 조율하기
+                    </a>
+                {% endif %}
+            {% else %}
+                <div class="border rounded bg-light text-secondary text-center fw-bold py-3">
+                    세션 지원 마감
+                </div>
+            {% endif %}
+        {% elif not is_manager %}
+            {% if final_schedule_available %}
+                <a href="{% url 'schedule_final' meeting.id %}" class="btn btn-primary w-100 py-3 fw-bold">
+                    임시 합주 일정 확인하기
+                </a>
+            {% else %}
+                <button type="button"
+                        class="btn btn-secondary w-100 py-3 fw-bold"
+                        style="cursor: not-allowed; opacity: 0.65;"
+                        disabled
+                        title="관리자가 변경 내용을 공유하면 확인할 수 있습니다.">
+                    임시 합주 일정 확인하기
+                </button>
+            {% endif %}
+        {% else %}
+            <div class="border rounded bg-light text-secondary text-center fw-bold py-3">
+                세션 지원 마감
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if is_manager and not is_final_locked %}
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="d-flex gap-2">
+        {% if total_song_count > 0 and rooms %}
+        <button type="button"
+                id="openSimulationBtn"
+                class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-eye"></i> 매칭 시뮬레이션
+        </button>
+        {% endif %}
+        {% if total_song_count > 0 %}
+        <form method="post" action="{% url 'random_assign_all' meeting.id %}" class="m-0"
+              data-random-assign-form="1">
+            {% csrf_token %}
+            <input type="hidden" name="sort" value="{{ sort_option }}">
+            <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
+            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+            {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
+            <button type="submit" class="btn btn-sm btn-outline-warning">
+                🎲 모든 곡 임의 배정
+            </button>
+        </form>
+        {% endif %}
+        </div>
+        <div class="text-end">
+            <form method="post" action="{% url 'toggle_meeting_session_application' meeting.id %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="sort" value="{{ sort_option }}">
+                <button type="submit"
+                        class="btn btn-sm {% if meeting.is_session_application_closed %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                    {% if meeting.is_session_application_closed %}세션 지원 마감 해제{% else %}세션 지원 마감{% endif %}
+                </button>
+            </form>
+            {% if not meeting.is_session_application_closed %}
+            <div class="text-muted small mt-1">
+                * 세션 지원 마감 이후에만 배정을 시작할 수 있습니다.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    <div id="setlistAjaxContainer">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <a href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}{% if quick_filter == 'assigned' %}{% else %}&quick_filter=assigned{% endif %}"
+               data-filter="assigned"
+               class="btn btn-sm {% if quick_filter == 'assigned' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
+                배정됨
+            </a>
+            <a href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}{% if quick_filter == 'applied' %}{% else %}&quick_filter=applied{% endif %}"
+               data-filter="applied"
+               class="btn btn-sm {% if quick_filter == 'applied' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                지원함
+            </a>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-nowrap">
+            {% if is_manager %}
+            <form method="get" class="d-flex align-items-center">
+                <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
+                <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+                <select id="sortSelect" name="sort" class="form-select form-select-sm" onchange="return applySortWithoutReload(this);">
+                    <option value="default" {% if sort_option == 'default' %}selected{% endif %}>등록순</option>
+                    <option value="created_desc" {% if sort_option == 'created_desc' %}selected{% endif %}>등록역순</option>
+                    <option value="unassigned_desc" {% if sort_option == 'unassigned_desc' %}selected{% endif %}>미배정 세션 많은 순</option>
+                </select>
+            </form>
+            {% endif %}
+            {% if show_list_mode_selector %}
+            <form method="get" class="d-flex align-items-center">
+                <input type="hidden" name="sort" value="{{ sort_option }}">
+                <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+                <select id="listModeSelect" name="list_mode" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="all" {% if list_mode == 'all' %}selected{% endif %}>전체보기</option>
+                    <option value="paged" {% if list_mode != 'all' %}selected{% endif %}>30곡씩 보기</option>
+                </select>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 position-relative">
+        <div class="d-flex align-items-center">
+            <h3 class="fw-bold mb-0">🎵 Setlist ({{ song_count }})</h3>
+        </div>
+
+        <div class="d-md-none w-100 d-flex justify-content-center order-3">
+            {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
+            <nav aria-label="Setlist pagination top">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if song_page.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.previous_page_number }}">이전</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">이전</span></li>
+                    {% endif %}
+
+                    {% for p in song_page.paginator.page_range %}
+                        {% if p >= song_page.number|add:-2 and p <= song_page.number|add:2 %}
+                            {% if p == song_page.number %}
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ p }}">{{ p }}</a>
+                            </li>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if song_page.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.next_page_number }}">다음</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">다음</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+
+        <div class="d-none d-md-flex position-absolute start-50 translate-middle-x">
+            {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
+            <nav aria-label="Setlist pagination top">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if song_page.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.previous_page_number }}">이전</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">이전</span></li>
+                    {% endif %}
+
+                    {% for p in song_page.paginator.page_range %}
+                        {% if p >= song_page.number|add:-2 and p <= song_page.number|add:2 %}
+                            {% if p == song_page.number %}
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ p }}">{{ p }}</a>
+                            </li>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if song_page.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.next_page_number }}">다음</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">다음</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-nowrap">
+            {% if not is_final_locked %}
+                {% if is_manager or can_participate_meeting and not meeting.is_session_application_closed %}
+                <a href="{% url 'song_create' meeting.id %}" class="btn btn-dark btn-sm">+ 곡 추가</a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <ul id="setlistList" class="list-group shadow-sm">
+        {% for s in song %}
+        <li class="list-group-item p-3 js-song-card {% if not is_manager %}song-card-collapsible{% endif %} {% if s.all_assigned %}bg-success bg-opacity-10{% elif s.has_unassigned_but_applicants_full %}bg-warning bg-opacity-10{% endif %}"
+            data-song-id="{{ s.id }}"
+            data-song-title="{{ s.title|escape }}"
+            data-song-artist="{{ s.artist|escape }}"
+            data-my-assigned-count="{{ s.my_assigned_count|default:0 }}"
+            data-my-applied-count="{{ s.my_applied_count|default:0 }}"
+            {% if s.author_note %}data-author-note="{{ s.author_note|escape }}"{% endif %}>
+            <div class="song-order-badge">{{ s.registration_order }}</div>
+
+            <div class="song-main-row mb-0 {% if not is_manager %}js-song-main-toggle song-main-interactive{% endif %}"
+                 {% if not is_manager %}tabindex="0" role="button" aria-expanded="false"{% endif %}>
+                <div class="song-meta-col">
+                    <h5 class="fw-bold mb-0" style="font-size: 1.1rem;">{{ s.title }}</h5>
+                    <div class="text-muted small mt-1">{{ s.artist }}</div>
+                </div>
+
+                {% if show_session_details %}
+                <div class="song-session-col">
+                    <div class="session-grid-wrapper mb-0">
+                        <div class="session-grid session-grid-basic">
+                            {% for item in s.ordered_sessions|slice:":6" %}
+                                {% with session=item.obj role=item.role abbr=item.abbr %}
+
+                                {% if session %}
+                                    <div>
+                                        {% if meeting.is_session_application_closed and is_manager and not is_final_locked %}
+                                            <button type="button"
+                                                    class="btn btn-sm {% if session.assignee %}{% if session.assignee.id == request.user.id %}btn-warning{% else %}btn-success{% endif %}{% else %}btn-outline-secondary{% endif %} btn-truncate w-100 js-session-slot-btn{% if session.assignee %} session-assigned-text{% endif %}"
+                                                    data-session-slot-id="{{ session.id }}"
+                                                    data-session-abbr="{{ abbr }}"
+                                                    data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                    data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                    data-assignee-id="{% if session.assignee_id %}{{ session.assignee_id }}{% endif %}"
+                                                    data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                    data-applicant-count="{{ item.applicant_count }}"
+                                                    data-slot-type="manager"
+                                                    title="{{ role }} 관리"
+                                                    data-manage-url="{% url 'session_manage_data' session.id %}?sort={{ sort_option|urlencode }}">
+                                                {{ abbr }}{% if session.assignee %}: {{ session.assignee.realname }}{% endif %}
+                                                <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
+                                            </button>
+                                        {% elif session.assignee %}
+                                            <button type="button"
+                                                    class="btn btn-sm {% if session.assignee.id == request.user.id %}btn-warning{% else %}btn-success{% endif %} btn-truncate w-100 assigned-user-{{ session.assignee.id }} js-session-slot-btn session-assigned-text"
+                                                    data-session-slot-id="{{ session.id }}"
+                                                    data-session-abbr="{{ abbr }}"
+                                                    data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                    data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                    data-assignee-id="{{ session.assignee_id }}"
+                                                    data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                    data-applicant-count="{{ item.applicant_count }}"
+                                                    data-slot-type="assigned"
+                                                    title="{{ role }}: {{ session.assignee.realname }}">
+                                                {{ abbr }}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span>
+                                            </button>
+                                        {% else %}
+                                            {% if meeting.is_session_application_closed or is_final_locked %}
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                                        data-session-slot-id="{{ session.id }}"
+                                                        data-session-abbr="{{ abbr }}"
+                                                        data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                        data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                        data-assignee-id=""
+                                                        data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                        data-applicant-count="{{ item.applicant_count }}"
+                                                        data-slot-type="disabled"
+                                                        disabled
+                                                        title="{% if is_final_locked %}{{ final_lock_hint }}{% else %}세션 지원이 마감되었습니다.{% endif %}">
+                                                    {{ abbr }}
+                                                    {% if item.applicant_count > 0 %}
+                                                        <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
+                                                    {% endif %}
+                                                </button>
+                                            {% else %}
+                                                <form action="{% url 'session_apply' session.id %}" method="post"
+                                                      class="js-session-apply"
+                                                      data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                      data-session-name="{{ role }}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="sort" value="{{ sort_option }}">
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-truncate w-100 js-session-slot-btn {% if item.my_applied %} btn-primary {% else %} btn-outline-secondary {% endif %}"
+                                                            data-session-slot-id="{{ session.id }}"
+                                                            data-session-abbr="{{ abbr }}"
+                                                            data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                            data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                            data-assignee-id=""
+                                                            data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                            data-applicant-count="{{ item.applicant_count }}"
+                                                            data-slot-type="apply"
+                                                            title="{{ role }} (지원자 {{ item.applicant_count }}명)">
+                                                        {{ abbr }}
+                                                        {% if item.applicant_count > 0 %}
+                                                            <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
+                                                        {% endif %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list song-applicants-{{ s.id }}"
+                                             data-session-id="{{ session.id }}"
+                                             data-song-id="{{ s.id }}"
+                                             data-applicant-count="{{ item.applicant_count }}"
+                                             data-loaded="0"></div>
+                                    </div>
+                                {% else %}
+                                    <div class="empty-slot">
+                                        {{ abbr }}
+                                    </div>
+                                {% endif %}
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
+                        {% if s.ordered_sessions|length > 6 %}
+                        <div class="session-grid session-grid-extra">
+                            {% for item in s.ordered_sessions|slice:"6:" %}
+                                {% with session=item.obj role=item.role abbr=item.abbr %}
+
+                                {% if session %}
+                                    <div>
+                                        {% if meeting.is_session_application_closed and is_manager and not is_final_locked %}
+                                            <button type="button"
+                                                    class="btn btn-sm {% if session.assignee %}{% if session.assignee.id == request.user.id %}btn-warning{% else %}btn-success{% endif %}{% else %}btn-outline-secondary{% endif %} btn-truncate w-100 js-session-slot-btn{% if session.assignee %} session-assigned-text{% endif %}"
+                                                    data-session-slot-id="{{ session.id }}"
+                                                    data-session-abbr="{{ abbr }}"
+                                                    data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                    data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                    data-assignee-id="{% if session.assignee_id %}{{ session.assignee_id }}{% endif %}"
+                                                    data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                    data-applicant-count="{{ item.applicant_count }}"
+                                                    data-slot-type="manager"
+                                                    title="{{ role }} 관리"
+                                                    data-manage-url="{% url 'session_manage_data' session.id %}?sort={{ sort_option|urlencode }}">
+                                                {{ abbr }}{% if session.assignee %}: {{ session.assignee.realname }}{% endif %}
+                                                <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
+                                            </button>
+                                        {% elif session.assignee %}
+                                            <button type="button"
+                                                    class="btn btn-sm {% if session.assignee.id == request.user.id %}btn-warning{% else %}btn-success{% endif %} btn-truncate w-100 assigned-user-{{ session.assignee.id }} js-session-slot-btn session-assigned-text"
+                                                    data-session-slot-id="{{ session.id }}"
+                                                    data-session-abbr="{{ abbr }}"
+                                                    data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                    data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                    data-assignee-id="{{ session.assignee_id }}"
+                                                    data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                    data-applicant-count="{{ item.applicant_count }}"
+                                                    data-slot-type="assigned"
+                                                    title="{{ role }}: {{ session.assignee.realname }}">
+                                                {{ abbr }}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span>
+                                            </button>
+                                        {% else %}
+                                            {% if meeting.is_session_application_closed or is_final_locked %}
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                                        data-session-slot-id="{{ session.id }}"
+                                                        data-session-abbr="{{ abbr }}"
+                                                        data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                        data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                        data-assignee-id=""
+                                                        data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                        data-applicant-count="{{ item.applicant_count }}"
+                                                        data-slot-type="disabled"
+                                                        disabled
+                                                        title="{% if is_final_locked %}{{ final_lock_hint }}{% else %}세션 지원이 마감되었습니다.{% endif %}">
+                                                    {{ abbr }}
+                                                    {% if item.applicant_count > 0 %}
+                                                        <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
+                                                    {% endif %}
+                                                </button>
+                                            {% else %}
+                                                <form action="{% url 'session_apply' session.id %}" method="post"
+                                                      class="js-session-apply"
+                                                      data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                      data-session-name="{{ role }}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="sort" value="{{ sort_option }}">
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-truncate w-100 js-session-slot-btn {% if item.my_applied %} btn-primary {% else %} btn-outline-secondary {% endif %}"
+                                                            data-session-slot-id="{{ session.id }}"
+                                                            data-session-abbr="{{ abbr }}"
+                                                            data-my-applied="{% if item.my_applied %}1{% else %}0{% endif %}"
+                                                            data-applicant-ids="{{ item.applicant_ids_csv|default:'' }}"
+                                                            data-assignee-id=""
+                                                            data-session-has-sheet="{% if session.has_sheet %}1{% else %}0{% endif %}"
+                                                            data-applicant-count="{{ item.applicant_count }}"
+                                                            data-slot-type="apply"
+                                                            title="{{ role }} (지원자 {{ item.applicant_count }}명)">
+                                                        {{ abbr }}
+                                                        {% if item.applicant_count > 0 %}
+                                                            <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
+                                                        {% endif %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list song-applicants-{{ s.id }}"
+                                             data-session-id="{{ session.id }}"
+                                             data-song-id="{{ s.id }}"
+                                             data-applicant-count="{{ item.applicant_count }}"
+                                             data-loaded="0"></div>
+                                    </div>
+                                {% else %}
+                                    <div class="empty-slot">
+                                        {{ abbr }}
+                                    </div>
+                                {% endif %}
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if not show_session_details %}
+            <div class="border rounded p-3 bg-light text-center">
+                <div class="fw-bold text-secondary">최종 합주 일정 조율 중</div>
+            </div>
+            {% endif %}
+
+            {% if s.youtube_embed_url %}
+            <div class="song-footer-row d-flex justify-content-between align-items-center {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}">
+                <div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
+                            data-song-id="{{ s.id }}"
+                            data-active="0">
+                        악보 있냐?
+                    </button>
+                    {% if s.youtube_embed_url %}
+                    <button class="btn btn-sm btn-outline-secondary ms-1"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#songYoutube{{ s.id }}"
+                            aria-expanded="false"
+                            aria-controls="songYoutube{{ s.id }}">
+                        ▶ 유튜브
+                    </button>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex gap-2 align-items-center flex-wrap justify-content-end">
+                    {% if is_leader or s.author == request.user %}
+                    {% if not is_final_locked %}
+                    <div class="d-flex gap-2">
+                        {% if is_leader %}
+                        <form action="{% url 'reset_song_assignments' s.id %}" method="post"
+                              data-assignment-reset-title="곡 배정 초기화"
+                              data-assignment-reset-message="이 곡({{ s.title|escape }})의 모든 배정 정보가 사라집니다. 지원자 정보는 유지됩니다. 계속할까요?">
+                            {% csrf_token %}
+                            <input type="hidden" name="sort" value="{{ sort_option }}">
+                            <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
+                            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+                            {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
+                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-arrow-counterclockwise"></i> 배정 초기화
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if s.author == request.user %}
+                            <a href="{% url 'song_update' s.id %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil-square"></i> 수정
+                            </a>
+                        {% endif %}
+                        {% if s.author == request.user or is_leader %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    data-song-title="{{ s.title|escape }}"
+                                    data-delete-url="{% url 'song_delete' s.id %}"
+                                    data-song-delete-btn="1">
+                                <i class="bi bi-trash"></i> 삭제
+                            </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% if show_session_details %}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
+                            data-song-id="{{ s.id }}"
+                            data-load-url="{% url 'song_applicants_data' s.id %}?sort={{ sort_option|urlencode }}"
+                            data-has-applicants="{% if s.total_applicant_count > 0 %}1{% else %}0{% endif %}"
+                            data-expanded="0">
+                        {% if is_manager %}지원자 펼치기{% else %}지원자{% endif %}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if s.youtube_embed_url %}
+            <div class="collapse mt-2" id="songYoutube{{ s.id }}">
+                <div class="ratio ratio-16x9 border rounded overflow-hidden">
+                    <iframe data-src="{{ s.youtube_embed_url }}"
+                            title="{{ s.title }} YouTube"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            loading="lazy"
+                            allowfullscreen></iframe>
+                </div>
+            </div>
+            {% endif %}
+            {% if not s.youtube_embed_url %}
+            {% if is_leader or s.author == request.user %}
+            {% if not is_final_locked %}
+            <div class="song-footer-row d-flex justify-content-between align-items-center {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}">
+                <div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
+                            data-song-id="{{ s.id }}"
+                            data-active="0">
+                        악보 있냐?
+                    </button>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap justify-content-end">
+                    <div class="d-flex gap-2">
+                        {% if is_leader %}
+                        <form action="{% url 'reset_song_assignments' s.id %}" method="post"
+                              data-assignment-reset-title="곡 배정 초기화"
+                              data-assignment-reset-message="이 곡({{ s.title|escape }})의 모든 배정 정보가 사라집니다. 지원자 정보는 유지됩니다. 계속할까요?">
+                            {% csrf_token %}
+                            <input type="hidden" name="sort" value="{{ sort_option }}">
+                            <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
+                            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+                            {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
+                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-arrow-counterclockwise"></i> 배정 초기화
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if s.author == request.user %}
+                            <a href="{% url 'song_update' s.id %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil-square"></i> 수정
+                            </a>
+                        {% endif %}
+                        {% if s.author == request.user or is_leader %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    data-song-title="{{ s.title|escape }}"
+                                    data-delete-url="{% url 'song_delete' s.id %}"
+                                    data-song-delete-btn="1">
+                                <i class="bi bi-trash"></i> 삭제
+                            </button>
+                        {% endif %}
+                    </div>
+                    {% if show_session_details %}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
+                            data-song-id="{{ s.id }}"
+                            data-load-url="{% url 'song_applicants_data' s.id %}?sort={{ sort_option|urlencode }}"
+                            data-has-applicants="{% if s.total_applicant_count > 0 %}1{% else %}0{% endif %}"
+                            data-expanded="0">
+                        {% if is_manager %}지원자 펼치기{% else %}지원자{% endif %}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% if is_final_locked %}
+            <div class="song-footer-row d-flex justify-content-between align-items-center {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
+                        data-song-id="{{ s.id }}"
+                        data-active="0">
+                    악보 있냐?
+                </button>
+                {% if show_session_details %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
+                        data-song-id="{{ s.id }}"
+                        data-load-url="{% url 'song_applicants_data' s.id %}?sort={{ sort_option|urlencode }}"
+                        data-has-applicants="{% if s.total_applicant_count > 0 %}1{% else %}0{% endif %}"
+                        data-expanded="0">
+                    {% if is_manager %}지원자 펼치기{% else %}지원자{% endif %}
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+            {% if not is_leader and s.author != request.user %}
+            <div class="song-footer-row d-flex justify-content-between align-items-center {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
+                        data-song-id="{{ s.id }}"
+                        data-active="0">
+                    악보 있냐?
+                </button>
+                {% if show_session_details %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
+                        data-song-id="{{ s.id }}"
+                        data-load-url="{% url 'song_applicants_data' s.id %}?sort={{ sort_option|urlencode }}"
+                        data-has-applicants="{% if s.total_applicant_count > 0 %}1{% else %}0{% endif %}"
+                        data-expanded="0">
+                    {% if is_manager %}지원자 펼치기{% else %}지원자{% endif %}
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+
+        </li>
+        {% empty %}
+        <li class="list-group-item text-center py-5 text-muted">등록된 곡이 없습니다.</li>
+        {% endfor %}
+    </ul>
+    {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
+    <nav class="mt-3" aria-label="Setlist pagination">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+            {% if song_page.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.previous_page_number }}">이전</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">이전</span></li>
+            {% endif %}
+
+            {% for p in song_page.paginator.page_range %}
+                {% if p >= song_page.number|add:-2 and p <= song_page.number|add:2 %}
+                    {% if p == song_page.number %}
+                    <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ p }}">{{ p }}</a>
+                    </li>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if song_page.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.next_page_number }}">다음</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">다음</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    </div>
+
+    <div class="my-5 d-flex justify-content-between align-items-center">
+
+        {% if is_leader and not is_final_locked %}
+            <form action="{% url 'reset_all_assignments' meeting.id %}" method="post"
+                  data-assignment-reset-title="모든 배정 초기화"
+                  data-assignment-reset-message="이 선곡회의의 모든 곡 세션 배정이 초기화됩니다. 지원자 정보는 유지됩니다. 정말 진행할까요?">
+                {% csrf_token %}
+                <input type="hidden" name="sort" value="{{ sort_option }}">
+                <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
+                <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+                {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
+                <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
+                    <i class="bi bi-trash3-fill"></i> 모든 배정 초기화
+                </button>
+            </form>
+        {% else %}
+            <div></div> {% endif %}
+
+        <div class="text-end" id="matchActionPanel"
+             data-room-count="{{ rooms|length }}"
+             data-is-closed="{% if meeting.is_session_application_closed %}1{% else %}0{% endif %}">
+            <div class="js-match-action-body">
+            {% if is_leader and not is_final_locked %}
+                {% if not has_my_work_draft %}
+                {{ unassigned_song_titles|json_script:"unassignedSongTitlesData" }}
+                {% if not meeting.is_session_application_closed %}
+                    <div class="d-inline-block text-end">
+                        <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
+                            <i class="bi bi-lock-fill"></i> 매칭 준비 중
+                        </button>
+                        <div class="text-danger small mt-1 fw-bold">
+                            * 먼저 세션 지원을 마감해주세요.
+                        </div>
+                    </div>
+                {% elif rooms and assigned_song_count > 0 %}
+                    <button type="button"
+                       id="openMatchFromDetailBtn"
+                       class="btn {% if has_unassigned_songs %}btn-warning text-dark{% else %}btn-primary{% endif %} fw-bold shadow-sm px-4"
+                       data-match-settings-url="{% url 'schedule_match_settings' meeting.id %}"
+                       data-room-count="{{ rooms|length }}"
+                       data-room-create-url="{% url 'meeting_room_create' meeting.id %}"
+                       data-has-unassigned="{% if has_unassigned_songs %}1{% else %}0{% endif %}">
+                        <i class="bi bi-magic"></i> 합주 시간 자동 매칭
+                    </button>
+                    {% if has_unassigned_songs %}
+                    <div class="text-warning small mt-1 fw-bold">
+                        * 아직 배정이 안된 노래가 있습니다.
+                    </div>
+                    {% endif %}
+                {% elif not rooms %}
+                    <div class="d-inline-block text-end">
+                        <button type="button"
+                                id="openMatchSettingsNoRoomBtn"
+                                class="btn btn-warning fw-bold shadow-sm px-4">
+                            <i class="bi bi-exclamation-triangle-fill"></i> 합주실 없슴
+                        </button>
+                        <div class="text-danger small mt-1 fw-bold">
+                            * 먼저 합주실 등록이 필요합니다.
+                        </div>
+                    </div>
+                {% elif assigned_song_count == 0 %}
+                    <div class="d-inline-block text-end">
+                        <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
+                            <i class="bi bi-lock-fill"></i> 매칭 준비 중
+                        </button>
+                        <div class="text-danger small mt-1 fw-bold">
+                            * 배정 완료된 곡이 없어 매칭할 수 없습니다.
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="d-inline-block text-end">
+                        <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
+                            <i class="bi bi-lock-fill"></i> 매칭 준비 중
+                        </button>
+                        <div class="text-danger small mt-1 fw-bold">
+                            * 현재 매칭 조건을 확인해주세요.
+                        </div>
+                    </div>
+                {% endif %}
+                {% endif %}
+            {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="border rounded p-5 bg-light text-center my-4">
+        <div class="fw-bold text-secondary" style="font-size: 1.8rem;">
+            {% if meeting.is_final_schedule_confirmed %}최종 합주 일정{% else %}임시 합주 일정 조율 중{% endif %}
+        </div>
+        {% if final_schedule_available %}
+        <div class="mt-3">
+            <a href="{% url 'schedule_final' meeting.id %}" class="btn btn-primary">
+                {% if meeting.is_final_schedule_confirmed %}최종 합주 시간표 확인하기{% else %}임시 합주 일정 확인하기{% endif %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    </div>{% comment %}메인 콘텐츠 열 닫기{% endcomment %}
+    </div>{% comment %}row 닫기{% endcomment %}
+{% if is_manager %}
+<div class="mt-4 pt-3 border-top d-flex justify-content-end">
+    <form method="post"
+          action="{% url 'meeting_delete' meeting.id %}"
+          data-delete-confirm-message="선곡회의를 삭제하시겠습니까? 곡/세션/일정 데이터가 함께 삭제됩니다."
+          class="m-0">
+        {% csrf_token %}
+        <input type="hidden" name="sort" value="{{ sort_option }}">
+        <input type="hidden" name="list_mode" value="{{ list_mode }}">
+        {% if song_page %}
+        <input type="hidden" name="page" value="{{ song_page.number }}">
+        {% endif %}
+        <button type="submit"
+                class="btn btn-outline-danger btn-sm"
+                {% if not can_delete_meeting %}disabled title="지원자가 있는 선곡회의는 삭제할 수 없습니다."{% endif %}>
+            선곡회의 삭제
+        </button>
+    </form>
+</div>
+{% endif %}
+
+</div>
+
+<div class="modal fade" id="deleteSongModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">곡 삭제 확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0"><strong id="deleteSongModalTitle">-</strong> 곡을 삭제하시겠습니까?</p>
+                <p class="small text-muted mb-0 mt-2">세션/지원 정보도 함께 사라집니다.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+                <form id="deleteSongForm" method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="sort" value="{{ sort_option }}">
+                    <button type="submit" class="btn btn-danger btn-sm">삭제</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="sessionManageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="sessionManageModalTitle">세션 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body" id="sessionManageModalBody">
+                <div class="text-muted small">불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="meetingFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">선곡회의 생성/수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh;">
+                <iframe id="meetingFormFrame" src="about:blank" style="width:100%;height:100%;border:0;" title="meeting-form"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="participantManageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">참가자 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh;">
+                <iframe id="participantManageFrame" src="about:blank" style="width:100%;height:100%;border:0;" title="participant-manage"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="unassignedSongsWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">배정 안 된 노래가 있습니다</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">아래 노래는 매칭에서 제외됩니다. 그래도 진행하겠습니까?</p>
+                <ul id="unassignedSongList" class="mb-0 ps-3"></ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+                <button type="button" id="proceedMatchSettingsBtn" class="btn btn-warning btn-sm">그래도 진행</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="assignmentResetConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-subtle">
+                <h5 class="modal-title fw-bold" id="assignmentResetConfirmTitle">배정 초기화 확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body" id="assignmentResetConfirmBody">
+                정말 초기화하시겠습니까?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+                <button type="button" id="submitAssignmentResetConfirmBtn" class="btn btn-danger btn-sm">초기화 진행</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

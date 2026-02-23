@@ -1,0 +1,28 @@
+# 환경변수 (절대 올리면 안 됨)
+.env
+
+# Claude Code
+.claude/
+
+# 데이터베이스
+db.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Django
+staticfiles/
+media/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store

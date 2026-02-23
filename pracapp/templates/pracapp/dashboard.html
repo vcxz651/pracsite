@@ -1,0 +1,456 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    .dashboard-container {
+    display: flex;
+    height: 90vh;
+    border: 1px solid #ddd;
+    margin-top: 20px;
+    }
+
+    .left-panel {
+    width: 30%;
+    border-right: 1px solid #ddd;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    }
+
+    .right-panel {
+    width: 70%;
+    padding: 30px;
+    overflow-y: auto;
+    }
+
+    .band-item {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: 0.2s;
+    }
+
+    .band-item:hover {
+    background-color: #e2e6ea;
+    }
+
+    .band-item.active {
+    background-color: #e3f2fd;
+    border-left: 5px solid #2196f3;
+    }
+
+    .band-link {
+    text-decoration: none;
+    color: #333;
+    display: block;
+    width: 100%; height: 100%;
+    }
+
+    .hover-effect {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid #eee;
+    }
+
+    .hover-effect:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+        border-color: #ddd;
+    }
+
+    .pending-overlay {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background-color: #f8f9fa; /* 회색 배경 */
+        color: #6c757d;
+        text-align: center;
+    }
+
+    .right-panel.pending-mode {
+        background-color: #e9ecef; /* 차분한 회색 */
+        display: flex;
+        justify-content: center;
+        align-items: center; /* 정중앙 배치 */
+    }
+
+    /* 2. 대기 메시지 박스 (흰색 카드) */
+    .pending-box {
+        background-color: white;
+        padding: 50px 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* 그림자로 붕 띄우기 */
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        animation: popIn 0.4s ease-out;
+    }
+
+    @keyframes popIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+</style>
+
+
+<div class="dashboard-container">
+
+    <div class="left-panel">
+        <div class="p-3 border-bottom bg-light">
+            <h6 class="m-0 fw-bold text-secondary">내 밴드 목록</h6>
+        </div>
+        {% for band in my_bands %}
+
+            <div class="band-item {% if band == selected_band %}active{% endif %}">
+                <a href="?band_id={{ band.id }}" class="band-link">
+                    <div class="d-flex justify-content-between align-items-center">
+
+                        <div class="d-flex align-items-center">
+                            <strong style="font-size: 1.1rem;">{{ band.name }}</strong>
+
+                            {% for ms in band.memberships.all %}
+                                {% if ms.user == request.user %}
+                                    {% if ms.role == 'LEADER' or ms.role == 'MANAGER' %}
+                                        {% if band.unapproved_member_count > 0 %}
+                                            <span class="badge rounded-pill bg-danger ms-2" style="font-size: 0.7rem;">
+                                                {{ band.unapproved_member_count }}
+                                            </span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <div>
+                            {% for ms in band.memberships.all %}
+                                {% if ms.user == request.user %}
+                                    {% if not ms.is_approved %}
+                                        <span class="badge bg-secondary text-white fw-normal" style="font-size:0.7em;">대기</span>
+                                    {% elif ms.role == 'LEADER' %}
+                                        <span class="badge bg-warning text-dark" style="font-size:0.7em;">L</span>
+                                    {% elif ms.role == 'MANAGER' %}
+                                        <span class="badge bg-info text-dark" style="font-size:0.7em;">M</span>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </a>
+            </div>
+        {% empty %}
+            <div style="padding:20px;">밴드가 없습니다.</div>
+
+        {% endfor %}
+    </div>
+
+    <div class="right-panel {% if selected_band and not is_approved %}pending-mode{% endif %}">
+    {% if selected_band %}
+
+        {% if is_approved %}
+            {% if is_manager %}
+                {% if enlist %}
+
+                    <div class="card border-warning mb-5">
+                        <div class="card-header bg-warning-subtle text-warning-emphasis fw-bold d-flex justify-content-between align-items-center">
+                            <span>가입 승인 대기중 ({{ enlist.count }})</span>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            {% for en in enlist %}
+                            <div class="list-group-item p-3">
+                                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+
+                                    <div class="me-auto" style="min-width: 0;"> <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <h6 class="mb-0 fw-bold text-break"> {{ en.user.realname }}
+                                                <small class="text-muted fw-normal ms-1">({{ en.user.nickname }})</small>
+                                            </h6>
+                                            <span class="badge bg-light text-dark border">
+                                                {{ en.user.get_instrument_display }}
+                                            </span>
+                                        </div>
+
+                                        {% if en.message %}
+                                            <p class="small text-muted mb-0 mt-2 text-truncate" style="max-width: 100%;">
+                                                "{{ en.message }}"
+                                            </p>
+                                        {% endif %}
+                                    </div>
+
+                                    <form action="{% url 'member_approve' en.id %}" method="post" class="d-flex gap-2 align-self-end align-self-sm-center mt-2 mt-sm-0">
+                                        {% csrf_token %}
+                                        <button type="submit" name="action" value="approve" class="btn btn-success btn-sm px-3 text-nowrap">
+                                            승인
+                                        </button>
+                                        <button type="submit" name="action" value="reject" class="btn btn-outline-danger btn-sm px-3 text-nowrap" onclick="return confirm('정말 거절하시겠습니까?')">
+                                            거절
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                {% endif %}
+            {% endif %}
+
+            <div class="d-flex justify-content-between align-items-center mb-3 mt-5">
+            <h3 class="m-0 fw-bold">공연 목록</h3>
+            {% if is_manager %}
+                <a href="#"
+                   onclick="return openMeetingModal('{% url 'meeting_create' selected_band.id %}');"
+                   class="btn btn-primary btn-sm">
+                    + 새 공연 생성
+                </a>
+            {% endif %}
+        </div>
+
+        <div class="row">
+            {% for m in meeting %}
+            <div class="col-12 mb-3">
+                <div class="card shadow-sm hover-effect h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <a href="{% if m.schedule_stage_code == 'FINAL_CONFIRMED' %}{% url 'schedule_final' m.id %}{% else %}{% url 'meeting_detail' m.id %}{% endif %}"
+                               class="text-decoration-none text-dark stretched-link">
+                                <h5 class="card-title fw-bold mb-1">
+                                    {{ m.title }}
+                                </h5>
+                            </a>
+
+                            <div class="d-flex align-items-center gap-2 position-relative z-2 flex-wrap justify-content-end">
+                                {% if m.schedule_stage_code == 'FINAL_CONFIRMED' %}
+                                    <span class="badge bg-success">합주 시간표 확정</span>
+                                {% elif m.schedule_stage_code == 'BOOKING_IN_PROGRESS' %}
+                                    <span class="badge bg-primary">예약중</span>
+                                {% elif m.schedule_stage_code == 'RELEASED_FOR_REVIEW' %}
+                                    <span class="badge bg-info text-dark">공유중</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">매칭중</span>
+                                {% endif %}
+                                {% if m.visibility == 'UNLISTED' %}
+                                    <span class="badge bg-secondary">링크전용</span>
+                                {% endif %}
+                                {% if m.join_policy == 'APPROVAL' %}
+                                    <span class="badge bg-warning text-dark">승인필요</span>
+                                {% endif %}
+                                {% if is_manager %}
+                                    <a href="#"
+                                       onclick="return openMeetingModal('{% url 'meeting_update' m.id %}');"
+                                       class="btn btn-outline-secondary btn-sm"
+                                       style="font-size: 0.8rem;">
+                                        수정
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                        </div>
+
+                        <div class="mt-2 text-muted small">
+                            <p class="mb-1">
+                                선곡회의 일시: {{ m.schedule|date:"Y년 m월 d일 (D) H:i" }}
+                            </p>
+                            <p class="mb-0">
+                                선곡회의 장소: {{ m.location }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+                <div class="col-12 text-center py-5 text-muted">
+                    아직 생성된 공연이 없습니다. <br>
+                </div>
+            {% endfor %}
+        </div>
+
+            <div class="mb-5 mt-5">
+            <h4 class="fw-bold mb-3">멤버 ({{ member.count }}명)</h4>
+            <div class="card shadow-sm border-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="ps-4">이름</th>
+                                <th scope="col">세션</th>
+                                <th scope="col">직책</th>
+
+                                {% if is_leader %}
+                                    <th scope="col" class="d-none d-md-table-cell">가입일</th>
+                                    <th scope="col" class="text-end pe-4">관리</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for m in member %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <strong>{{ m.user.realname }}</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary bg-opacity-10 text-dark border">
+                                        {{ m.user.get_instrument_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if m.role == 'LEADER' %}
+                                        <span class="badge bg-warning text-dark">리더</span>
+                                    {% elif m.role == 'MANAGER' %}
+                                        <span class="badge bg-info text-dark">매니저</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-secondary border">멤버</span>
+                                    {% endif %}
+                                </td>
+                                    {% if is_leader %}
+                                        <td class="text-muted small d-none d-md-table-cell">
+                                            {{ m.date_joined|date:"Y.m.d" }}
+                                        </td>
+                                    {% endif %}
+
+                                {% if is_leader %}
+                                    <td class="text-end pe-4">
+                                        {% if m.role != 'LEADER' and m.user != request.user %}
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-light border dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                    관리
+                                                </button>
+
+                                                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                                    {% if m.role == 'MEMBER' %}
+                                                        <li>
+                                                            <form action="{% url 'member_manage' m.id %}" method="post">
+                                                                {% csrf_token %}
+                                                                <button type="submit" name="action" value="promote" class="dropdown-item">
+                                                                    매니저 임명
+                                                                </button>
+                                                            </form>
+                                                        </li>
+                                                    {% elif m.role == 'MANAGER' %}
+                                                        <li>
+                                                            <form action="{% url 'member_manage' m.id %}" method="post">
+                                                                {% csrf_token %}
+                                                                <button type="submit" name="action" value="demote" class="dropdown-item">
+                                                                    일반멤버로 전환
+                                                                </button>
+                                                            </form>
+                                                        </li>
+                                                    {% endif %}
+
+                                                    <li><hr class="dropdown-divider"></li>
+
+                                                    <li>
+                                                        <form action="{% url 'member_manage' m.id %}" method="post">
+                                                            {% csrf_token %}
+                                                            <button type="submit" name="action" value="kick" class="dropdown-item text-danger" onclick="return confirm('{{ m.user.realname }}님을 정말 강퇴하시겠습니까?');">
+                                                                멤버 강퇴
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted small">-</span>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+
+            <div class="pending-box">
+                <h2 class="fw-bold mb-3">가입 승인 대기중...</h2>
+
+                <p class="text-muted mb-4">
+                    <strong>[{{ selected_band.name }}]</strong> 밴드의 관리자가<br>
+                    가입 요청을 확인하고 있습니다.<br>
+                    조금만 기다려주세요.
+                </p>
+
+                <div class="d-grid gap-2 col-8 mx-auto">
+                    <a href="{% url 'home' %}" class="btn btn-outline-secondary rounded-pill">
+                        홈으로 돌아가기
+                    </a>
+                </div>
+            </div>
+
+        {% endif %}
+
+
+    {% else %}
+        <div style="text-align: center; margin-top: 100px; color: #aaa">
+            <p>왼쪽 목록에서 관리할 밴드를 선택해주세요.</p>
+        </div>
+    {% endif %}
+
+    </div>
+</div>
+
+<div class="modal fade" id="meetingFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">선곡회의 생성/수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh;">
+                <iframe id="meetingFormFrame" src="about:blank" style="width:100%;height:100%;border:0;" title="meeting-form"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openMeetingModal(baseUrl) {
+        const frame = document.getElementById('meetingFormFrame');
+        const modalEl = document.getElementById('meetingFormModal');
+        if (!frame || !modalEl) return false;
+        frame.src = baseUrl + (baseUrl.indexOf('?') >= 0 ? '&' : '?') + 'modal=1';
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        return false;
+    }
+
+    window.addEventListener('message', function (event) {
+        if (event.origin !== window.location.origin || !event.data) return;
+        if (event.data.type === 'meeting_modal_saved') {
+            const modalEl = document.getElementById('meetingFormModal');
+            const frame = document.getElementById('meetingFormFrame');
+            if (modalEl) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+            if (frame) {
+                frame.src = 'about:blank';
+            }
+            if (event.data.redirect_url) {
+                window.location.href = event.data.redirect_url;
+            } else {
+                window.location.reload();
+            }
+        } else if (event.data.type === 'meeting_modal_close') {
+            const modalEl = document.getElementById('meetingFormModal');
+            const frame = document.getElementById('meetingFormFrame');
+            if (modalEl) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+            if (frame) {
+                frame.src = 'about:blank';
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .confirm-container { max-width: 700px; margin: 0 auto; }
+
+    .confirm-box {
+        background-color: #fff; border: 1px solid #e9ecef; border-radius: 12px;
+        padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+    .section-title {
+        font-weight: 800; font-size: 1.1rem; margin-bottom: 20px;
+        color: #343a40; border-bottom: 2px solid #f1f3f5; padding-bottom: 10px;
+    }
+
+    /* --- [NEW] 요일별 그룹 스타일 --- */
+    .day-group {
+        display: flex;
+        align-items: flex-start; /* 위쪽 정렬 */
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    /* 왼쪽: 요일 영역 */
+    .day-badge {
+        background-color: #f8f9fa;
+        width: 70px;
+        align-self: stretch; /* 높이 꽉 채우기 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: #495057;
+        border-right: 1px solid #dee2e6;
+    }
+    /* 토/일 색상 포인트 */
+    .day-badge.sat { color: #1971c2; background-color: #e7f5ff; }
+    .day-badge.sun { color: #e03131; background-color: #fff5f5; }
+
+    /* 오른쪽: 일정 리스트 영역 */
+    .day-items {
+        flex-grow: 1;
+        background-color: white;
+    }
+
+    /* 개별 일정 행 */
+    .schedule-row {
+        padding: 10px 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    .schedule-row:last-child { border-bottom: none; }
+
+    .row-reason { font-weight: 600; color: #212529; font-size: 0.95rem; }
+    .row-time { font-size: 0.85rem; color: #868e96; font-family: monospace; font-weight: bold; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; }
+
+
+    /* --- 예외 일정 스타일 (기존 유지 + 다듬기) --- */
+    .exception-list { list-style: none; padding-left: 0; }
+    .exception-item {
+        padding: 12px 15px; margin-bottom: 8px; border-radius: 8px;
+        font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* 추가됨 (불가) */
+    .exception-item.added { background-color: #fff5f5; border: 1px solid #ffc9c9; color: #c92a2a; }
+    /* 취소됨 (가능) */
+    .exception-item.cancelled { background-color: #ebfbee; border: 1px solid #b2f2bb; color: #2b8a3e; text-decoration: line-through; opacity: 0.8; }
+
+    .empty-msg {
+        color: #adb5bd; font-size: 0.9rem; text-align: center;
+        padding: 30px 0; border: 1px dashed #dee2e6; border-radius: 8px; background: #f8f9fa;
+    }
+</style>
+
+<div class="container mt-5 mb-5 confirm-container">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold">✅ 최종 일정 확인</h2>
+        <p class="text-muted">제출하기 전에 목록을 확인해주세요.</p>
+    </div>
+
+    <div class="confirm-box">
+
+        <div class="mb-5">
+            <div class="section-title">🔄 매주 반복되는 일정</div>
+
+            {% for group in fixed_schedules %}
+            <div class="day-group">
+                <div class="day-badge
+                    {% if group.day_str == '토' %}sat{% elif group.day_str == '일' %}sun{% endif %}">
+                    {{ group.day_str }}
+                </div>
+
+                <div class="day-items">
+                    {% for item in group.items %}
+                    <div class="schedule-row">
+                        <span class="row-reason">{{ item.reason }}</span>
+                        <span class="row-time">{{ item.time_str }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+                <div class="empty-msg">등록된 고정 일정이 없습니다.</div>
+            {% endfor %}
+        </div>
+
+        <div>
+            <div class="section-title">📅 특정 날짜 예외 사항</div>
+            <ul class="exception-list">
+                {% for item in all_exceptions %}
+                    {% if item.type == 'added' %}
+                        <li class="exception-item added">
+                            <div>
+                                <span class="badge bg-danger me-2">불가</span>
+                                <strong>{{ item.date|date:"n/j" }}({{ item.day_str }})</strong>
+                                <span class="ms-2">{{ item.reason }}</span>
+                            </div>
+                            <span class="fw-bold small">{{ item.start_time }} ~ {{ item.end_time }}</span>
+                        </li>
+                    {% else %}
+                        <li class="exception-item cancelled">
+                            <div>
+                                <span class="badge bg-success me-2">가능</span>
+                                <strong>{{ item.date|date:"n/j" }}({{ item.day_str }})</strong>
+                                <span class="ms-2">기존 일정 취소</span>
+                            </div>
+                            <span class="small">{{ item.start_time }} ~ {{ item.end_time }}</span>
+                        </li>
+                    {% endif %}
+                {% empty %}
+                    <div class="empty-msg">특이사항(예외 일정)이 없습니다.</div>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'schedule_oneoff' %}" class="btn btn-outline-secondary px-4 fw-bold">
+            ← 뒤로 가서 수정
+        </a>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm">
+                최종 제출하기
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

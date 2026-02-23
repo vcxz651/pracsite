@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4 mb-5" style="max-width: 720px;">
+    <h3 class="fw-bold mb-2">합주실 정보 수정</h3>
+    <p class="text-muted small mb-4">{{ room.name }} 정보를 수정합니다.</p>
+
+    <form method="post" class="card p-3 shadow-sm">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">{{ form.name.label }}</label>
+            {{ form.name }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label">{{ form.capacity.label }}</label>
+            {{ form.capacity }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label">{{ form.location.label }}</label>
+            {{ form.location }}
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{% url 'meeting_detail' meeting.id %}" class="btn btn-light">취소</a>
+            <button type="submit" class="btn btn-primary">저장</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

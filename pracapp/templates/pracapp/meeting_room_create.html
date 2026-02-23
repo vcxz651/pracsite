@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .week-card { border: 1px solid #dee2e6; border-radius: 10px; background: #fff; margin-bottom: 18px; }
+    .week-head { padding: 10px 12px; border-bottom: 1px solid #eceff1; font-weight: 700; }
+    .week-wrap { overflow-x: auto; }
+    .week-table { width: 100%; min-width: 920px; border-collapse: collapse; table-layout: fixed; }
+    .week-table th, .week-table td { border: 1px solid #edf0f2; padding: 0; text-align: center; font-size: 12px; }
+    .week-table th { background: #f8f9fa; height: 32px; }
+    .time-col { width: 68px; background: #fafbfc; color: #6c757d; font-weight: 600; }
+    .slot { height: 24px; cursor: pointer; background: #f4fff4; }
+    .slot.unavailable { background: #ffc9c9; }
+    .slot.disabled { background: #f1f3f5; cursor: not-allowed; }
+    .legend { display: flex; gap: 12px; align-items: center; font-size: 12px; color: #495057; }
+    .dot { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+    .dot-ok { background: #f4fff4; border: 1px solid #d3f9d8; }
+    .dot-no { background: #ffc9c9; border: 1px solid #ffa8a8; }
+</style>
+
+<div class="container mt-4 mb-5" style="max-width: 1100px;">
+    <h3 class="fw-bold mb-2">{% if is_edit %}합주실 수정{% else %}합주실 생성{% endif %}</h3>
+    <p class="text-muted small mb-4">
+        기간: {{ start_date }} ~ {{ end_date }}<br>
+        기본 상태는 <b>모두 가능</b>입니다. 아래 주차별 시간표에서 <b>불가능한 시간만</b> 선택하세요.
+    </p>
+
+    <form method="post" id="roomCreateForm" class="mb-4">
+        {% csrf_token %}
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">{{ form.name.label }}</label>
+                {{ form.name }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{{ form.capacity.label }}</label>
+                {{ form.capacity }}
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">{{ form.location.label }}</label>
+                {{ form.location }}
+            </div>
+        </div>
+
+        <input type="hidden" name="blocks_json" id="blocksJsonInput">
+
+        <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+            <div class="legend">
+                <span><span class="dot dot-ok"></span> 가능</span>
+                <span><span class="dot dot-no"></span> 불가능</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAllBtn">모두 가능으로 초기화</button>
+                <a href="{% url 'meeting_detail' meeting.id %}" class="btn btn-light btn-sm">취소</a>
+                <button type="submit" class="btn btn-primary btn-sm">{% if is_edit %}수정 저장{% else %}합주실 생성{% endif %}</button>
+            </div>
+        </div>
+    </form>
+
+    <div id="weeksContainer"></div>
+</div>
+
+<script>
+    const startDateStr = "{{ start_date }}";
+    const endDateStr = "{{ end_date }}";
+    const initialBlocks = JSON.parse('{{ initial_blocks|escapejs }}');
+
+    const SLOT_START = 18; // 09:00
+    const SLOT_END = 48;   // 24:00
+    const DAY_KOR = ['월', '화', '수', '목', '금', '토', '일'];
+
+    const blockedMap = {}; // { 'YYYY-MM-DD': Set(slotIdx) }
+
+    function parseLocalDate(str) {
+        const [y, m, d] = str.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    function fmtDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function buildInitialMap() {
+        for (const [dateStr, blocks] of Object.entries(initialBlocks || {})) {
+            if (!blockedMap[dateStr]) blockedMap[dateStr] = new Set();
+            for (const b of blocks) {
+                for (let i = b.start; i < b.end; i++) blockedMap[dateStr].add(i);
+            }
+        }
+    }
+
+    function toTimeLabel(slotIdx) {
+        const h = Math.floor(slotIdx / 2);
+        const m = slotIdx % 2 === 0 ? '00' : '30';
+        return `${String(h).padStart(2, '0')}:${m}`;
+    }
+
+    function mondayOf(dateObj) {
+        const d = new Date(dateObj);
+        const weekday = d.getDay(); // Sun=0
+        const diff = weekday === 0 ? -6 : 1 - weekday;
+        d.setDate(d.getDate() + diff);
+        return d;
+    }
+
+    function getWeekRanges(startDate, endDate) {
+        const ranges = [];
+        let cursor = mondayOf(startDate);
+        while (cursor <= endDate) {
+            const weekStart = new Date(cursor);
+            const weekEnd = new Date(cursor);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            ranges.push([weekStart, weekEnd]);
+            cursor.setDate(cursor.getDate() + 7);
+        }
+        return ranges;
+    }
+
+    let dragOn = false;
+    let dragMode = 'add'; // add/remove
+
+    function toggleCell(cell) {
+        if (cell.classList.contains('disabled')) return;
+        const dateStr = cell.dataset.date;
+        const slot = Number(cell.dataset.slot);
+        if (!blockedMap[dateStr]) blockedMap[dateStr] = new Set();
+        if (dragMode === 'add') {
+            blockedMap[dateStr].add(slot);
+            cell.classList.add('unavailable');
+        } else {
+            blockedMap[dateStr].delete(slot);
+            cell.classList.remove('unavailable');
+            if (blockedMap[dateStr].size === 0) delete blockedMap[dateStr];
+        }
+    }
+
+    function renderWeeks() {
+        const container = document.getElementById('weeksContainer');
+        container.innerHTML = '';
+
+        const startDate = parseLocalDate(startDateStr);
+        const endDate = parseLocalDate(endDateStr);
+        const weeks = getWeekRanges(startDate, endDate);
+
+        weeks.forEach((range, idx) => {
+            const [wStart, wEnd] = range;
+            const weekDiv = document.createElement('div');
+            weekDiv.className = 'week-card';
+
+            const head = document.createElement('div');
+            head.className = 'week-head';
+            head.textContent = `${idx + 1}주차 (${fmtDate(wStart)} ~ ${fmtDate(wEnd)})`;
+            weekDiv.appendChild(head);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'week-wrap';
+
+            const table = document.createElement('table');
+            table.className = 'week-table';
+
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            const thTime = document.createElement('th');
+            thTime.className = 'time-col';
+            thTime.textContent = '시간';
+            trh.appendChild(thTime);
+
+            const weekDates = [];
+            for (let d = 0; d < 7; d++) {
+                const dayDate = new Date(wStart);
+                dayDate.setDate(wStart.getDate() + d);
+                weekDates.push(dayDate);
+
+                const th = document.createElement('th');
+                th.textContent = `${DAY_KOR[d]} ${dayDate.getMonth() + 1}/${dayDate.getDate()}`;
+                trh.appendChild(th);
+            }
+            thead.appendChild(trh);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            for (let slot = SLOT_START; slot < SLOT_END; slot++) {
+                const tr = document.createElement('tr');
+                const tdTime = document.createElement('td');
+                tdTime.className = 'time-col';
+                tdTime.textContent = toTimeLabel(slot);
+                tr.appendChild(tdTime);
+
+                for (const dayDate of weekDates) {
+                    const td = document.createElement('td');
+                    const inRange = dayDate >= startDate && dayDate <= endDate;
+                    td.className = 'slot';
+                    td.dataset.date = fmtDate(dayDate);
+                    td.dataset.slot = String(slot);
+
+                    if (!inRange) {
+                        td.classList.add('disabled');
+                    } else {
+                        const dStr = td.dataset.date;
+                        if (blockedMap[dStr] && blockedMap[dStr].has(slot)) td.classList.add('unavailable');
+                        td.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            dragOn = true;
+                            dragMode = td.classList.contains('unavailable') ? 'remove' : 'add';
+                            toggleCell(td);
+                        });
+                        td.addEventListener('mouseenter', function () {
+                            if (!dragOn) return;
+                            toggleCell(td);
+                        });
+                    }
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            weekDiv.appendChild(wrap);
+            container.appendChild(weekDiv);
+        });
+    }
+
+    function buildPayload() {
+        const out = {};
+        for (const [dateStr, slotSet] of Object.entries(blockedMap)) {
+            const slots = Array.from(slotSet).sort((a, b) => a - b);
+            if (slots.length === 0) continue;
+            const blocks = [];
+            let start = slots[0];
+            let prev = slots[0];
+            for (let i = 1; i < slots.length; i++) {
+                const cur = slots[i];
+                if (cur === prev + 1) {
+                    prev = cur;
+                } else {
+                    blocks.push({ start: start, end: prev + 1 });
+                    start = cur;
+                    prev = cur;
+                }
+            }
+            blocks.push({ start: start, end: prev + 1 });
+            out[dateStr] = blocks;
+        }
+        return out;
+    }
+
+    document.addEventListener('mouseup', () => { dragOn = false; });
+    document.addEventListener('mouseleave', () => { dragOn = false; });
+
+    document.getElementById('clearAllBtn').addEventListener('click', function () {
+        Object.keys(blockedMap).forEach(k => delete blockedMap[k]);
+        renderWeeks();
+    });
+
+    document.getElementById('roomCreateForm').addEventListener('submit', function () {
+        const payload = buildPayload();
+        document.getElementById('blocksJsonInput').value = JSON.stringify(payload);
+    });
+
+    buildInitialMap();
+    renderWeeks();
+</script>
+{% endblock %}

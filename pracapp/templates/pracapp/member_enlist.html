@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 600px;">
+    
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white text-center">
+            <h2 class="mb-0">🎸 밴드 가입 신청서</h2>
+        </div>
+        
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <h4 class="text-dark"><strong>{{ target_band.name }}</strong></h4>
+                <p class="text-muted">
+                    리더: {{ leader }}
+                </p>
+                <hr>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    {{ form.message }}
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        신청서 제출하기 🚀
+                    </button>
+                    <a href="{% url 'band_list' %}" class="btn btn-outline-secondary">
+                        다음에 할래요 (취소)
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

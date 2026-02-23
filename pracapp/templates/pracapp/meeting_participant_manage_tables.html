@@ -1,0 +1,152 @@
+{% if pending_rows %}
+<div class="card border-warning mb-4">
+    <div class="card-header bg-warning-subtle fw-bold">신청/대기 목록 ({{ pending_rows|length }})</div>
+    <div class="card-body p-2">
+        <div class="list-group">
+            {% for row in pending_rows %}
+            <div class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div>
+                    <span class="fw-bold">{{ row.user.realname }}</span>
+                    <span class="text-muted small">({{ row.user.username }})</span>
+                </div>
+                <div class="d-flex gap-1">
+                    <button type="button"
+                            class="btn btn-sm btn-success js-participant-action"
+                            data-action="approve"
+                            data-user-id="{{ row.user.id }}">승인</button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger js-participant-action"
+                            data-action="reject"
+                            data-user-id="{{ row.user.id }}">거절</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header fw-bold">참여 인원 ({{ participant_rows|length }})</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>이름</th>
+                    <th>세션</th>
+                    <th>직책</th>
+                    <th class="text-end">관리</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in participant_rows %}
+                <tr>
+                    <td>
+                        <strong>{{ row.user.realname }}</strong>
+                        <span class="text-muted small">({{ row.user.username }})</span>
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ row.user.get_instrument_display }}</span></td>
+                    <td>
+                        {% if row.role == 'LEADER' %}
+                        <span class="badge bg-warning text-dark">리더</span>
+                        {% elif row.role == 'MANAGER' %}
+                        <span class="badge bg-info text-dark">매니저</span>
+                        {% elif row.meeting_role == 'MANAGER' %}
+                        <span class="badge bg-primary">회의 매니저</span>
+                        {% else %}
+                        <span class="badge bg-secondary">멤버</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.role != 'LEADER' and row.role != 'MANAGER' %}
+                        {% if row.meeting_role == 'MANAGER' %}
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary js-participant-action"
+                                data-action="unset_manager"
+                                data-user-id="{{ row.user.id }}">회의 매니저 해제</button>
+                        {% else %}
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary js-participant-action"
+                                data-action="set_manager"
+                                data-user-id="{{ row.user.id }}">회의 매니저 임명</button>
+                        {% endif %}
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary js-participant-action"
+                                data-action="remove"
+                                data-user-id="{{ row.user.id }}">제외</button>
+                        {% else %}
+                        <span class="text-muted small">고정 참여</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-3">현재 참여 인원이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-bold">미참여 인원 ({{ non_participant_rows|length }})</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>이름</th>
+                    <th>세션</th>
+                    <th>직책</th>
+                    <th class="text-end">관리</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in non_participant_rows %}
+                <tr>
+                    <td>
+                        <strong>{{ row.user.realname }}</strong>
+                        <span class="text-muted small">({{ row.user.username }})</span>
+                        {% if row.status == 'PENDING' %}
+                        <span class="badge bg-warning text-dark ms-1">신청 대기</span>
+                        {% elif row.status == 'REJECTED' %}
+                        <span class="badge bg-danger ms-1">거절됨</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ row.user.get_instrument_display }}</span></td>
+                    <td>
+                        {% if row.role == 'LEADER' %}
+                        <span class="badge bg-warning text-dark">리더</span>
+                        {% elif row.role == 'MANAGER' %}
+                        <span class="badge bg-info text-dark">매니저</span>
+                        {% elif row.meeting_role == 'MANAGER' %}
+                        <span class="badge bg-primary">회의 매니저</span>
+                        {% else %}
+                        <span class="badge bg-secondary">멤버</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-success js-participant-action"
+                                data-action="approve"
+                                data-user-id="{{ row.user.id }}">참여</button>
+                        {% if row.status == 'APPROVED' and row.role != 'LEADER' and row.role != 'MANAGER' %}
+                            {% if row.meeting_role == 'MANAGER' %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary js-participant-action"
+                                    data-action="unset_manager"
+                                    data-user-id="{{ row.user.id }}">회의 매니저 해제</button>
+                            {% else %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary js-participant-action"
+                                    data-action="set_manager"
+                                    data-user-id="{{ row.user.id }}">회의 매니저 임명</button>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-3">미참여 인원이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

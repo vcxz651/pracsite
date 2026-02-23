@@ -1,0 +1,932 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .match-card {
+        border: 0;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    .match-card-header {
+        background: linear-gradient(135deg, #1c7ed6, #1971c2);
+    }
+    .match-period-box {
+        border: 1px solid #d0ebff;
+        background: #f1f8ff;
+        border-radius: 12px;
+        padding: 14px 16px;
+    }
+    .match-period-label {
+        font-size: 0.8rem;
+        color: #3b5bdb;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .match-period-value {
+        font-size: 1.06rem;
+        font-weight: 800;
+        color: #1f2937;
+        letter-spacing: 0.01em;
+    }
+    .match-field {
+        margin-bottom: 18px;
+    }
+    .match-field label {
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    .match-help {
+        margin-top: 6px;
+        color: #868e96;
+        font-size: 0.85rem;
+        line-height: 1.35;
+        white-space: pre-line;
+    }
+    .advanced-toggle {
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+    .priority-wrap {
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 12px;
+        background: #fbfcfd;
+    }
+    .priority-item {
+        border: 1px solid #ced4da;
+        border-radius: 10px;
+        background: #fff;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.92rem;
+        font-weight: 600;
+        transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, opacity 180ms ease;
+    }
+    .priority-item:hover {
+        border-color: #a5d8ff;
+        box-shadow: 0 4px 12px rgba(28, 126, 214, 0.14);
+    }
+    .priority-item:last-child {
+        margin-bottom: 0;
+    }
+    .priority-item.dragging {
+        opacity: 0.68;
+        transform: scale(0.985);
+    }
+    .priority-item.inactive {
+        background: linear-gradient(180deg, #e9ecef, #dee2e6);
+        border-color: #adb5bd;
+        color: #6c757d;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+    .priority-item.inactive .priority-handle {
+        color: #6c757d;
+    }
+    .priority-handle {
+        color: #868e96;
+        font-size: 0.85rem;
+    }
+    .match-loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.72);
+        z-index: 2100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .match-loading-card {
+        width: min(560px, 94vw);
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 18px 42px rgba(2, 6, 23, 0.3);
+        padding: 20px 20px 18px;
+    }
+    .match-loading-title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 6px;
+    }
+    .match-loading-status {
+        font-size: 0.93rem;
+        color: #495057;
+        margin-bottom: 10px;
+        min-height: 1.2em;
+    }
+    .match-loading-note {
+        margin-top: 8px;
+        color: #6c757d;
+        font-size: 0.82rem;
+    }
+</style>
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="card shadow-sm match-card">
+        <div class="card-header text-white match-card-header">
+            <h4 class="m-0 fw-bold">🤖 합주 자동 매칭 설정</h4>
+        </div>
+        <div class="card-body p-4">
+            <p class="text-muted mb-4">
+                {{ meeting.title }}의 합주 일정을 자동으로 계산합니다.<br>
+                원하는 조건을 선택해주세요.
+            </p>
+
+            <div class="match-period-box mb-4">
+                <div class="match-period-label">합주 기간</div>
+                <div class="match-period-value">
+                    {% if meeting.practice_start_date and meeting.practice_end_date %}
+                        {{ meeting.practice_start_date|date:"Y.m.d" }} ({{ start_weekday }})
+                        ~
+                        {{ meeting.practice_end_date|date:"Y.m.d" }} ({{ end_weekday }})
+                    {% else %}
+                        미설정
+                    {% endif %}
+                </div>
+            </div>
+
+            <form id="matchSettingsForm" method="post"
+                  data-unassigned-song-count="{{ unassigned_song_count|default:0 }}"
+                  data-practice-start-date="{{ meeting.practice_start_date|date:'Y-m-d' }}"
+                  data-practice-end-date="{{ meeting.practice_end_date|date:'Y-m-d' }}"
+                  onsubmit="return confirmUnassignedExclusion(this);">
+                {{ unassigned_song_titles|json_script:"unassignedSongTitlesData" }}
+                {{ unassigned_song_details|json_script:"unassignedSongDetailsData" }}
+                {% csrf_token %}
+                <input type="hidden" name="popup_mode" value="{% if popup_mode %}1{% else %}0{% endif %}">
+                <input type="hidden" name="simulation" value="{% if simulation %}1{% else %}0{% endif %}">
+                <input type="hidden" name="ack_unassigned" value="0">
+                <div class="d-none">{{ form.room_ids }}</div>
+                <div class="match-field">
+                    {{ form.duration_minutes.label_tag }}
+                    {{ form.duration_minutes }}
+                    <div class="match-help">{{ form.duration_minutes.help_text }}</div>
+                    {% if unassigned_song_count > 0 %}
+                    <div class="alert alert-warning py-2 px-3 mt-2 mb-0 small">
+                        배정 안 된 노래 {{ unassigned_song_count }}곡은 자동 매칭에서 제외됩니다.
+                    </div>
+                    {% endif %}
+                    {% for error in form.duration_minutes.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="match-field">
+                    {{ form.required_count.label_tag }}
+                    {{ form.required_count }}
+                    <div class="match-help">주당 몇 번 합주할지 설정합니다.</div>
+                    {% for error in form.required_count.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="match-field">
+                    <div class="fw-bold mb-2">합주실 설정</div>
+                    <div class="small text-muted mb-2">드래그해서 위로 올릴수록 우선 배정합니다. 클릭하면 비활성화됩니다.</div>
+                    {% if has_rooms %}
+                        <div id="roomPriorityList" class="priority-wrap">
+                            {% for room_id, room_name in form.room_ids.field.choices %}
+                                <div class="priority-item" draggable="true" data-room-id="{{ room_id }}">
+                                    <span>{{ room_name }}</span>
+                                    <span class="priority-handle">드래그</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {{ form.room_priority_order }}
+                    {% else %}
+                        <div class="alert alert-warning py-2 px-3 mb-2">합주실 없슴. 먼저 합주실을 등록해줘.</div>
+                        <a href="{% url 'meeting_room_create' meeting.id %}" class="btn btn-sm btn-outline-primary">합주실 등록하기</a>
+                    {% endif %}
+                    {% for error in form.room_priority_order.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                    {% for error in form.room_ids.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                {{ form.priority_order }}
+
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg fw-bold" {% if not has_rooms %}disabled{% endif %}>
+                        매칭 시작하기 🚀
+                    </button>
+                    {% if popup_mode %}
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.close();">
+                            취소
+                        </button>
+                    {% else %}
+                        <a href="{% url 'meeting_detail' meeting.id %}" class="btn btn-outline-secondary">
+                            취소
+                        </a>
+                    {% endif %}
+                </div>
+
+                <div class="match-field mt-4 mb-0 d-grid">
+                    <button type="button" class="btn btn-outline-secondary btn-sm advanced-toggle" onclick="toggleAdvancedOptions(this)">
+                        고급 옵션 열기
+                    </button>
+                </div>
+
+                <div id="advancedOptionsBox" class="mt-3 d-none">
+                    <div class="fw-bold mb-2">매칭 우선순위 변경</div>
+                    <div class="small text-muted mb-2">자동 매칭 우선순위를 변경할 수 있습니다. 클릭으로 비활성할 시 해당 우선순위는 알고리즘에 포함되지 않습니다.</div>
+                    <div id="priorityList" class="priority-wrap">
+                        {% for item in priority_items %}
+                            <div class="priority-item" draggable="true" data-priority-key="{{ item.key }}">
+                                <span>{{ item.label }}</span>
+                                <span class="priority-handle">드래그</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-2 mb-1 d-flex justify-content-center text-end">
+                        <button type="button" class="btn d-flex btn-sm btn-outline-primary" id="priorityResetBtn">기본값으로 되돌리기</button>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="form-check">
+                            {{ form.exclude_weekends }}
+                            <label class="form-check-label fw-bold" for="{{ form.exclude_weekends.id_for_label }}">
+                                {{ form.exclude_weekends.label }}
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-1">{{ form.exclude_weekends.help_text }}</div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="form-check">
+                            {{ form.room_efficiency_priority }}
+                            <label class="form-check-label fw-bold" for="{{ form.room_efficiency_priority.id_for_label }}">
+                                {{ form.room_efficiency_priority.label }}
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-1">{{ form.room_efficiency_priority.help_text }}</div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="form-check">
+                            {{ form.hour_start_only }}
+                            <label class="form-check-label fw-bold" for="{{ form.hour_start_only.id_for_label }}">
+                                {{ form.hour_start_only.label }}
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-1">{{ form.hour_start_only.help_text }}</div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="fw-bold mb-2">합주시간 제한</div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                {{ form.time_limit_start }}
+                            </div>
+                            <div class="col-6">
+                                {{ form.time_limit_end }}
+                            </div>
+                        </div>
+                        {% for error in form.time_limit_start.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                        {% for error in form.time_limit_end.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                        <div class="small text-muted mt-1">선택한 시간 범위 안에서만 자동 매칭합니다.</div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div id="matchLoadingOverlay" class="match-loading-overlay d-none" aria-hidden="true">
+    <div class="match-loading-card">
+        <div class="match-loading-title">자동 매칭 계산 중</div>
+        <div id="matchLoadingStatus" class="match-loading-status">매칭 준비 중...</div>
+        <div class="progress" role="progressbar" aria-label="매칭 진행률" aria-valuemin="0" aria-valuemax="100">
+            <div id="matchLoadingBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%;">0%</div>
+        </div>
+        <div class="match-loading-note">데이터 양에 따라 수 초 이상 걸릴 수 있습니다.</div>
+    </div>
+</div>
+<div class="modal fade" id="matchStartConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">매칭 시작 전 확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <div id="matchStartConfirmWarning" class="alert alert-warning py-2 px-3 small d-none mb-2"></div>
+                <ul id="matchStartConfirmUnassignedList" class="mb-2 ps-3 small d-none"></ul>
+                <div id="matchStartConfirmRoomWrap" class="d-none mb-2">
+                    <div class="fw-bold mb-1">이번 매칭 사용 합주실(선호도 순)</div>
+                    <ul id="matchStartConfirmRoomList" class="mb-0 ps-3 small"></ul>
+                </div>
+                <div id="matchStartConfirmAdvancedWrap" class="d-none">
+                    <div class="fw-bold mb-1">변경된 고급 옵션</div>
+                    <ul id="matchStartConfirmAdvancedList" class="mb-0 ps-3 small"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+                <button type="button" id="matchStartConfirmProceedBtn" class="btn btn-primary btn-sm">그래도 진행</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    let matchConfirmBypass = false;
+    let advancedInitialSnapshot = null;
+    let matchLoadingActive = false;
+    let matchLoadingTimer = null;
+    let popupSubmitInFlight = false;
+
+    function parseYmdToUtcDate(raw) {
+        const m = String(raw || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        const d = Number(m[3]);
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+        return new Date(Date.UTC(y, mo - 1, d));
+    }
+
+    function isPopupModeForm(formEl) {
+        const popupField = formEl?.querySelector('input[name="popup_mode"]');
+        return String(popupField?.value || '0') === '1';
+    }
+
+    function getEstimatedWeekCount() {
+        const formEl = document.getElementById('matchSettingsForm');
+        if (!formEl) return 1;
+        const startRaw = String(formEl.dataset.practiceStartDate || '').trim();
+        const endRaw = String(formEl.dataset.practiceEndDate || '').trim();
+        const start = parseYmdToUtcDate(startRaw);
+        const end = parseYmdToUtcDate(endRaw);
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+            return 1;
+        }
+        const dayMs = 24 * 60 * 60 * 1000;
+        const days = Math.floor((end - start) / dayMs) + 1;
+        return Math.max(1, Math.ceil(days / 7));
+    }
+
+    function startMatchLoading() {
+        if (matchLoadingActive) return;
+        const overlay = document.getElementById('matchLoadingOverlay');
+        const statusEl = document.getElementById('matchLoadingStatus');
+        const barEl = document.getElementById('matchLoadingBar');
+        if (!overlay || !statusEl || !barEl) return;
+
+        matchLoadingActive = true;
+        overlay.classList.remove('d-none');
+        document.querySelectorAll('#matchSettingsForm button').forEach((el) => {
+            el.disabled = true;
+        });
+
+        const weekCount = getEstimatedWeekCount();
+        const statuses = [];
+        for (let i = 1; i <= weekCount; i += 1) {
+            statuses.push(`${i}주차 배치 완료`);
+        }
+        statuses.push('최종 충돌 검사 중...');
+        statuses.push('결과 화면 생성 중...');
+
+        let idx = 0;
+        const setStep = () => {
+            const total = statuses.length;
+            const percent = Math.min(96, Math.round(((idx + 1) / (total + 1)) * 100));
+            statusEl.textContent = statuses[Math.min(idx, total - 1)];
+            barEl.style.width = `${percent}%`;
+            barEl.textContent = `${percent}%`;
+            idx += 1;
+        };
+        setStep();
+        matchLoadingTimer = window.setInterval(() => {
+            if (!matchLoadingActive) return;
+            if (idx < statuses.length) {
+                setStep();
+                return;
+            }
+            barEl.style.width = '96%';
+            barEl.textContent = '96%';
+        }, 1100);
+    }
+
+    function stopMatchLoading() {
+        matchLoadingActive = false;
+        if (matchLoadingTimer) {
+            window.clearInterval(matchLoadingTimer);
+            matchLoadingTimer = null;
+        }
+        const overlay = document.getElementById('matchLoadingOverlay');
+        if (overlay) overlay.classList.add('d-none');
+        document.querySelectorAll('#matchSettingsForm button').forEach((el) => {
+            el.disabled = false;
+        });
+    }
+
+    function completeMatchLoadingAndClose() {
+        const statusEl = document.getElementById('matchLoadingStatus');
+        const barEl = document.getElementById('matchLoadingBar');
+        if (statusEl) statusEl.textContent = '매칭 완료. 결과 화면으로 이동합니다.';
+        if (barEl) {
+            barEl.style.width = '100%';
+            barEl.textContent = '100%';
+        }
+        if (matchLoadingTimer) {
+            window.clearInterval(matchLoadingTimer);
+            matchLoadingTimer = null;
+        }
+        window.setTimeout(() => {
+            window.close();
+        }, 350);
+    }
+
+    function monitorOpenerResultAndClose() {
+        let attempts = 0;
+        const timer = window.setInterval(() => {
+            attempts += 1;
+            const openerWin = window.opener;
+            if (!openerWin || openerWin.closed) {
+                window.clearInterval(timer);
+                stopMatchLoading();
+                return;
+            }
+            let completed = false;
+            try {
+                const openerDoc = openerWin.document;
+                const marker = openerDoc ? openerDoc.getElementById('matchResultPageMarker') : null;
+                const markerReady = !!marker && String(marker.dataset.renderReady || '0') === '1';
+                const docReady = !!openerDoc && openerDoc.readyState === 'complete';
+                const jsReady = !!openerWin.__MATCH_RESULT_RENDER_READY__;
+                completed = markerReady && docReady && jsReady;
+            } catch (_) {
+                completed = false;
+            }
+            if (completed) {
+                window.clearInterval(timer);
+                completeMatchLoadingAndClose();
+                return;
+            }
+            if (attempts >= 600) {
+                window.clearInterval(timer);
+                stopMatchLoading();
+                alert('매칭 대기 시간이 길어져 자동 종료를 중단했습니다. 부모 창에서 결과를 확인해주세요.');
+            }
+        }, 500);
+    }
+
+    async function submitPopupMatch(formEl) {
+        if (popupSubmitInFlight) return false;
+        popupSubmitInFlight = true;
+        const formData = new FormData(formEl);
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData,
+                credentials: 'same-origin',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.status !== 'ok' || !payload.run_url) {
+                throw new Error(payload.message || '매칭 요청 처리에 실패했습니다.');
+            }
+
+            const openerWin = window.opener;
+            if (!openerWin || openerWin.closed) {
+                throw new Error('부모 창을 찾을 수 없습니다.');
+            }
+            openerWin.location.href = String(payload.run_url);
+            monitorOpenerResultAndClose();
+            return false;
+        } catch (err) {
+            stopMatchLoading();
+            alert(err && err.message ? err.message : '매칭 요청 중 오류가 발생했습니다.');
+            return false;
+        } finally {
+            popupSubmitInFlight = false;
+        }
+    }
+
+    function parsePriorityKeys(value) {
+        return String(value || '').split(',').map(v => v.trim()).filter(Boolean);
+    }
+
+    function getPriorityLabelMap() {
+        return {
+            {% for item in priority_items %}
+            '{{ item.key }}': '{{ item.label|escapejs }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        };
+    }
+
+    function getUnassignedSongTitles() {
+        const el = document.getElementById('unassignedSongTitlesData');
+        if (!el) return [];
+        try {
+            const parsed = JSON.parse(el.textContent || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function getUnassignedSongDetails() {
+        const el = document.getElementById('unassignedSongDetailsData');
+        if (!el) return [];
+        try {
+            const parsed = JSON.parse(el.textContent || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function getAdvancedSnapshot() {
+        const priorityOrder = document.getElementById('id_priority_order')?.value || '';
+        const excludeWeekends = !!document.querySelector('input[name="exclude_weekends"]')?.checked;
+        const roomEfficiencyPriority = !!document.querySelector('input[name="room_efficiency_priority"]')?.checked;
+        const hourStartOnly = !!document.querySelector('input[name="hour_start_only"]')?.checked;
+        const timeStart = String(document.getElementById('id_time_limit_start')?.value || '');
+        const timeEnd = String(document.getElementById('id_time_limit_end')?.value || '');
+        return {
+            priorityOrder,
+            excludeWeekends,
+            roomEfficiencyPriority,
+            hourStartOnly,
+            timeStart,
+            timeEnd,
+        };
+    }
+
+    function toHourLabel(slotIndexStr) {
+        const n = Number(slotIndexStr);
+        if (!Number.isFinite(n)) return String(slotIndexStr || '-');
+        const h = Math.floor(n / 2);
+        const m = (n % 2 === 0) ? '00' : '30';
+        return `${h}:${m}`;
+    }
+
+    function getAdvancedChanges() {
+        if (!advancedInitialSnapshot) return [];
+        const cur = getAdvancedSnapshot();
+        const changes = [];
+
+        if (cur.priorityOrder !== advancedInitialSnapshot.priorityOrder) {
+            const labelMap = getPriorityLabelMap();
+            const activeKeys = parsePriorityKeys(cur.priorityOrder);
+            const labels = activeKeys.map((k) => labelMap[k] || k);
+            changes.push(`매칭 우선순위: ${labels.length ? labels.join(' > ') : '없음'}`);
+        }
+        if (cur.excludeWeekends !== advancedInitialSnapshot.excludeWeekends) {
+            changes.push(`주말 제외: ${cur.excludeWeekends ? 'ON' : 'OFF'}`);
+        }
+        if (cur.roomEfficiencyPriority !== advancedInitialSnapshot.roomEfficiencyPriority) {
+            changes.push(`예약 효율 우선: ${cur.roomEfficiencyPriority ? 'ON' : 'OFF'}`);
+        }
+        if (cur.hourStartOnly !== advancedInitialSnapshot.hourStartOnly) {
+            changes.push(`정시 시작만 허용: ${cur.hourStartOnly ? 'ON' : 'OFF'}`);
+        }
+        if (cur.timeStart !== advancedInitialSnapshot.timeStart || cur.timeEnd !== advancedInitialSnapshot.timeEnd) {
+            changes.push(`합주시간 제한: ${toHourLabel(cur.timeStart)} ~ ${toHourLabel(cur.timeEnd)}`);
+        }
+        return changes;
+    }
+
+    function openMatchStartConfirmModal(formEl, unassignedCount, advancedChanges) {
+        const modalEl = document.getElementById('matchStartConfirmModal');
+        if (!modalEl || !window.bootstrap) return false;
+        const warningEl = document.getElementById('matchStartConfirmWarning');
+        const unassignedListEl = document.getElementById('matchStartConfirmUnassignedList');
+        const roomWrap = document.getElementById('matchStartConfirmRoomWrap');
+        const roomListEl = document.getElementById('matchStartConfirmRoomList');
+        const advWrap = document.getElementById('matchStartConfirmAdvancedWrap');
+        const advList = document.getElementById('matchStartConfirmAdvancedList');
+        const proceedBtn = document.getElementById('matchStartConfirmProceedBtn');
+        const ackEl = formEl.querySelector('input[name="ack_unassigned"]');
+
+        if (warningEl) {
+            if (unassignedCount > 0) {
+                warningEl.classList.remove('d-none');
+                warningEl.textContent = `배정 안 된 노래가 ${unassignedCount}곡 있으며, 해당 곡은 매칭에서 제외됩니다.`;
+            } else {
+                warningEl.classList.add('d-none');
+                warningEl.textContent = '';
+            }
+        }
+        if (unassignedListEl) {
+            unassignedListEl.innerHTML = '';
+            if (unassignedCount > 0) {
+                const details = getUnassignedSongDetails();
+                const sliced = details.slice(0, 20);
+                sliced.forEach((row) => {
+                    const li = document.createElement('li');
+                    const title = String(row && row.title ? row.title : '');
+                    const sessions = Array.isArray(row && row.missing_sessions) ? row.missing_sessions : [];
+                    li.textContent = sessions.length
+                        ? `${title} (미배정: ${sessions.join(', ')})`
+                        : title;
+                    unassignedListEl.appendChild(li);
+                });
+                if (details.length > sliced.length) {
+                    const li = document.createElement('li');
+                    li.textContent = `외 ${details.length - sliced.length}곡`;
+                    unassignedListEl.appendChild(li);
+                }
+                unassignedListEl.classList.remove('d-none');
+            } else {
+                unassignedListEl.classList.add('d-none');
+            }
+        }
+
+        if (roomWrap && roomListEl) {
+            const roomSummary = getRoomUsageSummary();
+            roomListEl.innerHTML = '';
+            if (roomSummary.hasExcludedRooms) {
+                roomWrap.classList.remove('d-none');
+                roomSummary.selectedNames.forEach((name) => {
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    roomListEl.appendChild(li);
+                });
+                const note = document.createElement('li');
+                note.className = 'text-muted';
+                note.textContent = `선택 ${roomSummary.selectedCount} / 전체 ${roomSummary.totalCount}`;
+                roomListEl.appendChild(note);
+            } else {
+                roomWrap.classList.add('d-none');
+            }
+        }
+
+        if (advWrap && advList) {
+            advList.innerHTML = '';
+            if (advancedChanges.length) {
+                advWrap.classList.remove('d-none');
+                advancedChanges.forEach((txt) => {
+                    const li = document.createElement('li');
+                    li.textContent = txt;
+                    advList.appendChild(li);
+                });
+            } else {
+                advWrap.classList.add('d-none');
+            }
+        }
+
+        if (proceedBtn) {
+            proceedBtn.onclick = function () {
+                if (ackEl && unassignedCount > 0) ackEl.value = '1';
+                matchConfirmBypass = true;
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                formEl.requestSubmit();
+            };
+        }
+
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return false;
+    }
+
+    function initAdvancedSnapshot() {
+        advancedInitialSnapshot = getAdvancedSnapshot();
+    }
+
+    function confirmUnassignedExclusion(formEl) {
+        if (!(formEl instanceof HTMLFormElement)) return true;
+        if (matchConfirmBypass) {
+            matchConfirmBypass = false;
+            startMatchLoading();
+            if (isPopupModeForm(formEl)) {
+                submitPopupMatch(formEl);
+                return false;
+            }
+            return true;
+        }
+        const count = Number(formEl.dataset.unassignedSongCount || '0');
+        const normalizedCount = Number.isFinite(count) ? count : 0;
+        const advancedChanges = getAdvancedChanges();
+        const roomSummary = getRoomUsageSummary();
+        const ackEl = formEl.querySelector('input[name="ack_unassigned"]');
+        const needsUnassignedAck = normalizedCount > 0 && !(ackEl && ackEl.value === '1');
+        const needsAdvancedSummary = advancedChanges.length > 0;
+        const needsRoomScopeSummary = roomSummary.hasExcludedRooms;
+        if (!needsUnassignedAck && !needsAdvancedSummary && !needsRoomScopeSummary) {
+            startMatchLoading();
+            if (isPopupModeForm(formEl)) {
+                submitPopupMatch(formEl);
+                return false;
+            }
+            return true;
+        }
+        return openMatchStartConfirmModal(formEl, needsUnassignedAck ? normalizedCount : 0, advancedChanges);
+    }
+
+    function getRoomUsageSummary() {
+        const list = document.getElementById('roomPriorityList');
+        const items = list ? Array.from(list.querySelectorAll('.priority-item')) : [];
+        const selectedItems = items.filter((el) => !el.classList.contains('inactive'));
+        const selectedNames = selectedItems.map((el) => {
+            const labelEl = el.querySelector('span');
+            return String(labelEl ? labelEl.textContent : '').trim() || '이름 없음';
+        });
+        const totalCount = items.length;
+        const selectedCount = selectedItems.length;
+        return {
+            selectedNames,
+            totalCount,
+            selectedCount,
+            hasExcludedRooms: totalCount > 0 && selectedCount < totalCount,
+        };
+    }
+
+    function toggleAdvancedOptions(btn) {
+        const box = document.getElementById('advancedOptionsBox');
+        const isHidden = box.classList.contains('d-none');
+        box.classList.toggle('d-none', !isHidden);
+        btn.textContent = isHidden ? '고급 옵션 닫기' : '고급 옵션 열기';
+    }
+
+    function initPriorityDnD() {
+        const list = document.getElementById('priorityList');
+        if (!list) return;
+        const hiddenInput = document.getElementById('id_priority_order');
+        const resetBtn = document.getElementById('priorityResetBtn');
+        const defaultOrder = [{% for item in priority_items %}'{{ item.key }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+        const original = (hiddenInput && hiddenInput.value ? hiddenInput.value : '').split(',').map(v => v.trim()).filter(Boolean);
+
+        if (original.length) {
+            const map = new Map();
+            list.querySelectorAll('.priority-item').forEach(el => map.set(el.dataset.priorityKey, el));
+            original.forEach((key) => {
+                const el = map.get(key);
+                if (el) list.appendChild(el);
+            });
+            // 저장된 순서에 없는 신규 항목은 기본 순서대로 맨 뒤에 붙임
+            defaultOrder.forEach((key) => {
+                if (!original.includes(key)) {
+                    const el = map.get(key);
+                    if (el) {
+                        el.classList.add('inactive');
+                        list.appendChild(el);
+                    }
+                }
+            });
+        } else {
+            list.querySelectorAll('.priority-item').forEach((el) => el.classList.remove('inactive'));
+        }
+
+        let dragged = null;
+        let didDrag = false;
+        list.querySelectorAll('.priority-item').forEach(item => {
+            item.addEventListener('dragstart', () => {
+                dragged = item;
+                didDrag = false;
+                item.classList.add('dragging');
+            });
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                dragged = null;
+                syncPriorityHidden();
+                // drag 직후 발생하는 click 1회만 막고 이후에는 정상 토글되도록 복구
+                window.setTimeout(() => { didDrag = false; }, 0);
+            });
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (!dragged || dragged === item) return;
+                didDrag = true;
+                const rect = item.getBoundingClientRect();
+                const isAfter = e.clientY > rect.top + rect.height / 2;
+                if (isAfter) {
+                    item.after(dragged);
+                } else {
+                    item.before(dragged);
+                }
+            });
+            item.addEventListener('click', () => {
+                if (didDrag) {
+                    didDrag = false;
+                    return;
+                }
+                const activeItems = Array.from(list.querySelectorAll('.priority-item:not(.inactive)'));
+                const willDeactivate = !item.classList.contains('inactive');
+                if (willDeactivate && activeItems.length <= 1) {
+                    return;
+                }
+                item.classList.toggle('inactive', willDeactivate);
+                syncPriorityHidden();
+            });
+        });
+
+        function syncPriorityHidden() {
+            if (!hiddenInput) return;
+            const keys = Array.from(list.querySelectorAll('.priority-item:not(.inactive)')).map(el => el.dataset.priorityKey);
+            hiddenInput.value = keys.join(',');
+        }
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                const map = new Map();
+                list.querySelectorAll('.priority-item').forEach(el => map.set(el.dataset.priorityKey, el));
+                defaultOrder.forEach((key) => {
+                    const el = map.get(key);
+                    if (el) {
+                        el.classList.remove('inactive');
+                        list.appendChild(el);
+                    }
+                });
+                syncPriorityHidden();
+            });
+        }
+        syncPriorityHidden();
+    }
+
+    function initRoomPriorityDnD() {
+        const list = document.getElementById('roomPriorityList');
+        const hiddenInput = document.getElementById('id_room_priority_order');
+        if (!list || !hiddenInput) return;
+
+        const roomCheckboxes = Array.from(document.querySelectorAll('input[name="room_ids"]'));
+        const checkboxById = new Map(roomCheckboxes.map((el) => [el.value, el]));
+
+        const original = (hiddenInput.value || '').split(',').map(v => v.trim()).filter(Boolean);
+        if (original.length) {
+            const map = new Map();
+            list.querySelectorAll('.priority-item').forEach(el => map.set(el.dataset.roomId, el));
+            original.forEach((rid) => {
+                const el = map.get(rid);
+                if (el) list.appendChild(el);
+            });
+        }
+        list.querySelectorAll('.priority-item').forEach((item) => {
+            const rid = item.dataset.roomId;
+            const cb = checkboxById.get(rid);
+            item.classList.toggle('inactive', !!cb && !cb.checked);
+        });
+
+        let dragged = null;
+        let didDrag = false;
+        list.querySelectorAll('.priority-item').forEach(item => {
+            item.addEventListener('dragstart', () => {
+                dragged = item;
+                didDrag = false;
+                item.classList.add('dragging');
+            });
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                dragged = null;
+                syncRoomPriorityHidden();
+                // drag 직후 발생하는 click 1회만 막고 이후에는 정상 토글되도록 복구
+                window.setTimeout(() => { didDrag = false; }, 0);
+            });
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (!dragged || dragged === item) return;
+                didDrag = true;
+                const rect = item.getBoundingClientRect();
+                const isAfter = e.clientY > rect.top + rect.height / 2;
+                if (isAfter) item.after(dragged);
+                else item.before(dragged);
+            });
+            item.addEventListener('click', () => {
+                if (didDrag) {
+                    didDrag = false;
+                    return;
+                }
+                const activeItems = Array.from(list.querySelectorAll('.priority-item:not(.inactive)'));
+                const willDeactivate = !item.classList.contains('inactive');
+                if (willDeactivate && activeItems.length <= 1) {
+                    return;
+                }
+                item.classList.toggle('inactive', willDeactivate);
+                syncRoomPriorityHidden();
+            });
+        });
+
+        function syncRoomPriorityHidden() {
+            const activeIds = Array.from(list.querySelectorAll('.priority-item:not(.inactive)')).map(el => el.dataset.roomId);
+            hiddenInput.value = activeIds.join(',');
+            checkboxById.forEach((cb, rid) => {
+                cb.checked = activeIds.includes(rid);
+            });
+        }
+
+        syncRoomPriorityHidden();
+    }
+
+    initPriorityDnD();
+    initRoomPriorityDnD();
+    initAdvancedSnapshot();
+
+    window.addEventListener('beforeunload', () => {
+        if (matchLoadingTimer) {
+            window.clearInterval(matchLoadingTimer);
+            matchLoadingTimer = null;
+        }
+    });
+</script>
+{% endblock %}

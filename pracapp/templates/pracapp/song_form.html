@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    /* 1. 실제 체크박스는 못생겼으니까 숨김 */
+    .selection-box input[type="checkbox"] {
+        display: none;
+    }
+
+    /* 2. 라벨(버튼 모양)의 기본 상태 (회색/흰색) */
+    .selection-box label {
+        cursor: pointer;
+        background-color: #f8f9fa; /* 연한 회색 */
+        border: 1px solid #dee2e6;
+        color: #495057;
+        transition: all 0.2s ease-in-out; /* 부드럽게 변환 */
+    }
+
+    /* 3. 체크되었을 때(Selected) 상태 (파란색) */
+    .selection-box input[type="checkbox"]:checked + label {
+        background-color: #0d6efd; /* 부트스트랩 Primary Blue */
+        border-color: #0d6efd;
+        color: white;
+        box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2); /* 살짝 그림자 */
+    }
+
+    .sheet-session-grid .sheet-session-btn {
+        width: 100%;
+        border: 1px dashed #6c757d;
+        background: #fff;
+        color: #495057;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-weight: 700;
+        transform: translateY(0) scale(1);
+        transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+    }
+    .sheet-session-grid .sheet-session-btn.is-on {
+        border-style: solid;
+        border-color: #0d6efd;
+        background: rgba(13, 110, 253, 0.14);
+        color: #0b3d91;
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.18);
+        transform: translateY(-1px) scale(1.01);
+    }
+    .sheet-session-grid .sheet-session-btn:active {
+        transform: translateY(0) scale(0.995);
+    }
+</style>
+
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="card shadow-sm p-4 border-0">
+
+        <h2 class="fw-bold mb-4">🎵 곡 등록하기</h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">곡 제목</label>
+                {{ form.title }}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">아티스트</label>
+                {{ form.artist }}
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold d-block mb-2">필요한 세션</label>
+
+                <div class="row g-2">
+                    {% for checkbox in form.needed_session %}
+                    <div class="col-6 col-md-4">
+                        <div class="selection-box w-100">
+                            {{ checkbox.tag }}
+
+                            <label class="w-100 p-3 rounded text-center fw-bold d-flex align-items-center justify-content-center"
+                                   for="{{ checkbox.id_for_label }}"
+                                   style="height: 50px;">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">추가 세션 (선택)</label>
+                {{ form.extra_session }}
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">참고 링크 (YouTube 등)</label>
+                {{ form.url }}
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold d-block mb-2">세션별 악보 유무 (선택)</label>
+                {{ form.sheet_sessions }}
+                <div id="sheetSessionGrid" class="row g-2 sheet-session-grid"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">작성자 한 마디 (선택, 50자)</label>
+                {{ form.author_note }}
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-dark flex-grow-1 py-2">
+                    등록하기
+                </button>
+                <a href="{% url 'meeting_detail' meeting_id %}" class="btn btn-outline-secondary flex-grow-1 py-2">
+                    취소
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const neededInputs = Array.from(document.querySelectorAll('input[name="needed_session"]'));
+        const extraSessionInput = document.getElementById('id_extra_session');
+        const hiddenInput = document.getElementById('id_sheet_sessions');
+        const grid = document.getElementById('sheetSessionGrid');
+        if (!hiddenInput || !grid || !neededInputs.length) return;
+
+        const selectedSheetSet = new Set(
+            String(hiddenInput.value || '')
+                .split(',')
+                .map((x) => x.trim())
+                .filter(Boolean)
+        );
+
+        function syncHidden() {
+            hiddenInput.value = Array.from(selectedSheetSet).join(',');
+        }
+
+        function parseExtraSessionNames() {
+            if (!extraSessionInput) return [];
+            return String(extraSessionInput.value || '')
+                .split(',')
+                .map((x) => x.trim())
+                .filter(Boolean);
+        }
+
+        function getAvailableSessionItems() {
+            const items = [];
+            neededInputs
+                .filter((i) => i.checked)
+                .forEach((input) => {
+                    const name = String(input.value || '').trim();
+                    if (!name) return;
+                    const labelEl = document.querySelector(`label[for="${input.id}"]`);
+                    const label = labelEl ? String(labelEl.textContent || '').trim() : name;
+                    items.push({ name, label });
+                });
+            parseExtraSessionNames().forEach((name) => {
+                items.push({ name, label: name });
+            });
+
+            const dedup = [];
+            const seen = new Set();
+            items.forEach((it) => {
+                if (seen.has(it.name)) return;
+                seen.add(it.name);
+                dedup.push(it);
+            });
+            return dedup;
+        }
+
+        function buildSheetButtons() {
+            grid.innerHTML = '';
+            const sessionItems = getAvailableSessionItems();
+            if (!sessionItems.length) return;
+
+            sessionItems.forEach(({ name, label }) => {
+
+                const col = document.createElement('div');
+                col.className = 'col-6 col-md-4';
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'sheet-session-btn';
+                if (selectedSheetSet.has(name)) btn.classList.add('is-on');
+                btn.textContent = `${label} ${selectedSheetSet.has(name) ? '악보 O' : '악보 X'}`;
+                btn.addEventListener('click', () => {
+                    if (selectedSheetSet.has(name)) {
+                        selectedSheetSet.delete(name);
+                    } else {
+                        selectedSheetSet.add(name);
+                    }
+                    buildSheetButtons();
+                    syncHidden();
+                });
+
+                col.appendChild(btn);
+                grid.appendChild(col);
+            });
+
+            const neededNames = new Set(sessionItems.map((it) => it.name));
+            Array.from(selectedSheetSet).forEach((name) => {
+                if (!neededNames.has(name)) selectedSheetSet.delete(name);
+            });
+            syncHidden();
+        }
+
+        neededInputs.forEach((input) => {
+            input.addEventListener('change', buildSheetButtons);
+        });
+        if (extraSessionInput) {
+            extraSessionInput.addEventListener('input', buildSheetButtons);
+            extraSessionInput.addEventListener('change', buildSheetButtons);
+        }
+
+        buildSheetButtons();
+    })();
+</script>
+
+{% endblock %}
