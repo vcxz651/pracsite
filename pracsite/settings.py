@@ -2,6 +2,7 @@
 Django settings for pracsite project.
 """
 
+import dj_database_url
 import os
 from pathlib import Path
 
