@@ -111,3 +111,11 @@ LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'pracapp.User'
 
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+CSRF_TRUSTED_ORIGINS = [
+    f"https://{h.strip()}"
+    for h in os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
+    if h.strip() and h.strip() not in ('localhost', '127.0.0.1')
+]
+if RAILWAY_PUBLIC_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
