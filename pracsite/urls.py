@@ -64,6 +64,8 @@ urlpatterns = [
     path('meeting/<uuid:meeting_id>/match/move/', views.schedule_move_event, name='schedule_move_event'),
     path('meeting/<uuid:meeting_id>/reset_all/', views.reset_all_assignments, name='reset_all_assignments'),
     path('meeting/<uuid:meeting_id>/random_assign/', views.random_assign_all, name='random_assign_all'),
+    path('meeting/<uuid:meeting_id>/random_apply/', views.random_apply_all, name='random_apply_all'),
+    path('meeting/<uuid:meeting_id>/reset_all_applications/', views.reset_all_applications, name='reset_all_applications'),
     path('song/<uuid:song_id>/reset/', views.reset_song_assignments, name='reset_song_assignments'),
 
     path('meeting/<uuid:meeting_id>/song/<uuid:song_id>/extra-practice/', views.extra_practice, name='extra_practice'),
@@ -86,8 +88,8 @@ urlpatterns = [
     path('schedule/recurring/', views.schedule_recurring, name='schedule_recurring'),
     path('schedule/oneoff/', views.schedule_oneoff, name='schedule_oneoff'),
     path('schedule/confirm/', views.schedule_confirm, name='schedule_confirm'),
+    path('schedule/delete/', views.schedule_delete, name='schedule_delete'),
     path('my-schedule/', views.my_schedule, name='my_schedule'), # [NEW]
-    path('schedule/list/', views.schedule_list, name='schedule_list'),         # 목록 보   기
     path('schedule/load/', views.schedule_edit_loader, name='schedule_edit_loader'),
 
 

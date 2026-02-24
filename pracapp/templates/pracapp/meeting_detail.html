@@ -9,7 +9,10 @@
         --session-empty-h: 28px;
         --session-chip-bg: #f7fbff;
         --session-chip-border: #dbe7f3;
-        --session-stats-panel-w: 283px;
+        --session-stats-panel-w: 255px;
+    }
+    .bg-orange {
+        background-color: #ffe2b3 !important;
     }
 
     .session-grid {
@@ -62,9 +65,22 @@
     }
     .js-session-slot-btn.session-assigned-text {
         font-weight: 200;
+        text-overflow: clip;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        overflow: hidden;
     }
     .manager-page .js-session-slot-btn.session-assigned-text {
         font-weight: 700;
+    }
+    .session-assigned-main {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
     }
     .session-applicant-count-badge {
         background-color: #f1f3f5;
@@ -77,6 +93,10 @@
         min-width: 1.15rem;
         padding: 0.1rem 0.32rem;
         vertical-align: middle;
+        flex: 0 0 auto;
+    }
+    .session-applicant-count-badge.badge-hidden-by-width {
+        display: none !important;
     }
     @media (max-width: 500px) {
         .container.mt-4:not(.manager-page) .session-applicant-count-badge {
@@ -108,6 +128,10 @@
         text-overflow: ellipsis;
         cursor: default !important;
         pointer-events: none;
+        font-size: 0.8rem;
+        line-height: 1.25;
+        padding-top: 0.16rem;
+        padding-bottom: 0.16rem;
     }
 
     .applicant-chip:hover,
@@ -123,6 +147,10 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        font-size: 0.8rem;
+        line-height: 1.25;
+        padding-top: 0.16rem;
+        padding-bottom: 0.16rem;
     }
 
     .applicant-hover-btn.is-assigned {
@@ -292,10 +320,11 @@
         opacity: 1;
         border-top-color: #8ba8c9;
     }
-    @media (min-width: 1024px) and (max-width: 1919.98px) {
+    @media (min-width: 992px) and (max-width: 1919.98px) {
         #liveMeetingRow {
             display: flex;
             flex-wrap: nowrap;
+            align-items: stretch !important;
         }
         #sessionStatsSidebar {
             position: static;
@@ -306,6 +335,7 @@
             margin: 0 !important;
             pointer-events: auto;
             overflow: visible;
+            align-self: stretch;
         }
         #sessionStatsSidebar #sessionStatsStickyWrap {
             position: sticky;
@@ -395,6 +425,57 @@
         padding: 2px 6px;
         flex: 0 0 auto;
     }
+    .coverage-summary-box {
+        border: 1px solid #e3e8ef;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 8px 10px;
+    }
+    .coverage-summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.74rem;
+        line-height: 1.35;
+        border-radius: 6px;
+        padding: 3px 6px;
+        cursor: pointer;
+        transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+    }
+    .coverage-summary-row + .coverage-summary-row {
+        margin-top: 2px;
+    }
+    .coverage-summary-label {
+        color: #5c6770;
+        font-weight: 600;
+    }
+    .coverage-summary-value {
+        color: #1f2937;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .coverage-summary-row.state-full {
+        background-color: #e8f5e9;
+    }
+    .coverage-summary-row.state-one-missing {
+        background-color: #fff8d8;
+    }
+    .coverage-summary-row.state-two-missing {
+        background-color: #ffe2b3;
+    }
+    .coverage-summary-row.state-three-plus {
+        background-color: #f4b8bf;
+    }
+    .coverage-summary-row:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03), inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+        filter: saturate(1.05);
+    }
+    .coverage-summary-row.is-active {
+        box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.46);
+        filter: saturate(1.08);
+    }
     a[data-filter="assigned"].btn-success {
         --bs-btn-color: #143823;
         --bs-btn-bg: #8fd3a2;
@@ -438,8 +519,20 @@
     .js-song-card {
         transition: background-color 220ms ease, --bs-bg-opacity 220ms ease;
     }
+    .js-song-card.member-priority-highlight {
+        box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.45);
+    }
     .js-song-card.bg-success.bg-opacity-10 {
         background-color: #e8f5e9 !important;
+    }
+    .js-song-card.bg-warning.bg-opacity-10 {
+        background-color: #fff8d8 !important;
+    }
+    .js-song-card.bg-orange.bg-opacity-10 {
+        background-color: #ffe2b3 !important;
+    }
+    .js-song-card.bg-danger.bg-opacity-10 {
+        background-color: #f4b8bf !important;
     }
     .js-song-card .js-session-slot-btn {
         transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease, box-shadow 240ms ease;
@@ -576,6 +669,12 @@
         display: flex;
         align-items: center;
     }
+    .song-session-col.song-session-collapsible {
+        display: none;
+    }
+    .song-session-col.song-session-collapsible.is-expanded {
+        display: flex;
+    }
     .js-song-card.song-applicants-expanded .session-grid > .empty-slot {
         justify-content: center;
         align-items: center;
@@ -672,18 +771,35 @@
     .song-card-collapsible .song-main-interactive[aria-expanded="false"] {
         margin-bottom: 0;
     }
+    .song-card-collapsible .song-main-interactive[aria-expanded="false"] {
+        padding-top: 0.24rem;
+        padding-bottom: 0.24rem;
+    }
+    .song-card-collapsible .song-main-interactive[aria-expanded="false"] .song-meta-col {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    .song-card-collapsible .song-main-interactive[aria-expanded="false"] .song-meta-col .text-muted.small {
+        margin-top: 0.08rem !important;
+    }
+    .song-card-collapsible:has(.song-main-interactive[aria-expanded="false"]) {
+        padding-top: 0.22rem !important;
+        padding-bottom: 0.22rem !important;
+    }
     .manager-page .song-main-row {
         display: flex;
         align-items: stretch;
         gap: 12px;
     }
     .manager-page .song-meta-col {
-        flex: 0 0 260px;
-        width: 260px;
-        max-width: 260px;
+        flex: 0 1 185px;
+        width: auto;
+        max-width: 185px;
+        min-width: 120px;
         padding-left: 10px;
         padding-right: 10px;
         margin-bottom: 0;
+        overflow: hidden;
     }
     .manager-page .song-session-col {
         flex: 1 1 auto;
@@ -692,12 +808,64 @@
         display: flex;
         align-items: center;
     }
+    .manager-page .song-meta-col .song-title-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .manager-page .song-meta-col .song-artist-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     .manager-page .song-session-col .session-grid-wrapper {
         width: 100%;
     }
     .manager-page .song-footer-row {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        row-gap: 8px;
+        column-gap: 8px;
         padding-left: 12px;
         padding-right: 12px;
+    }
+    .manager-page .song-footer-row > div:first-child {
+        flex: 0 0 auto;
+        min-width: 0;
+    }
+    .manager-page .song-footer-row > div:last-child {
+        margin-left: auto;
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    .manager-page .song-footer-row > div:last-child > .d-flex {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px !important;
+    }
+    .manager-page .song-footer-row form {
+        max-width: 100%;
+    }
+    .manager-page .song-footer-row .btn {
+        white-space: nowrap;
+    }
+    .setlist-toolbar {
+        flex-wrap: wrap;
+        align-items: flex-start !important;
+        row-gap: 8px;
+    }
+    .setlist-toolbar .setlist-toolbar-actions {
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        row-gap: 6px;
     }
     @media (max-width: 991.98px) {
         .song-main-row {
@@ -726,11 +894,28 @@
             flex: 1 1 auto;
             width: 100%;
             max-width: none;
+            min-width: 0;
             padding-right: 0;
             padding-bottom: 8px;
         }
         .manager-page .song-session-col {
             padding-left: 0;
+        }
+        .setlist-toolbar {
+            align-items: stretch !important;
+        }
+        .setlist-toolbar .setlist-toolbar-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        .manager-page .song-footer-row > div:last-child {
+            width: 100%;
+            margin-left: 0;
+            justify-content: flex-start;
+        }
+        .manager-page .song-footer-row > div:last-child > .d-flex {
+            width: 100%;
+            justify-content: flex-start;
         }
     }
     #matchActionPanel .js-match-run-btn {
@@ -754,6 +939,7 @@
     const activeMemberFilterUserIds = new Set();
     let hoverMemberUserId = '';
     let activeSongQuickFilter = '';
+    let activeCoverageFilter = '';
     let activeSongSearchQuery = '';
     let searchRestoreUrl = '';
     let pendingAssignmentResetForm = null;
@@ -1294,22 +1480,102 @@
     function updateSongCardVisual(songCard) {
         if (!songCard) return;
         const slots = getSongCardSessionButtons(songCard);
-        const total = slots.length;
-        const assigned = slots.filter((btn) => String(btn.dataset.assigneeId || '').trim() !== '').length;
-        const hasMissingApplicants = total > 0 && slots.some((btn) => parseSlotApplicantCount(btn) === 0);
-        const allAssigned = total > 0 && assigned === total;
-        const hasUnassignedButApplicantsFull = total > 0 && !allAssigned && !hasMissingApplicants;
+        const missingApplicantSessionCount = slots.filter((btn) => parseSlotApplicantCount(btn) <= 0).length;
 
-        songCard.classList.remove('bg-success', 'bg-warning', 'bg-danger', 'bg-opacity-10');
-        if (allAssigned) {
+        songCard.classList.remove('bg-success', 'bg-warning', 'bg-orange', 'bg-danger', 'bg-opacity-10');
+        if (missingApplicantSessionCount <= 0) {
             songCard.classList.add('bg-success', 'bg-opacity-10');
-        } else if (hasUnassignedButApplicantsFull) {
+        } else if (missingApplicantSessionCount === 1) {
             songCard.classList.add('bg-warning', 'bg-opacity-10');
+        } else if (missingApplicantSessionCount === 2) {
+            songCard.classList.add('bg-orange', 'bg-opacity-10');
+        } else {
+            songCard.classList.add('bg-danger', 'bg-opacity-10');
         }
+        scheduleCoverageSummaryRefresh();
     }
 
     function updateAllSongCardVisuals() {
         document.querySelectorAll('.js-song-card').forEach((card) => updateSongCardVisual(card));
+        renderCoverageSummary();
+    }
+
+    let coverageSummaryRefreshQueued = false;
+    function scheduleCoverageSummaryRefresh() {
+        if (coverageSummaryRefreshQueued) return;
+        coverageSummaryRefreshQueued = true;
+        requestAnimationFrame(() => {
+            coverageSummaryRefreshQueued = false;
+            renderCoverageSummary();
+        });
+    }
+
+    function getSongMissingApplicantSessionCount(songCard) {
+        const slots = getSongCardSessionButtons(songCard);
+        return slots.filter((btn) => parseSlotApplicantCount(btn) <= 0).length;
+    }
+
+    function renderCoverageSummary() {
+        const cards = Array.from(document.querySelectorAll('.js-song-card'));
+        let full = 0;
+        let oneMissing = 0;
+        let twoMissing = 0;
+        let threePlusMissing = 0;
+        cards.forEach((card) => {
+            const missing = getSongMissingApplicantSessionCount(card);
+            if (missing <= 0) full += 1;
+            else if (missing === 1) oneMissing += 1;
+            else if (missing === 2) twoMissing += 1;
+            else threePlusMissing += 1;
+        });
+
+        const html = `
+            <div class="coverage-summary-row state-full js-coverage-summary-row" data-coverage-filter="full">
+                <span class="coverage-summary-label">전 세션 지원</span>
+                <span class="coverage-summary-value">${full}곡</span>
+            </div>
+            <div class="coverage-summary-row state-one-missing js-coverage-summary-row" data-coverage-filter="one">
+                <span class="coverage-summary-label">한 세션 부족</span>
+                <span class="coverage-summary-value">${oneMissing}곡</span>
+            </div>
+            <div class="coverage-summary-row state-two-missing js-coverage-summary-row" data-coverage-filter="two">
+                <span class="coverage-summary-label">두 세션 부족</span>
+                <span class="coverage-summary-value">${twoMissing}곡</span>
+            </div>
+            <div class="coverage-summary-row state-three-plus js-coverage-summary-row" data-coverage-filter="three_plus">
+                <span class="coverage-summary-label">세 세션 이상 부족</span>
+                <span class="coverage-summary-value">${threePlusMissing}곡</span>
+            </div>
+        `;
+        ['sessionCoverageSummaryDesktop', 'sessionCoverageSummaryMobile'].forEach((id) => {
+            const target = document.getElementById(id);
+            if (target) target.innerHTML = html;
+        });
+        syncCoverageFilterUi();
+    }
+
+    function coverageFilterMatches(missingCount, mode) {
+        if (!mode) return true;
+        if (mode === 'full') return missingCount <= 0;
+        if (mode === 'one') return missingCount === 1;
+        if (mode === 'two') return missingCount === 2;
+        if (mode === 'three_plus') return missingCount >= 3;
+        return true;
+    }
+
+    function syncCoverageFilterUi() {
+        document.querySelectorAll('.js-coverage-summary-row').forEach((row) => {
+            const mode = String(row.dataset.coverageFilter || '');
+            row.classList.toggle('is-active', !!activeCoverageFilter && activeCoverageFilter === mode);
+        });
+    }
+
+    function toggleCoverageFilter(mode) {
+        const next = String(mode || '');
+        activeCoverageFilter = activeCoverageFilter === next ? '' : next;
+        syncCoverageFilterUi();
+        applySongQuickFilter();
+        return false;
     }
 
     function getAssignedCountForMemberInSong(songCard, userId) {
@@ -1337,8 +1603,48 @@
         if (!songCard || !userId) return false;
         const uid = String(userId);
         const assigned = getAssignedCountForMemberInSong(songCard, uid);
-        const applied = getAppliedCountForMemberInSong(songCard, uid);
-        return (assigned + applied) > 0;
+        return assigned > 0;
+    }
+
+    function getSongPriorityByMemberOrder(songCard, userIds) {
+        if (!songCard || !Array.isArray(userIds) || !userIds.length) {
+            return { index: Number.POSITIVE_INFINITY, score: 0 };
+        }
+        for (let i = 0; i < userIds.length; i += 1) {
+            const uid = String(userIds[i] || '');
+            if (!uid) continue;
+            const assigned = getAssignedCountForMemberInSong(songCard, uid);
+            if (assigned > 0) {
+                return { index: i, score: assigned };
+            }
+        }
+        return { index: Number.POSITIVE_INFINITY, score: 0 };
+    }
+
+    function applyMemberPrioritySort() {
+        const list = document.getElementById('setlistList');
+        if (!list) return;
+        const cards = Array.from(list.querySelectorAll('.js-song-card'));
+        const activeIds = Array.from(activeMemberFilterUserIds);
+
+        if (!activeIds.length) {
+            cards.forEach((card) => card.classList.remove('member-priority-highlight'));
+            resetSongSortToBaseline();
+            return;
+        }
+
+        cards.sort((a, b) => {
+            const aPriority = getSongPriorityByMemberOrder(a, activeIds);
+            const bPriority = getSongPriorityByMemberOrder(b, activeIds);
+            if (aPriority.index !== bPriority.index) return aPriority.index - bPriority.index;
+            if (aPriority.score !== bPriority.score) return bPriority.score - aPriority.score;
+            return Number(a.dataset.baseOrder || 0) - Number(b.dataset.baseOrder || 0);
+        });
+        cards.forEach((card) => {
+            const priority = getSongPriorityByMemberOrder(card, activeIds);
+            card.classList.toggle('member-priority-highlight', Number.isFinite(priority.index));
+            list.appendChild(card);
+        });
     }
 
     function syncActiveMemberStatRows() {
@@ -1385,30 +1691,8 @@
         syncHoverMemberHighlights();
     }
 
-    function applyMemberSongSort(userId) {
-        const list = document.getElementById('setlistList');
-        if (!list) return;
-        const uid = String(userId || '');
-        const cards = Array.from(list.querySelectorAll('.js-song-card'));
-        cards.sort((a, b) => {
-            const aAssigned = getAssignedCountForMemberInSong(a, uid);
-            const bAssigned = getAssignedCountForMemberInSong(b, uid);
-            const aApplied = getAppliedCountForMemberInSong(a, uid);
-            const bApplied = getAppliedCountForMemberInSong(b, uid);
-            const aTouched = (aAssigned + aApplied) > 0 ? 1 : 0;
-            const bTouched = (bAssigned + bApplied) > 0 ? 1 : 0;
-            if (bTouched !== aTouched) return bTouched - aTouched;
-            const aScore = (aAssigned * 10) + aApplied;
-            const bScore = (bAssigned * 10) + bApplied;
-            if (bScore !== aScore) return bScore - aScore;
-            return Number(a.dataset.baseOrder || 0) - Number(b.dataset.baseOrder || 0);
-        });
-        cards.forEach((card) => list.appendChild(card));
-    }
-
     function applyCombinedSongVisibility() {
         const cards = document.querySelectorAll('.js-song-card');
-        const activeFilterIds = Array.from(activeMemberFilterUserIds);
         const searchTokens = normalizeSearchText(activeSongSearchQuery).split(' ').filter(Boolean);
         cards.forEach((card) => {
             const assignedCount = Number(card.dataset.myAssignedCount || 0);
@@ -1419,8 +1703,9 @@
             } else if (activeSongQuickFilter === 'applied') {
                 visible = appliedCount > 0;
             }
-            if (visible && activeFilterIds.length) {
-                visible = activeFilterIds.some((uid) => isSongTouchedByMember(card, uid));
+            if (visible && activeCoverageFilter) {
+                const missing = getSongMissingApplicantSessionCount(card);
+                visible = coverageFilterMatches(missing, activeCoverageFilter);
             }
             if (visible && searchTokens.length) {
                 const haystack = normalizeSearchText(`${card.dataset.songTitle || ''} ${card.dataset.songArtist || ''}`);
@@ -1428,6 +1713,7 @@
             }
             card.style.display = visible ? '' : 'none';
         });
+        applyMemberPrioritySort();
         syncMemberFilterResetButtons();
     }
 
@@ -1946,6 +2232,35 @@
         return m ? m[1] : '';
     }
 
+    function rebalanceAssignedSlotBadge(btn) {
+        if (!btn || !btn.classList.contains('session-assigned-text')) return;
+        const badge = btn.querySelector('.session-applicant-count-badge');
+        const main = btn.querySelector('.session-assigned-main');
+        if (!badge) return;
+
+        // 이름 영역이 없는 경우(예외 렌더)는 기존 배지 표시 유지
+        if (!main) {
+            badge.classList.remove('badge-hidden-by-width');
+            return;
+        }
+
+        // 1) 기본 상태(배지 표시)로 놓고 이름 잘림 여부를 본다.
+        badge.classList.remove('badge-hidden-by-width');
+
+        // 버튼 전체가 아니라 "이름 영역"이 잘렸는지로 판정해야
+        // 배지 때문에 발생한 불필요한 ellipsis를 정확히 감지할 수 있다.
+        const nameTruncatedWithBadge = main.scrollWidth > main.clientWidth + 1;
+        if (nameTruncatedWithBadge) {
+            badge.classList.add('badge-hidden-by-width');
+        }
+    }
+
+    function rebalanceAllAssignedSlotBadges() {
+        document.querySelectorAll('.js-session-slot-btn.session-assigned-text').forEach((btn) => {
+            rebalanceAssignedSlotBadge(btn);
+        });
+    }
+
     function applySessionAssignUi(sessionId, assigneeId, assigneeName, applicantCount = null) {
         const sid = String(sessionId || '');
         if (!sid) return;
@@ -1987,7 +2302,7 @@
             btn.classList.toggle('session-assigned-text', hasAssignee);
             if (hasAssignee) {
                 btn.classList.add(aid === String(currentUserId) ? 'btn-warning' : 'btn-success');
-                btn.innerHTML = `${abbr}<span class="session-assignee-sep">: </span><span class="session-assignee-name">${aName}</span>${badgeHtml ? ` ${badgeHtml}` : ''}`;
+                btn.innerHTML = `<span class="session-assigned-main">${abbr}<span class="session-assignee-sep">: </span><span class="session-assignee-name">${aName}</span></span>${badgeHtml ? badgeHtml : ''}`;
             } else {
                 if (myApplied && !isDisabledSlot) {
                     btn.classList.add('btn-primary');
@@ -2000,6 +2315,7 @@
                 }
                 btn.innerHTML = `${abbr}${badgeHtml ? ` ${badgeHtml}` : ''}`;
             }
+            rebalanceAssignedSlotBadge(btn);
             const card = btn.closest('.js-song-card');
             if (card) updateSongCardVisual(card);
         });
@@ -2396,9 +2712,13 @@
         if (!mainRow) return;
         const card = mainRow.closest('.js-song-card');
         if (!card) return;
+        const sessionRows = Array.from(card.querySelectorAll('.js-song-session-details'));
         const footerRows = Array.from(card.querySelectorAll('.js-song-footer-actions'));
-        if (!footerRows.length) return;
-        const willShow = footerRows.some((row) => !row.classList.contains('is-expanded'));
+        if (!footerRows.length && !sessionRows.length) return;
+        const willShowSession = sessionRows.some((row) => !row.classList.contains('is-expanded'));
+        const willShowFooter = footerRows.some((row) => !row.classList.contains('is-expanded'));
+        const willShow = willShowSession || willShowFooter;
+        sessionRows.forEach((row) => row.classList.toggle('is-expanded', willShow));
         footerRows.forEach((row) => row.classList.toggle('is-expanded', willShow));
         mainRow.setAttribute('aria-expanded', willShow ? 'true' : 'false');
         if (!willShow) {
@@ -2441,6 +2761,12 @@
             toggleAllApplicants(toggleAllApplicantsBtn);
             return;
         }
+        const coverageFilterBtn = event.target.closest('.js-coverage-summary-row[data-coverage-filter]');
+        if (coverageFilterBtn) {
+            event.preventDefault();
+            toggleCoverageFilter(String(coverageFilterBtn.dataset.coverageFilter || ''));
+            return;
+        }
 
         const clearFiltersBtn = event.target.closest('.js-clear-member-filters');
         if (clearFiltersBtn) {
@@ -2477,17 +2803,6 @@
         if (quickFilterBtn) {
             event.preventDefault();
             applyQuickFilterWithoutReload(quickFilterBtn);
-            return;
-        }
-
-        const simulationBtn = event.target.closest('#openSimulationBtn');
-        if (simulationBtn) {
-            event.preventDefault();
-            window.open(
-                '{% url "schedule_match_run" meeting.id %}?d=30&c=1&p=continuity,member_continuity,weekday,time_pref&r={% for room in rooms %}{{ room.id }}{% if not forloop.last %},{% endif %}{% endfor %}&w=0&h=0&ts=18&te=48&simulation=1',
-                'simulation_window',
-                'width=1400,height=900,left=100,top=50',
-            );
             return;
         }
 
@@ -2611,6 +2926,7 @@
 
         initSongCardsBaselineOrder();
         updateAllSongCardVisuals();
+        rebalanceAllAssignedSlotBadges();
         applySongQuickFilter();
         syncSongSearchInputs();
         initApplicantsToggleState();
@@ -2629,6 +2945,7 @@
         }
         window.addEventListener('scroll', initSessionStatsSticky, { passive: true });
         window.addEventListener('resize', initSessionStatsSticky);
+        window.addEventListener('resize', rebalanceAllAssignedSlotBadges);
     });
 
     function openDeleteSongModal(songTitle, deleteUrl) {
@@ -2735,47 +3052,89 @@
             }
 
             titleEl.textContent = `${data.song_title} - ${data.role} 관리`;
-            const rows = (data.members || []).map((m) => {
+            const buildActionButtons = (m) => {
                 const isAssigneeMe = m.is_assignee && String(m.id || '') === String(currentUserId || '');
-                const markAssignedClass = isAssigneeMe ? 'text-bg-warning text-dark' : 'text-bg-success';
-                const markAssigned = m.is_assignee ? `<span class="badge ${markAssignedClass} ms-1">현재 배정</span>` : '';
-                const markApplicant = `<span class="badge ms-1 js-modal-applicant-badge ${m.is_applicant ? '' : 'd-none'}" data-session-id="${escapeHtml(data.session_id)}" data-user-id="${escapeHtml(m.id)}">지원중</span>`;
                 const applicantBtnClass = m.is_applicant ? 'btn-primary' : 'btn-outline-secondary';
                 const applicantBtnLabel = m.is_applicant ? '지원 해제' : '지원자 추가';
                 const assignBtnClass = m.is_assignee ? (isAssigneeMe ? 'btn-warning' : 'btn-success') : 'btn-outline-secondary';
                 const assignBtnLabel = m.is_assignee ? '배정 해제' : '배정하기';
                 return `
+                    <div class="d-flex gap-1">
+                        <form method="post" action="${escapeHtml(m.manage_url)}">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                            <input type="hidden" name="sort" value="${escapeHtml(data.sort || '')}">
+                            <button type="submit"
+                                    class="btn btn-sm ${applicantBtnClass} js-modal-applicant-toggle"
+                                    data-session-id="${escapeHtml(data.session_id)}"
+                                    data-user-id="${escapeHtml(m.id)}">${applicantBtnLabel}</button>
+                        </form>
+                        <button type="button"
+                           class="btn btn-sm ${assignBtnClass} js-modal-assign-btn"
+                           data-session-id="${escapeHtml(data.session_id)}"
+                           data-user-id="${escapeHtml(m.id)}"
+                           data-assign-url="${escapeHtml(m.assign_url)}"
+                           data-is-assignee="${m.is_assignee ? '1' : '0'}"
+                           data-has-assignee="${m.has_assignee ? '1' : '0'}">${assignBtnLabel}</button>
+                    </div>
+                `;
+            };
+            const buildMemberListItem = (m) => {
+                const isAssigneeMe = m.is_assignee && String(m.id || '') === String(currentUserId || '');
+                const markAssignedClass = isAssigneeMe ? 'text-bg-warning text-dark' : 'text-bg-success';
+                const markAssigned = m.is_assignee ? `<span class="badge ${markAssignedClass} ms-1">현재 배정</span>` : '';
+                const markApplicant = `<span class="badge ms-1 js-modal-applicant-badge ${m.is_applicant ? '' : 'd-none'}" data-session-id="${escapeHtml(data.session_id)}" data-user-id="${escapeHtml(m.id)}">지원중</span>`;
+                const roleBadge = m.role_label ? `<span class="badge text-bg-light border ms-1">${escapeHtml(m.role_label)}</span>` : '';
+                return `
                     <div class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap">
                         <div>
                             <span class="fw-bold">${escapeHtml(m.realname)}</span>
                             <span class="text-muted small">(${escapeHtml(m.username)})</span>
+                            ${roleBadge}
                             ${markAssigned}
                             ${markApplicant}
                         </div>
-                        <div class="d-flex gap-1">
-                            <form method="post" action="${escapeHtml(m.manage_url)}">
-                                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-                                <input type="hidden" name="sort" value="${escapeHtml(data.sort || '')}">
-                                <button type="submit"
-                                        class="btn btn-sm ${applicantBtnClass} js-modal-applicant-toggle"
-                                        data-session-id="${escapeHtml(data.session_id)}"
-                                        data-user-id="${escapeHtml(m.id)}">${applicantBtnLabel}</button>
-                            </form>
-                            <button type="button"
-                               class="btn btn-sm ${assignBtnClass} js-modal-assign-btn"
-                               data-session-id="${escapeHtml(data.session_id)}"
-                               data-user-id="${escapeHtml(m.id)}"
-                               data-assign-url="${escapeHtml(m.assign_url)}"
-                               data-is-assignee="${m.is_assignee ? '1' : '0'}"
-                               data-has-assignee="${m.has_assignee ? '1' : '0'}">${assignBtnLabel}</button>
-                        </div>
+                        ${buildActionButtons(m)}
                     </div>
                 `;
-            }).join('');
+            };
+            const buildMemberTableRow = (m) => {
+                const isAssigneeMe = m.is_assignee && String(m.id || '') === String(currentUserId || '');
+                const markAssignedClass = isAssigneeMe ? 'text-bg-warning text-dark' : 'text-bg-success';
+                const markAssigned = m.is_assignee ? `<span class="badge ${markAssignedClass} ms-1">현재 배정</span>` : '';
+                const markApplicant = `<span class="badge ms-1 js-modal-applicant-badge ${m.is_applicant ? '' : 'd-none'}" data-session-id="${escapeHtml(data.session_id)}" data-user-id="${escapeHtml(m.id)}">지원중</span>`;
+                return `
+                    <tr>
+                        <td>
+                            <span class="fw-bold">${escapeHtml(m.realname)}</span>
+                            <span class="text-muted small">(${escapeHtml(m.username)})</span>
+                            ${markAssigned}
+                            ${markApplicant}
+                        </td>
+                        <td class="text-end">${buildActionButtons(m)}</td>
+                    </tr>
+                `;
+            };
+
+            const allMembers = Array.isArray(data.members) ? data.members : [];
+            const sessionRoleMembers = allMembers.filter((m) => !!m.is_same_role);
+            const otherMembers = allMembers.filter((m) => !m.is_same_role);
+            const rows = otherMembers.map((m) => buildMemberListItem(m)).join('');
+            const sessionRows = sessionRoleMembers.map((m) => buildMemberTableRow(m)).join('');
+            const sessionRoleTitle = escapeHtml(data.session_role_label || '');
 
             bodyEl.innerHTML = `
                 <p class="small text-muted mb-3">지원자 추가하고 배정인 바꾸기</p>
-                <div class="list-group">${rows}</div>
+                ${sessionRoleMembers.length ? `
+                <div class="mb-3">
+                    <div class="small fw-bold text-primary mb-2">해당 세션 인원 ${sessionRoleTitle ? `(${sessionRoleTitle})` : ''}</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <tbody>${sessionRows}</tbody>
+                        </table>
+                    </div>
+                </div>` : ''}
+                <div class="small fw-bold text-muted mb-2">기타 멤버</div>
+                <div class="list-group">${rows || '<div class="list-group-item text-muted small">표시할 멤버가 없습니다.</div>'}</div>
             `;
             bodyEl.querySelectorAll('.js-modal-assign-btn').forEach((btnEl) => {
                 btnEl.addEventListener('click', function () {
@@ -2851,6 +3210,12 @@
                     <p class="text-muted mb-0">🎸 합주 기간: {{ meeting.practice_start_date|date:"y년 n월 j일" }} ~ {% if meeting.practice_start_date|date:"y" == meeting.practice_end_date|date:"y" %}{{ meeting.practice_end_date|date:"n월 j일" }}{% else %}{{ meeting.practice_end_date|date:"y년 n월 j일" }}{% endif %}</p>
                     {% endif %}
                 </div>
+                {% if is_manager and not is_final_locked %}
+                <div class="d-none d-md-flex gap-2 flex-shrink-0 ms-3">
+                    <a href="#" class="btn btn-outline-primary btn-sm js-participant-manage-btn">참가자 관리</a>
+                    <a href="#" class="btn btn-outline-secondary btn-sm js-meeting-edit-btn">합주 정보 수정</a>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -2881,9 +3246,9 @@
                             </button>
                         </div>
                         {% endif %}
-                        <div class="fw-bold text-center mb-1">지원 현황판</div>
+                        <div class="fw-bold text-center mb-1">현황판</div>
                         <div class="text-center">
-                            <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정/지원한 곡 필터링</small>
+                            <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정한 곡 우선 정렬</small>
                             <div class="mt-1">
                                 <button type="button"
                                         class="btn btn-sm btn-outline-secondary d-none js-clear-member-filters">
@@ -2891,6 +3256,7 @@
                                 </button>
                             </div>
                         </div>
+                        <div id="sessionCoverageSummaryDesktop" class="coverage-summary-box mt-2"></div>
                     </div>
                     <div class="card-body p-2 session-stats-scroll">
                         <div class="row g-2 session-stats-two-col">
@@ -2931,11 +3297,11 @@
     <div class="d-lg-none mb-3">
         <button class="btn btn-outline-secondary btn-sm w-100 d-flex justify-content-between align-items-center"
                 type="button" data-bs-toggle="collapse" data-bs-target="#memberStatusMobile" aria-expanded="false">
-            <span>🎛 지원 현황판</span>
+            <span>🎛 현황판</span>
             <span>▼</span>
         </button>
         <div class="text-center mt-1">
-            <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정/지원한 곡 필터링</small>
+            <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정한 곡 우선 정렬</small>
             <div class="mt-1">
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary d-none js-clear-member-filters">
@@ -2957,6 +3323,7 @@
                     </button>
                 </div>
                 {% endif %}
+                <div id="sessionCoverageSummaryMobile" class="coverage-summary-box mb-2"></div>
                 {% if is_manager %}
                 <div class="row g-2 session-stats-two-col">
                     <div id="sessionStatsMobileCol1" class="col-6">
@@ -3070,21 +3437,29 @@
     {% endif %}
     {% if is_manager and not is_final_locked %}
     <div class="d-flex gap-2 mb-3">
-        {% if total_song_count > 0 and rooms %}
-        <button type="button"
-                id="openSimulationBtn"
-                class="btn btn-sm btn-outline-primary">
-            <i class="bi bi-eye"></i> 매칭 시뮬레이션
-        </button>
-        {% endif %}
         {% if total_song_count > 0 %}
-        <form method="post" action="{% url 'random_assign_all' meeting.id %}" class="m-0"
-              data-random-assign-form="1">
+        <form method="post" action="{% url 'random_apply_all' meeting.id %}" class="m-0">
             {% csrf_token %}
             <input type="hidden" name="sort" value="{{ sort_option }}">
             <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
             <button type="submit" class="btn btn-sm btn-outline-warning">
-                🎲 모든 곡 임의 배정
+                🎲 모든 곡 임의 지원
+            </button>
+        </form>
+        <form method="post" action="{% url 'reset_all_applications' meeting.id %}" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="sort" value="{{ sort_option }}">
+            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger">
+                모든 지원 초기화
+            </button>
+        </form>
+        <form method="post" action="{% url 'random_assign_all' meeting.id %}" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="sort" value="{{ sort_option }}">
+            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                🎯 모든 곡 임의 배정
             </button>
         </form>
         {% endif %}
@@ -3106,9 +3481,9 @@
     </div>
     {% endif %}
 
-    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-3 setlist-toolbar">
         <h3 class="fw-bold mb-0">🎵 Setlist ({{ song_count }})</h3>
-        <div class="d-flex align-items-center gap-2 flex-nowrap">
+        <div class="d-flex align-items-center gap-2 flex-nowrap setlist-toolbar-actions">
             {% if is_manager %}
             <form method="get" class="d-flex align-items-center">
                 <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
@@ -3116,6 +3491,8 @@
                     <option value="default" {% if sort_option == 'default' %}selected{% endif %}>등록순</option>
                     <option value="created_desc" {% if sort_option == 'created_desc' %}selected{% endif %}>등록역순</option>
                     <option value="unassigned_desc" {% if sort_option == 'unassigned_desc' %}selected{% endif %}>미배정 많은 순</option>
+                    <option value="applicant_coverage_desc" {% if sort_option == 'applicant_coverage_desc' %}selected{% endif %}>세션 지원 충족순</option>
+                    <option value="applicant_coverage_reverse" {% if sort_option == 'applicant_coverage_reverse' %}selected{% endif %}>세션 지원 충족 역순</option>
                 </select>
             </form>
             {% endif %}
@@ -3127,9 +3504,51 @@
         </div>
     </div>
 
+    {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
+    <nav class="mt-3 mb-3" aria-label="Setlist pagination top">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+            {% if song_page.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.previous_page_number }}">이전</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">이전</span></li>
+            {% endif %}
+
+            {% for p in song_page.paginator.page_range %}
+                {% if p >= song_page.number|add:-2 and p <= song_page.number|add:2 %}
+                    {% if p == song_page.number %}
+                    <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ p }}">{{ p }}</a>
+                    </li>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if song_page.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.next_page_number }}">다음</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">다음</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% if show_session_details and song_count > 0 %}
+    <div class="d-lg-none mb-2">
+        <input type="search"
+               class="form-control form-control-sm js-song-search-input"
+               placeholder="제목/아티스트 검색">
+    </div>
+    {% endif %}
+
     <ul id="setlistList" class="list-group shadow-sm">
         {% for s in song %}
-        <li class="list-group-item p-3 js-song-card {% if not is_manager %}song-card-collapsible{% endif %} {% if s.all_assigned %}bg-success bg-opacity-10{% elif s.has_unassigned_but_applicants_full %}bg-warning bg-opacity-10{% endif %}"
+        <li class="list-group-item p-3 js-song-card {% if not is_manager %}song-card-collapsible{% endif %} {% if s.missing_applicant_session_count <= 0 %}bg-success bg-opacity-10{% elif s.missing_applicant_session_count == 1 %}bg-warning bg-opacity-10{% elif s.missing_applicant_session_count == 2 %}bg-orange bg-opacity-10{% else %}bg-danger bg-opacity-10{% endif %}"
             data-song-id="{{ s.id }}"
             data-song-title="{{ s.title|escape }}"
             data-song-artist="{{ s.artist|escape }}"
@@ -3141,12 +3560,12 @@
             <div class="song-main-row mb-0 {% if not is_manager %}js-song-main-toggle song-main-interactive{% endif %}"
                  {% if not is_manager %}tabindex="0" role="button" aria-expanded="false"{% endif %}>
                 <div class="song-meta-col">
-                    <h5 class="fw-bold mb-0" style="font-size: 1.1rem;">{{ s.title }}</h5>
-                    <div class="text-muted small mt-1">{{ s.artist }}</div>
+                    <h5 class="fw-bold mb-0 song-title-text" style="font-size: calc(1.1rem - 2px);">{{ s.title }}</h5>
+                    <div class="text-muted small mt-1 song-artist-text">{{ s.artist }}</div>
                 </div>
 
                 {% if show_session_details %}
-                <div class="song-session-col">
+                <div class="song-session-col {% if not is_manager %}js-song-session-details song-session-collapsible{% endif %}">
                     <div class="session-grid-wrapper mb-0">
                         <div class="session-grid session-grid-basic">
                             {% for item in s.ordered_sessions|slice:":6" %}
@@ -3167,7 +3586,7 @@
                                                     data-slot-type="manager"
                                                     title="{{ role }} 관리"
                                                     data-manage-url="{% url 'session_manage_data' session.id %}?sort={{ sort_option|urlencode }}">
-                                                {{ abbr }}{% if session.assignee %}: {{ session.assignee.realname }}{% endif %}
+                                                <span class="session-assigned-main">{{ abbr }}{% if session.assignee %}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span>{% endif %}</span>
                                                 <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
                                             </button>
                                         {% elif session.assignee %}
@@ -3182,7 +3601,7 @@
                                                     data-applicant-count="{{ item.applicant_count }}"
                                                     data-slot-type="assigned"
                                                     title="{{ role }}: {{ session.assignee.realname }}">
-                                                {{ abbr }}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span>
+                                                <span class="session-assigned-main">{{ abbr }}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span></span>
                                             </button>
                                         {% else %}
                                             {% if meeting.is_session_application_closed or is_final_locked %}
@@ -3264,7 +3683,7 @@
                                                     data-slot-type="manager"
                                                     title="{{ role }} 관리"
                                                     data-manage-url="{% url 'session_manage_data' session.id %}?sort={{ sort_option|urlencode }}">
-                                                {{ abbr }}{% if session.assignee %}: {{ session.assignee.realname }}{% endif %}
+                                                <span class="session-assigned-main">{{ abbr }}{% if session.assignee %}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span>{% endif %}</span>
                                                 <span class="badge session-applicant-count-badge ms-1">{{ item.applicant_count }}</span>
                                             </button>
                                         {% elif session.assignee %}
@@ -3279,7 +3698,7 @@
                                                     data-applicant-count="{{ item.applicant_count }}"
                                                     data-slot-type="assigned"
                                                     title="{{ role }}: {{ session.assignee.realname }}">
-                                                {{ abbr }}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span>
+                                                <span class="session-assigned-main">{{ abbr }}<span class="session-assignee-sep">: </span><span class="session-assignee-name">{{ session.assignee.realname }}</span></span>
                                             </button>
                                         {% else %}
                                             {% if meeting.is_session_application_closed or is_final_locked %}
@@ -3541,7 +3960,6 @@
         <li class="list-group-item text-center py-5 text-muted">등록된 곡이 없습니다.</li>
         {% endfor %}
     </ul>
-    {% comment %} 페이지네이션 비활성화
     {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
     <nav class="mt-3" aria-label="Setlist pagination">
         <ul class="pagination pagination-sm justify-content-center mb-0">
@@ -3575,37 +3993,36 @@
         </ul>
     </nav>
     {% endif %}
-    {% endcomment %}
     </div>
 
     {% if is_manager and not is_final_locked %}
-    <div class="mt-4 d-flex flex-column align-items-end gap-2 mb-3">
-        <div class="d-flex align-items-center gap-3">
+    <div class="mt-4 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            {% if meeting.is_session_application_closed and is_leader %}
+            <form action="{% url 'reset_all_assignments' meeting.id %}" method="post"
+                  data-assignment-reset-title="전 배정 초기화"
+                  data-assignment-reset-message="이 선곡회의의 모든 곡 세션 배정이 초기화됩니다. 지원자 정보는 유지됩니다. 정말 진행할까요?"
+                  class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="sort" value="{{ sort_option }}">
+                <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
+                    <i class="bi bi-trash3-fill"></i> 전 배정 초기화
+                </button>
+            </form>
+            {% endif %}
             {% if not meeting.is_session_application_closed %}
             <span class="text-muted small">* 세션 지원 마감 이후에만 배정을 시작할 수 있습니다.</span>
             {% endif %}
-            <form method="post" action="{% url 'toggle_meeting_session_application' meeting.id %}" class="m-0">
-                {% csrf_token %}
-                <input type="hidden" name="sort" value="{{ sort_option }}">
-                <button type="submit"
-                        class="btn btn-sm {% if meeting.is_session_application_closed %}btn-danger{% else %}btn-outline-danger{% endif %}">
-                    {% if meeting.is_session_application_closed %}세션 지원 마감 해제{% else %}세션 지원 마감{% endif %}
-                </button>
-            </form>
         </div>
-        {% if meeting.is_session_application_closed and is_leader %}
-        <form action="{% url 'reset_all_assignments' meeting.id %}" method="post"
-              data-assignment-reset-title="전 배정 초기화"
-              data-assignment-reset-message="이 선곡회의의 모든 곡 세션 배정이 초기화됩니다. 지원자 정보는 유지됩니다. 정말 진행할까요?"
-              class="m-0">
+        <form method="post" action="{% url 'toggle_meeting_session_application' meeting.id %}" class="m-0">
             {% csrf_token %}
             <input type="hidden" name="sort" value="{{ sort_option }}">
-            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
-            <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
-                <i class="bi bi-trash3-fill"></i> 전 배정 초기화
+            <button type="submit"
+                    class="btn btn-sm {% if meeting.is_session_application_closed %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                {% if meeting.is_session_application_closed %}세션 지원 마감 해제{% else %}세션 지원 마감{% endif %}
             </button>
         </form>
-        {% endif %}
     </div>
     {% endif %}
     <div class="mb-3 d-flex justify-content-end">

@@ -95,6 +95,19 @@
         to { opacity: 1; transform: scale(1); }
     }
 
+    .meeting-filter .btn {
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 0.3rem 0.8rem;
+    }
+
+    .meeting-filter .btn.active {
+        background: #212529;
+        color: #fff;
+        border-color: #212529;
+    }
+
 </style>
 
 
@@ -209,9 +222,17 @@
             {% endif %}
         </div>
 
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-3 meeting-filter" id="meetingFilterGroup">
+            <button type="button" class="btn btn-sm btn-outline-secondary active" data-filter-key="ALL">전체</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter-key="SEMESTER_1">1학기</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter-key="SUMMER_BREAK">여름방학</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter-key="SEMESTER_2">2학기</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter-key="WINTER_BREAK">겨울방학</button>
+        </div>
+
         <div class="row">
             {% for m in meeting %}
-            <div class="col-12 mb-3">
+            <div class="col-12 mb-3 js-meeting-item" data-preset-key="{{ m.schedule_preset_key|default:'' }}">
                 <div class="card shadow-sm hover-effect h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
@@ -225,18 +246,15 @@
                             <div class="d-flex align-items-center gap-2 position-relative z-2 flex-wrap justify-content-end">
                                 {% if m.schedule_stage_code == 'FINAL_CONFIRMED' %}
                                     <span class="badge bg-success">합주 시간표 확정</span>
-                                {% elif m.schedule_stage_code == 'BOOKING_IN_PROGRESS' %}
-                                    <span class="badge bg-primary">예약중</span>
-                                {% elif m.schedule_stage_code == 'RELEASED_FOR_REVIEW' %}
-                                    <span class="badge bg-info text-dark">공유중</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">매칭중</span>
                                 {% endif %}
                                 {% if m.visibility == 'UNLISTED' %}
                                     <span class="badge bg-secondary">링크전용</span>
                                 {% endif %}
                                 {% if m.join_policy == 'APPROVAL' %}
                                     <span class="badge bg-warning text-dark">승인필요</span>
+                                {% endif %}
+                                {% if m.schedule_stage_code == 'FINAL_CONFIRMED' and m.schedule_preset_label %}
+                                    <span class="badge bg-dark-subtle text-dark border">{{ m.schedule_preset_label }}</span>
                                 {% endif %}
                                 {% if is_manager %}
                                     <a href="#"
@@ -252,7 +270,7 @@
 
                         <div class="mt-2 text-muted small">
                             <p class="mb-1">
-                                선곡회의 일시: {{ m.schedule|date:"y-n-j H:i" }}
+                                선곡회의 일시: {{ m.schedule|date:"y년 n월 j일 H:i" }}
                             </p>
                             <p class="mb-0">
                                 선곡회의 장소: {% if m.location|slice:":4" == "http" %}<a href="{{ m.location }}" target="_blank" rel="noopener noreferrer">바로가기 →</a>{% else %}{{ m.location }}{% endif %}
@@ -452,5 +470,29 @@
             }
         }
     });
+
+    (function () {
+        const filterGroup = document.getElementById('meetingFilterGroup');
+        if (!filterGroup) return;
+
+        const buttons = Array.from(filterGroup.querySelectorAll('[data-filter-key]'));
+        const meetingItems = Array.from(document.querySelectorAll('.js-meeting-item'));
+
+        function applyFilter(filterKey) {
+            meetingItems.forEach((item) => {
+                const presetKey = item.dataset.presetKey || '';
+                const visible = filterKey === 'ALL' ? true : presetKey === filterKey;
+                item.style.display = visible ? '' : 'none';
+            });
+        }
+
+        buttons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                buttons.forEach((b) => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyFilter(btn.dataset.filterKey || 'ALL');
+            });
+        });
+    })();
 </script>
 {% endblock %}

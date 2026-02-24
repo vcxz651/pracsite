@@ -1,33 +1,56 @@
 # pracapp/forms.py
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+from django.core.exceptions import ValidationError
 from .models import Song, User, Membership, Meeting, Band
 import datetime
+import re
 
 
 class BandUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ['username', 'realname', 'nickname', 'phone_number',
+        fields = ['username', 'realname', 'nickname',
                   'instrument', 'instrument_detail']
         labels = {
             'username': '아이디',
             'realname': '이름 (필수)',
             'nickname': '닉네임 (선택)',
-            'phone_number': '연락처 (선택)',
             'instrument': '주 세션',
             'instrument_detail': '(Etc. 선택 시 상세 입력)',
         }
         widgets = {
-            'nickname': forms.TextInput(attrs={'placeholder': '미입력시 랜덤 생성'}),
+            'nickname': forms.TextInput(attrs={'placeholder': '미입력시 세션에 맞게 랜덤 생성'}),
             'instrument_detail': forms.TextInput(attrs={'placeholder': 'ex. 해금, 키타',}),
-            'phone_number': forms.TextInput(attrs={'placeholder': '- 없이 숫자만 입력'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for f in self.fields.values():
             f.widget.attrs['class'] = 'form_control'
+
+        self.fields['username'].help_text = '4~20자, 영문 소문자/숫자/밑줄(_)/점(.)만 사용 가능'
+        self.fields['password1'].label = '비밀번호'
+        self.fields['password1'].help_text = "6글자 이상'만' 넘기세요. 대문자도, 특수문자도 필요 없습니다."
+        self.fields['password2'].label = '비밀번호 확인'
+        self.fields['password1'].widget.attrs['placeholder'] = '비밀번호 입력'
+        self.fields['password2'].widget.attrs['placeholder'] = '비밀번호 다시 입력'
+        self.fields['instrument'].initial = 'Drum'
+        self.fields['instrument'].required = True
+        self.fields['instrument'].choices = [
+            (value, label)
+            for value, label in self.fields['instrument'].choices
+            if value != ''
+        ]
+
+    def clean_username(self):
+        username = (self.cleaned_data.get('username') or '').strip()
+        if not re.fullmatch(r'[a-z0-9_.]{4,20}', username):
+            raise ValidationError('아이디는 4~20자의 영문 소문자, 숫자, 밑줄(_), 점(.)만 사용할 수 있습니다.')
+
+        if User.objects.filter(username__iexact=username).exists():
+            raise ValidationError('이미 사용 중인 아이디입니다.')
+        return username
 
 class SongForm(forms.ModelForm):
 
@@ -118,6 +141,18 @@ class BandCreateForm(forms.ModelForm):
             else:
                 field.widget.attrs['class'] = 'form-control'
 
+    def clean_name(self):
+        name = (self.cleaned_data.get('name') or '').strip()
+        if not name:
+            raise ValidationError('밴드 이름을 입력해주세요.')
+
+        qs = Band.objects.filter(name__iexact=name)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError('이미 사용 중인 밴드 이름입니다.')
+        return name
+
 
 class MemberEnlistForm(forms.ModelForm):
     class Meta:
@@ -185,7 +220,7 @@ class MeetingCreateForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': '헤게관 51803, 구글 미트 링크 등'
         })
-        self.fields['location'].help_text = '*주소 입력 시 해당 링크로 바로 이동할 수 있습니다'
+        self.fields['location'].help_text = '*링크 입력 시 해당 링크로 이동하는 바로가기가 생성됩니다'
 
         # 5. 메모
         self.fields['description'].widget.attrs.update({
@@ -304,7 +339,7 @@ class MatchSettingsForm(forms.Form):
     duration_minutes = forms.TypedChoiceField(
         label="1회 합주 시간",
         choices=DURATION_CHOICES,
-        initial=30,
+        initial=60,
         coerce=int,
         widget=forms.Select(attrs={'class': 'form-select'}),
     )

@@ -158,10 +158,10 @@
 
 <div class="container mt-4 mb-5">
     <div class="text-center mb-4">
-        <h2>📅 예외적인 일정 추가</h2>
+        <h2>STEP 2. 📅 예외적인 일정 추가</h2>
         <p class="text-muted small m-0">
-            고정 스케줄 외에 추가로 안 되는 날짜를 선택하세요.<br>
-            <span class="badge bg-secondary">회색</span>은 고정 스케줄입니다. (클릭하여 삭제 가능)
+            예외적으로 가능/불가능한 일정을 추가하세요. ex) 휴강, 오디션 등<br>
+            <span class="badge bg-secondary">회색</span> 은 STEP 1에서 설정한 고정 스케줄입니다. (클릭하여 삭제 가능)
         </p>
     </div>
 
@@ -181,13 +181,18 @@
     </div>
 
     <div class="action-bar">
-        <button onclick="resetToInitialState()" class="btn btn-outline-secondary btn-sm">
-            🔄 페이지 진입 시점 일정으로 초기화
-        </button>
+        <div class="d-flex align-items-center gap-2">
+            <button onclick="goBackToStep2()" class="btn btn-outline-primary btn-sm">
+                ← STEP 1로 돌아가기
+            </button>
+            <button onclick="resetToInitialState()" class="btn btn-outline-secondary btn-sm">
+                🔄 페이지 진입 시점 일정으로 초기화
+            </button>
+        </div>
         <div class="d-flex align-items-center gap-2">
             <small class="text-muted">입력이 끝났나요?</small>
             <button onclick="saveAllOneOff()" class="btn btn-success px-4">
-                🎉 최종 확정
+                ✅ 최종 일정 확인
             </button>
         </div>
     </div>
@@ -214,7 +219,10 @@
 
 <div id="deleteBubble">
     <p class="small fw-bold mb-2 text-danger">🚫 고정 스케줄이 있습니다.</p>
-    <p class="small text-muted mb-2">이 날만 고정 일정을 삭제하시겠습니까?</p>
+    <div id="deleteTargetWrap" class="mb-2" style="display:none;">
+        <label for="deleteTargetSelect" class="form-label form-label-sm mb-1">삭제 대상</label>
+        <select id="deleteTargetSelect" class="form-select form-select-sm"></select>
+    </div>
     <div class="d-flex justify-content-end gap-1">
         <button class="btn btn-sm btn-secondary" onclick="closeDeleteBubble()">아니요</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDeleteRecurring()">네, 삭제합니다</button>
@@ -249,6 +257,7 @@
     const daysKor = ['일', '월', '화', '수', '목', '금', '토'];
     
     const recurringData = JSON.parse('{{ recurring_data|escapejs }}'); 
+    const recurringAdditionalPeriods = JSON.parse('{{ recurring_additional_periods|default:"[]"|escapejs }}');
     
     const initialOneOffData = JSON.parse('{{ oneoff_data|escapejs }}');
     let oneOffData = JSON.parse(JSON.stringify(initialOneOffData));
@@ -259,6 +268,101 @@
 
     const slotsCount = 30;
     const startOffset = 18;
+
+    function normalizeExceptionDayPayload(value) {
+        if (Array.isArray(value)) return { slots: [...value], targeted: [] };
+        if (value && typeof value === 'object') {
+            return {
+                slots: Array.isArray(value.slots) ? [...value.slots] : [],
+                targeted: Array.isArray(value.targeted) ? [...value.targeted] : [],
+            };
+        }
+        return { slots: [], targeted: [] };
+    }
+
+    function normalizeExceptionMap(rawMap) {
+        const out = {};
+        Object.keys(rawMap || {}).forEach((dateStr) => {
+            out[dateStr] = normalizeExceptionDayPayload(rawMap[dateStr]);
+        });
+        return out;
+    }
+
+    exceptionData = normalizeExceptionMap(exceptionData);
+
+    function getExceptionDayPayload(dateStr) {
+        if (!exceptionData[dateStr]) {
+            exceptionData[dateStr] = { slots: [], targeted: [] };
+        }
+        exceptionData[dateStr] = normalizeExceptionDayPayload(exceptionData[dateStr]);
+        return exceptionData[dateStr];
+    }
+
+    function buildBlockTarget(block) {
+        return {
+            day_of_week: Number(block.day_of_week),
+            start: Number(block.start),
+            end: Number(block.end),
+            reason: String(block.reason || ''),
+            scope_start: String(block.scope_start || ''),
+            scope_end: String(block.scope_end || ''),
+        };
+    }
+
+    function isSameTarget(a, b) {
+        return Number(a.day_of_week) === Number(b.day_of_week)
+            && Number(a.start) === Number(b.start)
+            && Number(a.end) === Number(b.end)
+            && String(a.reason || '') === String(b.reason || '')
+            && String(a.scope_start || '') === String(b.scope_start || '')
+            && String(a.scope_end || '') === String(b.scope_end || '');
+    }
+
+    function isRecurringBlockCancelled(dateStr, block) {
+        const dayPayload = getExceptionDayPayload(dateStr);
+        if (dayPayload.slots.length > 0) {
+            for (let i = block.start; i < block.end; i++) {
+                if (dayPayload.slots.includes(i)) return true;
+            }
+        }
+        const target = buildBlockTarget(block);
+        return dayPayload.targeted.some((row) => {
+            const t = row.target || {};
+            return isSameTarget(t, target);
+        });
+    }
+
+    function getRecurringBlocksForDate(dateStr, dbDayIdx) {
+        const combined = [];
+        const baseBlocks = recurringData[dbDayIdx] || recurringData[String(dbDayIdx)] || [];
+        baseBlocks.forEach((b) => {
+            combined.push({
+                ...b,
+                day_of_week: Number(dbDayIdx),
+                scope_start: startStr,
+                scope_end: endStr,
+            });
+        });
+
+        recurringAdditionalPeriods.forEach((period) => {
+            const pStart = String(period.start_date || '');
+            const pEnd = String(period.end_date || '');
+            const pData = period.data || {};
+            if (!pStart || !pEnd) return;
+            if (dateStr < pStart || dateStr > pEnd) return;
+            const blocks = pData[String(dbDayIdx)] || pData[dbDayIdx] || [];
+            blocks.forEach((b) => {
+                combined.push({
+                    ...b,
+                    day_of_week: Number(dbDayIdx),
+                    scope_start: pStart,
+                    scope_end: pEnd,
+                });
+            });
+        });
+
+        return combined;
+    }
 
     // --- 2. 달력 그리기 (스크롤 방식 + 월 구분선) ---
     function renderCalendar() {
@@ -319,28 +423,40 @@
 
             const dbDayIdx = (dayIdx + 6) % 7; 
 
-            // 1) 고정 스케줄
-            if (recurringData[dbDayIdx]) {
-                const exceptions = exceptionData[dateStr] || [];
-                recurringData[dbDayIdx].forEach(b => {
-                    // 삭제된 일정은 패스
-                    if (exceptions.includes(b.start)) return;
+            const badgeItems = [];
 
-                    const sp = document.createElement('span');
-                    sp.className = 'badge-recurring';
-                    sp.innerText = b.reason;
-                    badgeBox.appendChild(sp);
+            // 1) 고정 스케줄(기본 + 특수 기간)
+            const recurringBlocks = getRecurringBlocksForDate(dateStr, dbDayIdx);
+            if (recurringBlocks.length > 0) {
+                recurringBlocks.forEach(b => {
+                    if (isRecurringBlockCancelled(dateStr, b)) return;
+                    badgeItems.push({
+                        start: Number(b.start),
+                        reason: b.reason,
+                        className: 'badge-recurring',
+                    });
                 });
             }
+
             // 2) 단발 스케줄
             if (oneOffData[dateStr]) {
                 oneOffData[dateStr].forEach(b => {
-                    const sp = document.createElement('span');
-                    sp.className = 'badge-oneoff';
-                    sp.innerText = b.reason;
-                    badgeBox.appendChild(sp);
+                    badgeItems.push({
+                        start: Number(b.start),
+                        reason: b.reason,
+                        className: 'badge-oneoff',
+                    });
                 });
             }
+
+            // 날짜 칸 내부 배지를 시작 시간순으로 정렬
+            badgeItems.sort((a, b) => a.start - b.start);
+            badgeItems.forEach((item) => {
+                const sp = document.createElement('span');
+                sp.className = item.className;
+                sp.innerText = item.reason;
+                badgeBox.appendChild(sp);
+            });
             el.appendChild(badgeBox);
             container.appendChild(el);
 
@@ -395,16 +511,22 @@
         grid.appendChild(createDiv('time-header', 'Time'));
         grid.appendChild(createDiv('time-header', '일정'));
 
-        const lockedSlots = new Map();
+        const activeRecurringBySlot = new Map();
         try {
-            if (recurringData && recurringData[currentTargetDayIdx]) {
-                recurringData[currentTargetDayIdx].forEach(b => {
-                    for(let i = b.start; i < b.end; i++) lockedSlots.set(i, b.reason);
+            const recurringBlocks = getRecurringBlocksForDate(currentTargetDate, currentTargetDayIdx);
+            if (recurringBlocks.length > 0) {
+                recurringBlocks.forEach(b => {
+                    if (isRecurringBlockCancelled(currentTargetDate, b)) return;
+                    for(let i = b.start; i < b.end; i++) {
+                        if (!activeRecurringBySlot.has(i)) activeRecurringBySlot.set(i, []);
+                        activeRecurringBySlot.get(i).push(b);
+                    }
+                });
+                activeRecurringBySlot.forEach((arr) => {
+                    arr.sort((a, b) => Number(a.start) - Number(b.start));
                 });
             }
         } catch(e) {}
-
-        const currentExceptions = exceptionData[currentTargetDate] || [];
 
         for (let i = 0; i < slotsCount; i++) {
             const realIdx = i + startOffset;
@@ -416,12 +538,13 @@
             cell.className = 'grid-cell';
             cell.dataset.time = realIdx;
 
-            const isRecurring = lockedSlots.has(realIdx);
-            const isException = currentExceptions.includes(realIdx);
-
-            if (isRecurring && !isException) {
+            const activeBlocks = activeRecurringBySlot.get(realIdx) || [];
+            const isRecurring = activeBlocks.length > 0;
+            if (isRecurring) {
                 cell.classList.add('locked');
-                cell.innerText = lockedSlots.get(realIdx);
+                cell.innerText = activeBlocks.length > 1
+                    ? `${activeBlocks[0].reason} 외 ${activeBlocks.length - 1}`
+                    : activeBlocks[0].reason;
                 cell.onclick = (e) => showDeleteBubble(e, realIdx);
             } else {
                 if (tempScheduleMap.has(realIdx)) {
@@ -442,11 +565,48 @@
 
     // --- 삭제 로직 (기존 동일) ---
     const deleteBubble = document.getElementById('deleteBubble');
+    const deleteTargetWrap = document.getElementById('deleteTargetWrap');
+    const deleteTargetSelect = document.getElementById('deleteTargetSelect');
     let targetDeleteIdx = -1;
+    let targetDeleteCandidates = [];
+
+    function formatHalfHourTime(slotIdx) {
+        const rel = slotIdx - startOffset;
+        const hour = 9 + Math.floor(rel / 2);
+        const min = rel % 2 === 0 ? '00' : '30';
+        return `${hour}:${min}`;
+    }
+
+    function formatRange(start, end) {
+        return `${formatHalfHourTime(start)} ~ ${formatHalfHourTime(end)}`;
+    }
 
     function showDeleteBubble(e, idx) {
         e.stopPropagation(); 
         targetDeleteIdx = idx;
+        targetDeleteCandidates = [];
+
+        const allBlocks = getRecurringBlocksForDate(currentTargetDate, currentTargetDayIdx) || [];
+        const coveringBlocks = allBlocks
+            .filter((b) => idx >= b.start && idx < b.end)
+            .filter((b) => !isRecurringBlockCancelled(currentTargetDate, b));
+        targetDeleteCandidates = coveringBlocks.map((b) => ({ block: b }));
+
+        if (targetDeleteCandidates.length > 1) {
+            deleteTargetWrap.style.display = 'block';
+            deleteTargetSelect.innerHTML = '';
+            targetDeleteCandidates.forEach((c, i) => {
+                const option = document.createElement('option');
+                option.value = String(i);
+                option.text = `${c.block.reason} (${formatRange(c.block.start, c.block.end)})`;
+                deleteTargetSelect.appendChild(option);
+            });
+        } else {
+            deleteTargetWrap.style.display = 'none';
+            deleteTargetSelect.innerHTML = '<option value="0">0</option>';
+            deleteTargetSelect.value = '0';
+        }
+
         deleteBubble.style.display = 'block';
         let x = e.clientX + 10; let y = e.clientY + 10;
         if (x + 240 > window.innerWidth) x -= 250;
@@ -457,30 +617,34 @@
     function closeDeleteBubble() {
         deleteBubble.style.display = 'none';
         targetDeleteIdx = -1;
+        targetDeleteCandidates = [];
+        deleteTargetSelect.innerHTML = '';
     }
 
     function confirmDeleteRecurring() {
         if (targetDeleteIdx === -1) return;
-        const blocks = recurringData[currentTargetDayIdx];
-        let targetBlock = null;
-        if (blocks) {
-            targetBlock = blocks.find(b => targetDeleteIdx >= b.start && targetDeleteIdx < b.end);
-        }
-        if (!exceptionData[currentTargetDate]) exceptionData[currentTargetDate] = [];
+        const selectedIdx = parseInt(deleteTargetSelect.value || '0', 10);
+        const selected = targetDeleteCandidates[selectedIdx];
 
-        if (targetBlock) {
-            for (let i = targetBlock.start; i < targetBlock.end; i++) {
-                if (!exceptionData[currentTargetDate].includes(i)) {
-                    exceptionData[currentTargetDate].push(i);
-                }
+        const dayPayload = getExceptionDayPayload(currentTargetDate);
+        if (selected) {
+            const target = buildBlockTarget(selected.block);
+            const exists = dayPayload.targeted.some((row) => isSameTarget(row.target || {}, target));
+            if (!exists) {
+                dayPayload.targeted.push({
+                    start: Number(selected.block.start),
+                    end: Number(selected.block.end),
+                    target: target,
+                });
             }
         } else {
-            exceptionData[currentTargetDate].push(targetDeleteIdx);
+            if (!dayPayload.slots.includes(targetDeleteIdx)) dayPayload.slots.push(targetDeleteIdx);
         }
         closeDeleteBubble();
         renderModalGrid();
         renderCalendar(); // 즉시 반영
     }
+
 
     // --- 드래그 & 기타 로직 (기존 동일) ---
     function selectAllDayInModal() {
@@ -611,14 +775,13 @@
         oneOffData[currentTargetDate] = blocks;
     }
 
-    function saveAllOneOff() {
-        // [중요] oneOffData(추가됨)와 exceptionData(삭제됨)를 묶어서 전송
+    function persistOneOffState() {
         const payload = {
             oneoff: oneOffData,
             exceptions: exceptionData
         };
 
-        fetch("{% url 'schedule_oneoff' %}", {
+        return fetch("{% url 'schedule_oneoff' %}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -626,19 +789,38 @@
             },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // [핵심] 저장이 성공하면 다음 단계(확인 페이지)로 이동
-                window.location.href = "{% url 'schedule_confirm' %}";
-            } else {
-                alert('저장 실패: ' + (data.message || '알 수 없는 오류'));
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('서버 통신 중 오류가 발생했습니다.');
-        });
+        .then(res => res.json());
+    }
+
+    function goBackToStep2() {
+        persistOneOffState()
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.href = "{% url 'schedule_recurring' %}";
+                } else {
+                    alert('임시 저장 실패: ' + (data.message || '알 수 없는 오류'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('서버 통신 중 오류가 발생했습니다.');
+            });
+    }
+
+    function saveAllOneOff() {
+        persistOneOffState()
+            .then(data => {
+                if (data.status === 'success') {
+                    // [핵심] 저장이 성공하면 다음 단계(확인 페이지)로 이동
+                    window.location.href = "{% url 'schedule_confirm' %}";
+                } else {
+                    alert('저장 실패: ' + (data.message || '알 수 없는 오류'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('서버 통신 중 오류가 발생했습니다.');
+            });
     }
 
     renderCalendar();

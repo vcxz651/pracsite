@@ -1,3 +1,6 @@
+import calendar
+import datetime
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
@@ -8,6 +11,30 @@ from django.db.models import Q
 
 from ..forms import BandCreateForm, MemberEnlistForm
 from ..models import Band, Membership, MeetingParticipant
+
+
+def _build_semester_preset_ranges(base_year: int):
+    winter_end_day = calendar.monthrange(base_year + 1, 2)[1]
+    return [
+        ('SEMESTER_1', '1학기', datetime.date(base_year, 3, 2), datetime.date(base_year, 6, 21)),
+        ('SUMMER_BREAK', '여름방학', datetime.date(base_year, 6, 22), datetime.date(base_year, 8, 31)),
+        ('SEMESTER_2', '2학기', datetime.date(base_year, 9, 1), datetime.date(base_year, 12, 20)),
+        ('WINTER_BREAK', '겨울방학', datetime.date(base_year, 12, 21), datetime.date(base_year + 1, 2, winter_end_day)),
+    ]
+
+
+def _resolve_meeting_preset(meeting):
+    start_date = getattr(meeting, 'practice_start_date', None)
+    end_date = getattr(meeting, 'practice_end_date', None)
+    if not start_date or not end_date:
+        return None
+    candidate_years = {start_date.year - 1, start_date.year, end_date.year}
+    for year in sorted(candidate_years):
+        for key, label, p_start, p_end in _build_semester_preset_ranges(year):
+            # 프리셋과 정확히 일치할 때뿐 아니라, 프리셋 기간 안에 완전히 포함되어도 같은 분류로 본다.
+            if p_start <= start_date and end_date <= p_end:
+                return {'key': key, 'label': label}
+    return None
 
 
 class BandCreateView(LoginRequiredMixin, CreateView):
@@ -150,7 +177,12 @@ class DashboardView(LoginRequiredMixin, ListView):
                         Q(visibility='LISTED') |
                         Q(id__in=participant_meeting_ids)
                     ).distinct()
-                context['meeting'] = meetings_qs
+                meetings = list(meetings_qs)
+                for m in meetings:
+                    preset = _resolve_meeting_preset(m)
+                    m.schedule_preset_key = preset['key'] if preset else ''
+                    m.schedule_preset_label = preset['label'] if preset else ''
+                context['meeting'] = meetings
                 if is_manager:
                     context['enlist'] = selected_band.memberships.filter(is_approved=False)
             else:
@@ -174,7 +206,8 @@ def approve_member(request, membership_id):
 
         if action == 'approve':
             membership.is_approved = True
-            membership.save()
+            membership.approval_notified = False
+            membership.save(update_fields=['is_approved', 'approval_notified'])
         elif action == 'reject':
             membership.delete()
 

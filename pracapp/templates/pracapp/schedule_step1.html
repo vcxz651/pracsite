@@ -1,27 +1,78 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5" style="max-width: 600px;">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .setup-shell {
+        max-width: 680px;
+    }
+    .setup-card {
+        border: 1px solid #eceff3;
+        border-radius: 18px;
+        background: linear-gradient(165deg, #ffffff 0%, #f7faff 100%);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+    }
+    .setup-title {
+        font-weight: 800;
+        letter-spacing: -0.01em;
+    }
+    .trendy-label {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.45rem;
+    }
+    .trendy-date,
+    .trendy-select {
+        height: 48px;
+        border-radius: 12px;
+        border: 1.5px solid #dbe2ea;
+        background-color: #fbfdff;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .trendy-date:focus,
+    .trendy-select:focus {
+        border-color: #ff9a3d;
+        box-shadow: 0 0 0 4px rgba(255, 154, 61, 0.18);
+        background-color: #fff;
+    }
+    .flatpickr-calendar {
+        border-radius: 14px;
+        border: 1px solid #e6ebf2;
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    }
+    .flatpickr-day.selected,
+    .flatpickr-day.startRange,
+    .flatpickr-day.endRange {
+        background: #ff9a3d;
+        border-color: #ff9a3d;
+    }
+</style>
+<div class="container mt-5 setup-shell">
     <div class="text-center mb-4">
-        <h2>📅 스케줄링 기간 설정</h2>
+        <h2 class="setup-title">📅 스케줄링 기간 설정</h2>
         <p class="text-muted">일정을 등록할 기간을 설정해주세요.</p>
     </div>
 
     <form method="post" id="setupForm">
         {% csrf_token %}
-        <div class="card p-4 shadow-sm border-0">
-            <div class="alert alert-info small">
-                <i class="bi bi-info-circle-fill"></i>
-                <b>Tip:</b> 학기 중, 방학 등 <strong>큰 단위</strong>로 설정하는 것이 좋습니다.
-            </div>
+        <div class="card p-4 setup-card">
 
             <div class="mb-4">
-                <label class="form-label fw-bold">시작일</label>
-                <input type="date" name="start_date" class="form-control" required id="startDate">
+                <label class="form-label trendy-label">기간 지정</label>
+                <select class="form-select trendy-select" id="presetSelect" name="preset_code" aria-label="학사일정 프리셋 선택"></select>
             </div>
-            <div class="mb-4">
-                <label class="form-label fw-bold">종료일</label>
-                <input type="date" name="end_date" class="form-control" required id="endDate">
+
+            <div class="row g-3 mb-4" id="customDateRangeWrap">
+                <div class="col-12 col-md-6">
+                    <label class="form-label trendy-label">시작일</label>
+                    <input type="text" name="start_date" class="form-control trendy-date" required id="startDate" autocomplete="off">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label trendy-label">종료일</label>
+                    <input type="text" name="end_date" class="form-control trendy-date" required id="endDate" autocomplete="off">
+                </div>
             </div>
 
             <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">
@@ -40,9 +91,12 @@
             </div>
             <div class="modal-body">
                 <p id="conflictMessage" class="fw-bold text-dark mb-3"></p>
+                <p class="small text-muted mb-0">
+                    * 기간 중 일부 구간에만 추가 고정 일정이 필요하다면,
+                    기존 일정 수정에서 <b>'특수 기간 고정 일정 추가'</b> 기능을 이용해주세요.
+                </p>
             </div>
             <div class="modal-footer">
-                <a href="{% url 'schedule_list' %}" class="btn btn-outline-secondary">내 목록 보기</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">확인</button>
             </div>
         </div>
@@ -57,7 +111,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-1">설정하신 기간:</p>
+                <p class="mb-1">설정 기간</p>
                 <h4 class="fw-bold text-primary mb-3" id="periodCheckText"></h4>
 
                 <div class="alert alert-warning d-flex align-items-center" role="alert">
@@ -80,30 +134,100 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const presets = JSON.parse('{{ period_presets_json|escapejs }}');
+        const defaultPresetCode = '{{ default_preset_code|default:"CUSTOM" }}';
+        const presetSelect = document.getElementById('presetSelect');
         const startInput = document.getElementById('startDate');
         const endInput = document.getElementById('endDate');
         const form = document.getElementById('setupForm');
+        let startPicker = null;
+        let endPicker = null;
 
         // 모달 인스턴스
         const conflictModal = new bootstrap.Modal(document.getElementById('conflictModal'));
         const confirmDateModal = new bootstrap.Modal(document.getElementById('confirmDateModal'));
+        const customDateRangeWrap = document.getElementById('customDateRangeWrap');
 
-        // 날짜 기본값 세팅
-        const today = new Date().toISOString().split('T')[0];
-        startInput.value = today;
-        startInput.setAttribute('min', today); // 과거 날짜 금지 (선택사항)
+        function syncEndMinDate() {
+            if (!endPicker || !startInput.value) return;
+            endPicker.set('minDate', startInput.value);
+            if (endInput.value && endInput.value < startInput.value) {
+                endPicker.setDate(startInput.value, true, 'Y-m-d');
+            }
+        }
 
-        // 종료일 자동 계산 (4개월 뒤)
-        const defaultEnd = new Date();
-        defaultEnd.setMonth(defaultEnd.getMonth() + 4);
-        endInput.value = defaultEnd.toISOString().split('T')[0];
+        function applyPreset(presetCode) {
+            const preset = presets.find((item) => item.code === presetCode);
+            if (!preset) return;
+            customDateRangeWrap.style.display = preset.code === 'CUSTOM' ? '' : 'none';
+            if (startPicker && endPicker) {
+                startPicker.setDate(preset.start, true, 'Y-m-d');
+                endPicker.setDate(preset.end, true, 'Y-m-d');
+                syncEndMinDate();
+                return;
+            }
+            startInput.value = preset.start;
+            endInput.value = preset.end;
+        }
 
-        // 시작일 변경 시 종료일 min 조정
-        startInput.addEventListener('change', function() {
-            endInput.setAttribute('min', this.value);
-            if(endInput.value < this.value) endInput.value = this.value;
+        function formatKoreanPeriod(startStr, endStr) {
+            const [sy, sm, sd] = startStr.split('-').map(Number);
+            const [ey, em, ed] = endStr.split('-').map(Number);
+            const shortStartYear = String(sy).slice(-2);
+            const shortEndYear = String(ey).slice(-2);
+
+            const startText = `${shortStartYear}년 ${sm}월 ${sd}일`;
+            if (sy === ey) {
+                return `${startText} ~ ${em}월 ${ed}일`;
+            }
+            const endText = `${shortEndYear}년 ${em}월 ${ed}일`;
+            return `${startText} ~ ${endText}`;
+        }
+
+        function buildConfirmPeriodText(startValue, endValue) {
+            const selectedCode = presetSelect.value;
+            if (selectedCode !== 'CUSTOM') {
+                const selectedPreset = presets.find((item) => item.code === selectedCode);
+                if (!selectedPreset) return formatKoreanPeriod(startValue, endValue);
+                return `${selectedPreset.label} (${formatKoreanPeriod(selectedPreset.start, selectedPreset.end)})`;
+            }
+            return formatKoreanPeriod(startValue, endValue);
+        }
+
+        presets.forEach((preset) => {
+            const option = document.createElement('option');
+            option.value = preset.code;
+            option.textContent = preset.code === 'CUSTOM'
+                ? preset.label
+                : `${preset.label} (${formatKoreanPeriod(preset.start, preset.end)})`;
+            presetSelect.appendChild(option);
+        });
+
+        startPicker = flatpickr(startInput, {
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'y년 n월 j일',
+            disableMobile: true,
+            onChange: function() {
+                syncEndMinDate();
+            }
+        });
+
+        endPicker = flatpickr(endInput, {
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'y년 n월 j일',
+            disableMobile: true,
+        });
+
+        presetSelect.value = defaultPresetCode;
+        applyPreset(presetSelect.value);
+
+        presetSelect.addEventListener('change', () => {
+            applyPreset(presetSelect.value);
         });
 
         // 폼 제출 가로채기
@@ -124,10 +248,12 @@
                     // [경우 A] 중복 발생 -> Conflict 모달 띄움 (생성 차단)
                     document.getElementById('conflictMessage').innerHTML = data.message;
                     conflictModal.show();
-                } else {
+                } else if (data.status === 'ok') {
                     // [경우 B] 중복 없음 -> 확인 사살 모달 띄움
-                    document.getElementById('periodCheckText').innerText = `${s} ~ ${eDate}`;
+                    document.getElementById('periodCheckText').innerText = buildConfirmPeriodText(s, eDate);
                     confirmDateModal.show();
+                } else {
+                    alert(data.message || '기간 확인 중 오류가 발생했습니다.');
                 }
             });
         });

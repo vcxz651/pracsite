@@ -88,6 +88,42 @@ def _has_meeting_manager_permission(meeting, user, membership=None):
     return common_has_meeting_manager_permission(meeting, user, membership=membership)
 
 
+def _role_label_of(session_name):
+    if not session_name:
+        return None
+    n = str(session_name).strip().lower()
+    normalized = ''.join(ch for ch in n if ch.isalnum())
+    if n.startswith('vocal') or n.startswith('보컬') or normalized in {'v'}:
+        return '보컬'
+    if n.startswith('guitar') or n.startswith('기타') or normalized in {'g', 'g1', 'g2'}:
+        return '기타'
+    if n.startswith('bass') or n.startswith('베이스') or normalized in {'b'}:
+        return '베이스'
+    if n.startswith('drum') or n.startswith('드럼') or normalized in {'d'}:
+        return '드럼'
+    if n.startswith('keyboard') or n.startswith('키보드') or n.startswith('건반') or normalized in {'k'}:
+        return '키보드'
+    return None
+
+
+def _role_label_of_instrument(instrument):
+    if not instrument:
+        return None
+    n = str(instrument).strip().lower()
+    normalized = ''.join(ch for ch in n if ch.isalnum())
+    if n.startswith('vocal') or n.startswith('보컬') or normalized in {'v'}:
+        return '보컬'
+    if n.startswith('guitar') or n.startswith('기타') or normalized in {'g', 'g1', 'g2'}:
+        return '기타'
+    if n.startswith('bass') or n.startswith('베이스') or normalized in {'b'}:
+        return '베이스'
+    if n.startswith('drum') or n.startswith('드럼') or normalized in {'d'}:
+        return '드럼'
+    if n.startswith('keyboard') or n.startswith('키보드') or n.startswith('건반') or normalized in {'k'}:
+        return '키보드'
+    return None
+
+
 #####################################################
 ###################### S O N G ######################
 #####################################################
@@ -379,6 +415,7 @@ def session_manage_data(request, session_id):
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
 
     sort_option = request.GET.get('sort', '').strip()
+    session_role_label = _role_label_of(session.name)
     visible_user_ids = _meeting_visible_user_ids(meeting)
     members_qs = User.objects.filter(
         user_memberships__band=band,
@@ -395,10 +432,16 @@ def session_manage_data(request, session_id):
         assign_url = reverse('session_assign', kwargs={'session_id': session.id, 'user_id': member.id})
         if sort_option:
             assign_url = f"{assign_url}?sort={sort_option}"
+        member_role_label = (
+            _role_label_of_instrument(getattr(member, 'instrument', '') or '')
+            or _role_label_of_instrument(getattr(member, 'instrument_detail', '') or '')
+        )
         rows.append({
             'id': str(member.id),
             'realname': member.realname,
             'username': member.username,
+            'role_label': member_role_label or '',
+            'is_same_role': bool(session_role_label and member_role_label == session_role_label),
             'is_applicant': str(member.id) in applicant_ids,
             'is_assignee': assignee_id == str(member.id),
             'has_assignee': bool(assignee_id),
@@ -410,6 +453,7 @@ def session_manage_data(request, session_id):
         'status': 'success',
         'song_title': session.song.title,
         'role': session.name,
+        'session_role_label': session_role_label or '',
         'session_id': str(session.id),
         'sort': sort_option,
         'members': rows,

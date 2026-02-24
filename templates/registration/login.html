@@ -1,14 +1,189 @@
 {% extends 'base.html' %}
 {% block content %}
 
-    <h2>로그인</h2>
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit">로그인</button>
-    </form>
-    <a href="{% url 'home' %}">
-        <button type="button">취소</button>
-    </a>
+<style>
+  .login-wrap {
+    min-height: calc(100vh - 180px);
+    display: grid;
+    place-items: center;
+    padding: 1rem 0 2rem;
+  }
+
+  .login-shell {
+    width: 100%;
+    max-width: 980px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #fff8ef 0%, #fff 45%, #f0f7ff 100%);
+    box-shadow: 0 24px 70px rgba(17, 24, 39, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .login-hero {
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255, 153, 51, 0.28), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(54, 99, 230, 0.22), transparent 40%),
+      linear-gradient(145deg, #171717 0%, #222 100%);
+    color: #fff;
+    padding: 2.5rem;
+    font-family: "Space Grotesk", "Pretendard", "Noto Sans KR", sans-serif;
+  }
+
+  .login-kicker {
+    display: inline-block;
+    font-size: 0.78rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #ffd38a;
+    margin-bottom: 0.9rem;
+  }
+
+  .login-hero h2 {
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 0.85rem;
+  }
+
+  .login-hero p {
+    color: rgba(255, 255, 255, 0.82);
+    margin-bottom: 0;
+  }
+
+  .login-form-pane {
+    padding: 2.5rem 2rem;
+    font-family: "Pretendard", "Noto Sans KR", sans-serif;
+  }
+
+  .login-title {
+    font-weight: 800;
+    margin-bottom: 0.4rem;
+    color: #1f2937;
+  }
+
+  .login-subtitle {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .login-form-pane label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.3rem;
+  }
+
+  .login-form-pane input[type="text"],
+  .login-form-pane input[type="password"] {
+    width: 100%;
+    border: 1px solid #d6dbe4;
+    border-radius: 12px;
+    padding: 0.68rem 0.8rem;
+    transition: all 0.18s ease;
+    background-color: #fbfcff;
+  }
+
+  .login-form-pane input[type="text"]:focus,
+  .login-form-pane input[type="password"]:focus {
+    outline: none;
+    border-color: #ff9a3d;
+    box-shadow: 0 0 0 4px rgba(255, 154, 61, 0.18);
+    background: #fff;
+  }
+
+  .login-error {
+    margin-top: 0.35rem;
+    color: #c53030;
+    font-size: 0.82rem;
+  }
+
+  .login-global-error {
+    border: 1px solid #fecaca;
+    background: #fff1f2;
+    color: #9f1239;
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    margin-bottom: 1rem;
+    font-size: 0.86rem;
+  }
+
+  .btn-login-main {
+    border: none;
+    border-radius: 12px;
+    padding: 0.72rem 0.95rem;
+    color: #fff;
+    background: linear-gradient(120deg, #f97316 0%, #fb923c 100%);
+    font-weight: 700;
+  }
+
+  .btn-login-main:hover {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 880px) {
+    .login-shell {
+      grid-template-columns: 1fr;
+      max-width: 560px;
+    }
+    .login-hero {
+      padding: 2rem 1.5rem 1.4rem;
+    }
+    .login-form-pane {
+      padding: 1.6rem 1.4rem 1.8rem;
+    }
+  }
+</style>
+
+<section class="login-wrap">
+  <div class="login-shell">
+    <aside class="login-hero">
+      <span class="login-kicker">ROCK OF SCHOOL</span>
+      <h3>와! 합주스케줄짜기너무편리해! 머신으로<br>합주 스케쥴링으로부터의 해방.</h3>
+    </aside>
+
+    <div class="login-form-pane">
+      <h3 class="login-title">로그인</h3>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="login-global-error">
+            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+          {{ form.username }}
+          {% for error in form.username.errors %}
+            <div class="login-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+          {{ form.password }}
+          {% for error in form.password.errors %}
+            <div class="login-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+
+        <div class="d-grid gap-2 mt-4">
+          <button type="submit" class="btn btn-login-main">로그인</button>
+          <a href="{% url 'signup' %}" class="btn btn-outline-dark">회원가입</a>
+          <a href="{% url 'home' %}" class="btn btn-outline-secondary">홈으로</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
 
 {% endblock %}

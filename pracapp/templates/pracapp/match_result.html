@@ -84,6 +84,51 @@
         gap: 8px;
         flex-wrap: wrap;
     }
+    .match-quick-remote {
+        position: fixed;
+        left: max(10px, calc((100vw - 1200px) / 2 - 116px));
+        top: 128px;
+        z-index: 1400;
+        width: 104px;
+        border: 1px solid #d6deea;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+        padding: 8px 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .match-quick-remote-title {
+        font-size: 0.66rem;
+        font-weight: 800;
+        color: #3d4a61;
+        text-align: center;
+        letter-spacing: 0.02em;
+        margin-bottom: 1px;
+    }
+    .match-quick-remote-meta {
+        border: 1px solid #d8e1ee;
+        border-radius: 8px;
+        background: #f8fbff;
+        padding: 5px 6px;
+        font-size: 0.58rem;
+        line-height: 1.25;
+        color: #4b5a73;
+    }
+    .match-quick-remote-meta strong {
+        font-weight: 800;
+        color: #2f3f57;
+    }
+    .match-quick-remote .btn {
+        width: 100%;
+        font-size: 0.65rem;
+        font-weight: 700;
+        line-height: 1.15;
+        padding: 0.3rem 0.4rem;
+        white-space: normal;
+    }
 
     /* 2. 시간표 테이블 래퍼 */
     .timetable-wrapper {
@@ -229,43 +274,6 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .event-room-change-btn {
-        position: absolute;
-        right: 4px;
-        bottom: 4px;
-        font-size: 0.64rem;
-        line-height: 1.1;
-        padding: 1px 5px;
-        z-index: 3;
-        opacity: 0;
-        pointer-events: none;
-        transition: none;
-    }
-    .event-card:hover .event-room-change-btn,
-    .event-card:focus-within .event-room-change-btn {
-        opacity: 0.95;
-        pointer-events: auto;
-    }
-    .event-room-change-btn:hover {
-        opacity: 1;
-    }
-    .event-room-change-btn:disabled,
-    .event-card:hover .event-room-change-btn:disabled,
-    .event-card:focus-within .event-room-change-btn:disabled {
-        opacity: 0.45;
-        pointer-events: none;
-        cursor: not-allowed;
-    }
-    .room-change-choice-list {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-    .room-change-choice-btn {
-        width: 100%;
-        text-align: left;
-    }
-
     /* [핵심] 호버 시 카드 자체를 띄워서 다른 셀에 가려지지 않게 함 */
     .event-card:not(.board-event):hover {
         transform: translateY(-2px);
@@ -386,6 +394,21 @@
         border: 1px solid #ddd;
         border-radius: 8px;
         overflow: hidden;
+    }
+    .match-weekend-hidden .week-board {
+        grid-template-columns: 52px repeat(5, minmax(130px, 1fr));
+    }
+    .match-weekend-hidden .board-head-day.weekend-sat,
+    .match-weekend-hidden .board-head-day.weekend-sun,
+    .match-weekend-hidden .board-day-col.weekend-sat,
+    .match-weekend-hidden .board-day-col.weekend-sun {
+        display: none !important;
+    }
+    .match-weekend-hidden .board-room-toggle-cell.weekend-sat,
+    .match-weekend-hidden .board-room-toggle-cell.weekend-sun,
+    .match-weekend-hidden .board-room-toggle-cell[data-day-index="5"],
+    .match-weekend-hidden .board-room-toggle-cell[data-day-index="6"] {
+        display: none !important;
     }
     .week-board.is-full-view {
         --slot-h: 20px;
@@ -635,6 +658,10 @@
         border-right: 1px solid rgba(29, 78, 216, 0.22);
         background: rgba(29, 78, 216, 0.035);
     }
+    .booking-room-guide-col.capacity-shortage {
+        background: rgba(240, 140, 0, 0.2);
+        border-right: 1px solid rgba(240, 140, 0, 0.68);
+    }
     .booking-room-guide-label {
         position: absolute;
         top: 2px;
@@ -645,6 +672,22 @@
         color: rgba(30, 58, 95, 0.55);
         white-space: nowrap;
         text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+    .booking-room-guide-capacity-flag {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 1px 5px;
+        border-radius: 999px;
+        font-size: 0.56rem;
+        line-height: 1.15;
+        font-weight: 800;
+        color: #fff;
+        background: rgba(198, 88, 0, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        white-space: nowrap;
+        pointer-events: none;
     }
     .booking-room-guide-line {
         position: absolute;
@@ -702,7 +745,7 @@
         font-weight: 600;
     }
     .hover-conf-layer.is-pinned {
-        pointer-events: auto;
+        pointer-events: none;
     }
     .hover-conf-layer.is-storage-muted {
         opacity: 0.15;
@@ -724,7 +767,10 @@
         transition: opacity 0.3s ease;
         will-change: opacity;
         backface-visibility: hidden;
-        pointer-events: auto;
+        pointer-events: none;
+    }
+    .hover-conf-layer.is-pinned .hover-conf-cell {
+        pointer-events: none;
     }
     .hover-conf-cell.is-visible {
         opacity: 1;
@@ -806,9 +852,22 @@
         background: #f08c00;
         border: 1px solid rgba(255, 255, 255, 0.35);
     }
+    .hover-conf-unavailable-badge {
+        display: inline-block;
+        margin: 0 2px 3px 0;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-size: 10px;
+        line-height: 1.2;
+        font-weight: 700;
+        color: #fff;
+        background: #495057;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+    }
     .week-board:not(.is-full-view) .hover-conf-overlap-badge,
     .week-board:not(.is-full-view) .hover-conf-shortage-badge,
-    .week-board:not(.is-full-view) .hover-conf-capacity-badge {
+    .week-board:not(.is-full-view) .hover-conf-capacity-badge,
+    .week-board:not(.is-full-view) .hover-conf-unavailable-badge {
         margin: 0 2px 1px 0;
         padding: 0 5px;
         line-height: 1.1;
@@ -825,7 +884,10 @@
         font-weight: 700;
     }
     .hover-conf-cell.room-shortage {
-        border-color: rgba(255, 193, 7, 0.75) !important;
+        border: 3px solid rgba(255, 193, 7, 0.88) !important;
+    }
+    .hover-conf-cell.capacity-overflow {
+        border: 3px solid rgba(240, 140, 0, 0.9) !important;
     }
     .hover-conf-cell.overlap-detected {
         border: 4px solid #e03131 !important;
@@ -886,6 +948,10 @@
         pointer-events: none;
     }
     .board-event.is-my-filter-hidden {
+        display: none !important;
+        pointer-events: none !important;
+    }
+    .board-event.is-quick-filter-hidden {
         display: none !important;
         pointer-events: none !important;
     }
@@ -1102,6 +1168,9 @@
         border-radius: 10px;
         padding: 10px;
         margin-bottom: 10px;
+        min-height: 92px;
+        max-height: 126px;
+        overflow: hidden;
     }
     .failed-week-title {
         font-size: 0.86rem;
@@ -1113,6 +1182,10 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        align-content: flex-start;
+        max-height: 78px;
+        overflow-y: auto;
+        padding-right: 2px;
     }
     .failed-week-card {
         width: min(150px, 100%);
@@ -1140,6 +1213,21 @@
     .failed-week-wrap.drop-active {
         outline: 2px dashed #f08c00;
         outline-offset: -4px;
+    }
+    .failed-week-wrap.is-empty {
+        background: #f8f9fa;
+        border-color: #e9ecef;
+    }
+    .failed-week-wrap.is-empty .failed-week-title {
+        color: #868e96;
+        margin-bottom: 0;
+    }
+    .failed-week-wrap.is-empty .failed-week-list {
+        display: none;
+    }
+    body.dragging-event .failed-week-wrap {
+        visibility: hidden;
+        pointer-events: none;
     }
     .success-storage-wrap {
         background: #f8f9fa;
@@ -1230,7 +1318,7 @@
     .board-event.forced-assigned {
         outline: 2px solid rgba(220, 53, 69, 0.95);
         outline-offset: -2px;
-        z-index: 1500 !important;
+        z-index: 930 !important;
     }
     .forced-badge {
         position: absolute;
@@ -1377,8 +1465,13 @@
     }
     .booking-tools-panel-actions {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         gap: 0.45rem;
+    }
+    .booking-tools-panel-actions .btn,
+    .booking-tools-panel-actions button,
+    .booking-tools-panel-actions a {
+        width: 100%;
     }
     .booking-tools-panel-head .btn,
     .booking-tools-panel-head button,
@@ -1546,6 +1639,9 @@
         .booking-split-main .week-board {
             grid-template-columns: 64px repeat(7, minmax(104px, 1fr));
         }
+        .match-weekend-hidden .booking-split-main .week-board {
+            grid-template-columns: 64px repeat(5, minmax(104px, 1fr));
+        }
         .booking-split-shell .booking-tools-panel-head {
             cursor: default;
         }
@@ -1580,6 +1676,9 @@
             grid-template-columns: 52px repeat(7, minmax(0, 1fr));
             width: 100%;
         }
+        .match-weekend-hidden .week-board {
+            grid-template-columns: 52px repeat(5, minmax(0, 1fr));
+        }
         .week-board.is-full-view {
             --slot-h: 16px;
         }
@@ -1605,9 +1704,48 @@
             font-size: 0.6rem;
         }
     }
+    @media (max-width: 1500px) {
+        .match-quick-remote {
+            left: 10px;
+        }
+    }
+    @media (max-width: 1280px) {
+        .match-quick-remote {
+            left: 8px;
+            width: 96px;
+            padding: 7px 6px;
+            gap: 5px;
+        }
+        .match-quick-remote .btn {
+            font-size: 0.62rem;
+            padding: 0.26rem 0.34rem;
+        }
+    }
 </style>
 
-<div class="container mt-5 mb-5" style="max-width: 1200px;">
+<div class="container mt-5 mb-5" id="matchResultRoot" style="max-width: 1200px;">
+
+    {% if not is_booking_confirm_view %}
+    <div class="match-quick-remote" id="matchQuickRemote">
+        <div class="match-quick-remote-title">조정 리모콘</div>
+        {% if not is_final_view %}
+        <div class="match-quick-remote-meta">
+            <div><strong>공유 버전</strong> v{{ meeting.schedule_version }}</div>
+            <div><strong>공유 시각</strong> {% if shared_schedule_updated_at %}{{ shared_schedule_updated_at|date:"m/d H:i" }}{% else %}없음{% endif %}</div>
+        </div>
+        {% endif %}
+        <button type="button" id="quickSaveDraftBtn" class="btn btn-primary btn-sm">임시 저장</button>
+        <button type="button" id="quickFinalSaveBtn" class="btn btn-success btn-sm">확정 저장</button>
+        <button type="button" id="quickLayoutToggleBtn" class="btn btn-outline-primary btn-sm">룸 보기</button>
+        <button type="button" id="quickForcedOnlyBtn" class="btn btn-outline-warning btn-sm">강제 배치만</button>
+        <button type="button" id="quickTempRoomOnlyBtn" class="btn btn-outline-secondary btn-sm">임시합주실만</button>
+        <button type="button" id="quickSharedDiffOnlyBtn" class="btn btn-outline-info btn-sm">공유 후 변경만</button>
+        <button type="button" id="quickEmptyRoomsToggleBtn" class="btn btn-outline-secondary btn-sm">빈 합주실 가리기</button>
+        <button type="button" id="quickWeekendToggleBtn" class="btn btn-outline-secondary btn-sm">주말 가리기</button>
+        <button type="button" id="quickExpandAllBtn" class="btn btn-outline-secondary btn-sm">전체 시간표 확장</button>
+        <button type="button" id="quickResetAllBtn" class="btn btn-outline-danger btn-sm">전체 초기화</button>
+    </div>
+    {% endif %}
 
     <div class="result-header">
         <div class="result-header-title w-100">
@@ -1665,9 +1803,6 @@
                 <div class="result-summary-shell">
                     <div class="result-summary-shell-left">
                         <p class="text-muted m-0">
-                            총 <span id="resultTotalCount">{{ result.total_count }}</span>곡 중 <span id="resultSuccessCount" class="text-success fw-bold">{{ result.success_count }}곡</span> 매칭 성공
-                        </p>
-                        <p class="text-muted m-0">
                             주차 완료 현황: <span class="fw-bold" id="weekCompletionSummary">{{ completed_week_count }} / {{ total_week_count }}</span>
                         </p>
                     </div>
@@ -1691,12 +1826,22 @@
                         <button id="saveWorkDraftBtn" class="btn btn-outline-primary fw-bold px-4">
                             💾 현재 시간표 임시 저장
                         </button>
+                        <span class="text-muted small">최종 공유본 기준으로 예약단계로 이동</span>
                         <button id="goBookingConfirmFromMatchBtn" class="btn btn-success fw-bold px-4">
                             🏷️ 예약하기
                         </button>
                         {% endif %}
                     </div>
                 </div>
+                {% if share_warning_needed %}
+                <div class="alert alert-info py-2 px-3 mt-2 mb-0" id="sharedScheduleGuideBanner">
+                    <strong>현재 공유된 시간표 기준</strong>으로 팀원과 소통 후 예약을 진행하세요.
+                    <span class="small d-block mt-1 text-muted">
+                        마지막 공유: <span id="sharedScheduleUpdatedAtText">{% if shared_schedule_updated_at %}{{ shared_schedule_updated_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span>
+                        · 버전 <span id="sharedScheduleVersionText">{{ meeting.schedule_version }}</span>
+                    </span>
+                </div>
+                {% endif %}
             {% endif %}
         </div>
         <div class="result-header-actions">
@@ -1707,7 +1852,7 @@
                        class="btn btn-outline-secondary fw-bold px-3"
                        data-leave-guard-skip="1"
                        data-resume-from-booking="1">
-                        ✏️ 합주 조율 페이지
+                        ✏️ 합주 재매칭
                     </a>
                     <span class="text-muted small">Shift+클릭: 불가능 사유 고정</span>
                     {% else %}
@@ -1716,6 +1861,7 @@
                             class="btn btn-outline-primary fw-bold px-3">
                         🏷️ 합주 예약 확정 페이지
                     </button>
+                    <span class="text-muted small">최종 공유본 기준으로 예약단계로 이동</span>
                     {% endif %}
                 {% endif %}
                 {% if can_confirm_final and not is_booking_confirm_view %}
@@ -1766,20 +1912,19 @@
         <div class="mb-2 booking-tools-panel-head">
             <div class="booking-tools-panel-title">예약 리모콘</div>
             <div class="booking-tools-panel-actions">
+                <button type="button" id="quickSaveDraftBtnBooking" class="btn btn-outline-primary btn-sm">임시 저장</button>
                 <button type="button" id="bookingSelectAllBtn" class="btn btn-outline-primary btn-sm">전체 예약</button>
                 <button type="button" id="bookingClearAllBtn" class="btn btn-outline-secondary btn-sm">전체 예약 초기화</button>
+            </div>
+            <div class="booking-tools-panel-actions mt-2">
+                <button type="button" id="quickForcedOnlyBtn" class="btn btn-outline-warning btn-sm">강제 배치만</button>
+                <button type="button" id="quickTempRoomOnlyBtn" class="btn btn-outline-secondary btn-sm">임시합주실만</button>
             </div>
         </div>
         <div class="booking-box">
             <div class="booking-box-title">예약 필요 (<span id="bookingNeededCount">0</span>)</div>
             <div id="bookingSelectionSummary" class="booking-list">
                 <div class="text-muted small">예약이 필요한 타일이 없습니다.</div>
-            </div>
-        </div>
-        <div class="booking-box mt-2 booking-change-floating">
-            <div class="booking-box-title">변동 현황판</div>
-            <div id="bookingChangeBoard" class="booking-list">
-                <div class="text-muted small">원본 대비 변동 없음</div>
             </div>
         </div>
         <div class="mt-2">
@@ -1905,7 +2050,7 @@
             </div>
             {% if week.failed_items and not is_final_view %}
             <div class="failed-week-wrap">
-                <div class="failed-week-title">직접 배치 필요</div>
+                <div class="failed-week-title">추가 배치 필요</div>
                 <div class="failed-week-list">
                     {% for item in week.failed_items %}
                     <div class="event-card failed-week-card suggestion"
@@ -1948,7 +2093,7 @@
             {% endif %}
             {% if not is_final_view %}
             <div class="week-board-hints">
-                <span class="week-action-hint">1시간 이상 곡들은 꾹 누르면 분할할 수 있습니다</span>
+<!--                <span class="week-action-hint">1시간 이상 곡들은 꾹 누르면 분할할 수 있습니다</span> -->
                 <span class="week-action-hint">타일을 클릭하면 불가능 사유를 고정할 수 있습니다</span>
             </div>
             {% endif %}
@@ -1988,7 +2133,7 @@
                 </div>
 
                 {% for day in week.days %}
-                    <div class="board-day-col{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %} out-of-range{% endif %}"
+                    <div class="board-day-col{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %} out-of-range{% endif %}{% if day.date|date:'w' == '6' %} weekend-sat{% elif day.date|date:'w' == '0' %} weekend-sun{% endif %}"
                          data-day-index="{{ forloop.counter0 }}">
                         <div class="board-day-grid"
                              data-date="{{ day.date|date:'Y-m-d' }}"
@@ -2027,12 +2172,6 @@
                                     draggable="false">
                                     <div class="event-song-title">{{ event.song_title }}</div>
                                     <div class="event-room-name" title="{{ event.room.location|default:''|escape }}">{{ event.room.name }}</div>
-                                    {% if not is_final_view %}
-                                    <button type="button"
-                                            class="btn btn-light border event-room-change-btn">
-                                        합주실 변경
-                                    </button>
-                                    {% endif %}
                                     {% if event.is_forced %}
                                     <div class="forced-badge">강제</div>
                                     {% endif %}
@@ -2052,12 +2191,14 @@
                                             {% endif %}
                                         {% endfor %}
                                     </div>
+                                    {% if not is_booking_confirm_view %}
                                     {% if is_confirmed_final or is_manager_role %}
                                     <a class="btn btn-xs btn-extra-practice js-extra-practice-btn d-none"
                                        href="{% url 'extra_practice' meeting.id event.song.id %}"
                                        data-song-id="{{ event.song.id }}"
                                        title="추가 합주 잡기"
                                        onclick="event.stopPropagation();">+ 추가합주</a>
+                                    {% endif %}
                                     {% endif %}
 
                                 </div>
@@ -2154,24 +2295,6 @@
     </div>
 </div>
 
-<div id="roomChangeModalBg" class="song-modal-bg" style="display:none;">
-    <div class="song-modal" style="max-width: 420px;">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0 fw-bold">합주실 변경</h5>
-            <button type="button" id="roomChangeCloseBtn" class="btn btn-sm btn-outline-secondary">닫기</button>
-        </div>
-        <div class="small text-muted mb-2">현재: <span id="roomChangeCurrent">-</span></div>
-        <div class="mb-3">
-            <label class="form-label fw-bold mb-1">변경할 합주실</label>
-            <div id="roomChangeChoices" class="room-change-choice-list"></div>
-        </div>
-        <div class="d-flex justify-content-end gap-2">
-            <button type="button" id="roomChangeCancelBtn" class="btn btn-outline-secondary btn-sm">취소</button>
-            <button type="button" class="btn btn-primary btn-sm" id="roomChangeApplyBtn">적용</button>
-        </div>
-    </div>
-</div>
-
 <div id="songQuickInfoPopover" class="floating-popover"></div>
 <div id="conflictDetailPopover" class="floating-popover"></div>
 <div id="bookingRoomBlockTooltip" class="booking-room-block-tooltip"></div>
@@ -2192,6 +2315,7 @@
     const isBoardEditable = (!isScheduleFinalStageView) || isBookingEditableStageView;
     const isTemporaryFinalView = isFinalView && !isConfirmedFinal;
     const canSeeDetailedConflict = (!isFinalReadonlyStageView) || isManagerRole;
+    const hideMemberConflictInfo = isFinalReadonlyStageView && !isManagerRole;
     const disableWeekdayOverlay = isFinalView && !isManagerRole;
     const showMyUnavailableOverlay = isTemporaryFinalView && !isManagerRole;
     const myUnavailableSlotsMap = JSON.parse('{{ my_unavailable_slots_json|default:"{}"|escapejs }}');
@@ -2220,13 +2344,27 @@
         ? roomPriorityOrderFromServer.map((x) => String(x || '').trim()).filter(Boolean)
         : roomPriorityOrderFromQuery;
     const roomPriorityRankMap = new Map(roomPriorityOrder.map((rid, idx) => [rid, idx]));
-    const defaultDurationSlots = Math.max(1, Math.floor(({{ duration|default:60 }} || 60) / 30));
+    const effectiveMatchParams = JSON.parse('{{ effective_match_params_json|default:"{}"|escapejs }}');
+    const parsedDurationFromParams = parseInt(String(effectiveMatchParams.d || ''), 10);
+    const parsedDurationFromContext = parseInt('{{ match_duration_minutes|default:duration|default:60 }}', 10);
+    const resolvedDurationMinutes = Number.isFinite(parsedDurationFromParams) && parsedDurationFromParams > 0
+        ? parsedDurationFromParams
+        : (Number.isFinite(parsedDurationFromContext) && parsedDurationFromContext > 0 ? parsedDurationFromContext : 60);
+    const matchDurationMinutes = Math.max(30, resolvedDurationMinutes);
+    const parsedCountFromParams = parseInt(String(effectiveMatchParams.c || ''), 10);
+    const parsedCountFromContext = parseInt('{{ match_required_count|default:1 }}', 10);
+    const resolvedRequiredCount = Number.isFinite(parsedCountFromParams) && parsedCountFromParams > 0
+        ? parsedCountFromParams
+        : (Number.isFinite(parsedCountFromContext) && parsedCountFromContext > 0 ? parsedCountFromContext : 1);
+    const matchRequiredCount = Math.max(1, resolvedRequiredCount);
+    const defaultDurationSlots = Math.max(1, Math.ceil(matchDurationMinutes / 30));
+    const defaultWeeklyRequiredSlots = defaultDurationSlots * matchRequiredCount;
+    const serverSongWeekRequiredSlots = JSON.parse('{{ week_song_required_slots_json|default:"{}"|escapejs }}');
     const moveEventUrl = "{% url 'schedule_move_event' meeting.id %}";
     const roomBlockManageUrl = "{% url 'schedule_room_block_manage' meeting.id %}";
     const saveResultUrl = "{% url 'schedule_save_result' meeting.id %}";
     const saveWorkDraftUrl = "{% url 'schedule_match_work_draft_save' meeting.id %}";
     const loadWorkDraftUrl = "{% url 'schedule_match_run' meeting.id %}?load_saved=1";
-    const effectiveMatchParams = JSON.parse('{{ effective_match_params_json|default:"{}"|escapejs }}');
     const selectedRoomIdsFromMatch = String(effectiveMatchParams.r || '')
         .split(',')
         .map((x) => String(x || '').trim())
@@ -2238,6 +2376,7 @@
     const acknowledgeFinalUrl = "{% url 'schedule_final_acknowledge' meeting.id %}";
     const csrfToken = '{{ csrf_token }}';
     let shareWarningNeeded = {{ share_warning_needed|default:False|yesno:"true,false" }};
+    let shareActionInProgress = false;
     const stripForceRematch = {{ strip_force_rematch|default:False|yesno:"true,false" }};
     let bookingRoomBlocks = JSON.parse('{{ booking_room_blocks_json|default:"[]"|escapejs }}');
     const bookingCompletedEventIds = new Set();
@@ -2248,12 +2387,14 @@
     const bookingToolsPanelStorageKey = `bookingToolsPanelPos:${window.location.pathname}`;
     const bookingToolsPanelSizeStorageKey = `bookingToolsPanelSize:${window.location.pathname}`;
     const boardLayoutModeStorageKey = `boardLayoutMode:${window.location.pathname}`;
+    const weekendVisibilityStorageKey = `matchWeekendHidden:${window.location.pathname}`;
     let bookingTempRoomCounter = 1;
     let activeHoverSongId = null;
     let activeHoverWeekId = null;
     let dragState = null;
     let dragAutoScrollRaf = null;
     let suppressNextClick = false;
+    let suppressClickUntilTs = 0;
     let pendingPressState = null;
     let allowPageLeave = false;
     let hasSentExitSignal = false;
@@ -2267,8 +2408,7 @@
     let pendingHoverConflictSongId = null;
     let pendingHoverConflictOptions = null;
     let visualHoveredSongId = null;
-    let roomChangeTargetEl = null;
-    let roomChangeSelectedRoomId = '';
+    let visualHoveredWeekId = null;
     let resizeState = null;
     let boardLayoutMode = 'general';
     if (!isFinalView) {
@@ -2286,7 +2426,18 @@
     let leaveGuardModalOpen = false;
     let shareEditWarnedThisSession = false;
     let blockPaintState = null;
+    let deferDurationSync = false;
+    let quickEmptyRoomsHidden = false;
+    let isWeekendHidden = false;
+    let quickForcedOnlyActive = false;
+    let quickForcedOnlyPreview = false;
+    let quickTempRoomOnlyActive = false;
+    let quickTempRoomOnlyPreview = false;
+    let quickSharedDiffOnlyActive = false;
+    let quickSharedDiffOnlyPreview = false;
+    let quickLayoutPreviewMode = '';
     const disableAutoTempRoomReassign = true;
+    const disableTempRoomIdentityPrompt = true;
     const splitHoldMs = 1200;
     const splitHoldVisualDelayMs = 220;
     const dragStartThresholdPx = 5;
@@ -2568,7 +2719,7 @@
         failedWrap.className = 'failed-week-wrap';
         const titleEl = document.createElement('div');
         titleEl.className = 'failed-week-title';
-        titleEl.textContent = '직접 배치 필요';
+        titleEl.textContent = '추가 배치 필요';
         const listEl = document.createElement('div');
         listEl.className = 'failed-week-list';
         failedWrap.replaceChildren(titleEl, listEl);
@@ -2670,13 +2821,21 @@
             }
             const songIds = new Set([...assignedMap.keys(), ...shortageMap.keys()]);
             songIds.forEach((songId) => {
-                const required = Math.max(0, (assignedMap.get(songId) || 0) + (shortageMap.get(songId) || 0));
+                const serverRequired = parseInt(serverSongWeekRequiredSlots[getSongWeekKey(weekId, songId)] || '0', 10);
+                const required = Number.isFinite(serverRequired) && serverRequired > 0
+                    ? serverRequired
+                    : (
+                        shortageMap.has(songId)
+                            ? Math.max(0, (assignedMap.get(songId) || 0) + (shortageMap.get(songId) || 0))
+                            : defaultWeeklyRequiredSlots
+                    );
                 songWeekRequiredSlots.set(getSongWeekKey(weekId, songId), required);
             });
         });
     }
 
     function syncSongWeekDurationVisuals() {
+        const suppressFailedWrapUpdate = deferDurationSync || document.body.classList.contains('dragging-event');
         const touchedWeekBlocks = new Set();
         songWeekRequiredSlots.forEach((requiredSlots, key) => {
             const [weekId, songId] = String(key || '').split('|');
@@ -2690,11 +2849,17 @@
                     .forEach((el) => applyDurationDeltaBadge(el, diff));
             }
 
+            if (suppressFailedWrapUpdate) return;
+
             const shortage = Math.max(0, -diff);
             const weekBlock = getWeekBlockById(weekId);
             if (weekBlock) touchedWeekBlocks.add(weekBlock);
             let failedCard = weekBlock ? getFailedCardBySongInWeek(weekBlock, songId) : null;
-            if (shortage > 0 && !failedCard) {
+            if (shortage <= 0) {
+                if (failedCard) failedCard.remove();
+                return;
+            }
+            if (!failedCard) {
                 failedCard = ensureFailedCardForSongWeek(weekId, songId);
             }
             if (!failedCard) return;
@@ -2703,15 +2868,21 @@
             if (hintEl) {
                 hintEl.textContent = `부족한 합주시간: ${formatDurationSlotsLabel(shortage)}`;
             }
-            failedCard.dataset.used = shortage > 0 ? '0' : '1';
-            failedCard.classList.toggle('is-used', shortage <= 0);
+            failedCard.dataset.used = '0';
+            failedCard.classList.remove('is-used');
         });
+
+        if (suppressFailedWrapUpdate) return;
 
         touchedWeekBlocks.forEach((block) => {
             const wrap = block.querySelector('.failed-week-wrap');
             if (!wrap) return;
             const hasRemain = Array.from(block.querySelectorAll('.failed-week-card')).some((c) => String(c.dataset.used || '0') === '0');
-            wrap.style.display = hasRemain ? '' : 'none';
+            const titleEl = wrap.querySelector('.failed-week-title');
+            wrap.classList.toggle('is-empty', !hasRemain);
+            if (titleEl) {
+                titleEl.textContent = hasRemain ? '추가 배치 필요' : '추가 배치 필요 없음';
+            }
         });
     }
 
@@ -2719,9 +2890,25 @@
         return isBookingEditableStageView;
     }
 
+    function getEffectiveBoardLayoutMode() {
+        return String(quickLayoutPreviewMode || boardLayoutMode || 'general');
+    }
+
+    function isQuickForcedOnlyEffective() {
+        return quickForcedOnlyActive || quickForcedOnlyPreview;
+    }
+
+    function isQuickTempRoomOnlyEffective() {
+        return quickTempRoomOnlyActive || quickTempRoomOnlyPreview;
+    }
+
+    function isQuickSharedDiffOnlyEffective() {
+        return quickSharedDiffOnlyActive || quickSharedDiffOnlyPreview;
+    }
+
     function isRoomSlotLayoutEnabled() {
         if (bookingToolsEnabled()) return true;
-        if (!isFinalView) return boardLayoutMode === 'roomslot';
+        if (!isFinalView) return getEffectiveBoardLayoutMode() === 'roomslot';
         return false;
     }
 
@@ -2729,7 +2916,7 @@
         const generalBtn = document.getElementById('boardLayoutGeneralBtn');
         const roomslotBtn = document.getElementById('boardLayoutRoomslotBtn');
         if (!generalBtn || !roomslotBtn) return;
-        const isGeneral = boardLayoutMode === 'general';
+        const isGeneral = getEffectiveBoardLayoutMode() === 'general';
         generalBtn.classList.toggle('btn-primary', isGeneral);
         generalBtn.classList.toggle('btn-outline-secondary', !isGeneral);
         roomslotBtn.classList.toggle('btn-primary', !isGeneral);
@@ -2754,9 +2941,9 @@
         renderBookingRoomToggleCells();
         applyBookingRoomVisibilityForDate();
         markBookingRoomBlockedEvents();
-        refreshRoomChangeButtons();
         recomputeForcedBadgesForBoard();
         refreshCompletionIndicators();
+        syncQuickRemoteButtons();
     }
 
     function getBookingTempRoomsForDate(dateStr) {
@@ -2962,21 +3149,30 @@
         if (!dates.length) return;
         const firstDate = dates[0];
         const existingList = getBookingTempRoomsForDate(firstDate);
-        const defaultName = `임시합주실 ${existingList.length + 1}`;
-        const nameRaw = window.prompt('임시합주실 이름을 입력하세요.', defaultName);
-        if (nameRaw === null) return;
-        const roomName = String(nameRaw || '').trim();
-        if (!roomName) { alert('합주실 이름을 입력해주세요.'); return; }
-        const locationRaw = window.prompt('임시합주실 위치를 입력하세요.', '');
-        if (locationRaw === null) return;
-        const roomLocation = String(locationRaw || '').trim();
+        const bookingMode = bookingToolsEnabled();
+        let roomName = '임시합주실';
+        let roomLocation = '';
+        let confirmed = false;
+        if (bookingMode) {
+            const defaultName = `임시합주실 ${existingList.length + 1}`;
+            const nameRaw = window.prompt('임시합주실 이름을 입력하세요.', defaultName);
+            if (nameRaw === null) return;
+            roomName = String(nameRaw || '').trim();
+            if (!roomName) { alert('합주실 이름을 입력해주세요.'); return; }
+            const locationRaw = window.prompt('임시합주실 위치를 입력하세요.', '');
+            if (locationRaw === null) return;
+            roomLocation = String(locationRaw || '').trim();
+            confirmed = true;
+        }
         const roomId = `temp-user-week-${firstDate}-${Date.now()}-${bookingTempRoomCounter}`;
         bookingTempRoomCounter += 1;
         // 주 전체 날짜에 임시합주실 추가 + 활성화
         dates.forEach((dateStr) => {
             const list = getBookingTempRoomsForDate(dateStr);
-            list.push({ id: roomId, name: roomName, location: roomLocation, capacity: 0, temporary: true, date: dateStr, confirmed: true });
-            bookingTempRoomIdentityConfirmed.add(roomId);
+            list.push({ id: roomId, name: roomName, location: roomLocation, capacity: 0, temporary: true, date: dateStr, confirmed });
+            if (confirmed) {
+                bookingTempRoomIdentityConfirmed.add(roomId);
+            }
             const active = new Set(getActiveSplitRoomIdsForDate(dateStr));
             active.add(roomId);
             bookingRoomSplitStateByDate[dateStr] = getAllBookingRoomIds(dateStr).filter((id) => active.has(id));
@@ -2998,17 +3194,24 @@
         const dateKey = String(dateStr || '').trim();
         if (!dateKey) return;
         const list = getBookingTempRoomsForDate(dateKey);
-        const defaultName = `임시합주실 ${list.length + 1}`;
-        const nameRaw = window.prompt('임시합주실 이름을 입력하세요.', defaultName);
-        if (nameRaw === null) return;
-        const roomName = String(nameRaw || '').trim();
-        if (!roomName) {
-            alert('합주실 이름을 입력해주세요.');
-            return;
+        const bookingMode = bookingToolsEnabled();
+        let roomName = '임시합주실';
+        let roomLocation = '';
+        let confirmed = false;
+        if (bookingMode) {
+            const defaultName = `임시합주실 ${list.length + 1}`;
+            const nameRaw = window.prompt('임시합주실 이름을 입력하세요.', defaultName);
+            if (nameRaw === null) return;
+            roomName = String(nameRaw || '').trim();
+            if (!roomName) {
+                alert('합주실 이름을 입력해주세요.');
+                return;
+            }
+            const locationRaw = window.prompt('임시합주실 위치를 입력하세요.', '');
+            if (locationRaw === null) return;
+            roomLocation = String(locationRaw || '').trim();
+            confirmed = true;
         }
-        const locationRaw = window.prompt('임시합주실 위치를 입력하세요.', '');
-        if (locationRaw === null) return;
-        const roomLocation = String(locationRaw || '').trim();
         const roomId = `temp-user-${dateKey}-${Date.now()}-${bookingTempRoomCounter}`;
         bookingTempRoomCounter += 1;
         list.push({
@@ -3018,9 +3221,11 @@
             capacity: 0,
             temporary: true,
             date: dateKey,
-            confirmed: true,
+            confirmed,
         });
-        bookingTempRoomIdentityConfirmed.add(roomId);
+        if (confirmed) {
+            bookingTempRoomIdentityConfirmed.add(roomId);
+        }
 
         const active = new Set(getActiveSplitRoomIdsForDate(dateKey));
         active.add(roomId);
@@ -3029,8 +3234,18 @@
         applyBookingRoomVisibilityForDate(dateKey);
     }
 
+    async function promptCreateTempRoomOnShortage(dateStr, reasons = []) {
+        await openMoveConfirmModal({
+            title: '이동 불가',
+            message: '공간이 부족해 배치할 수 없습니다.\n상단 합주실 토글의 "임시합주실 추가" 버튼에서 생성 후 다시 배치해주세요.',
+            reasons: (Array.isArray(reasons) && reasons.length) ? reasons : ['합주 공간 부족'],
+            hideForce: true,
+        });
+        return false;
+    }
+
     function ensureBookingTempRoomsFromEvents() {
-        if (!bookingToolsEnabled()) return;
+        if (isFinalView && !bookingToolsEnabled()) return;
         const baseRoomIdSet = new Set(baseRooms.map((r) => String(r.id || '')));
         const activatedByDate = new Map();
         document.querySelectorAll('.board-event').forEach((el) => {
@@ -3069,6 +3284,12 @@
         const dateStr = String(el.dataset.date || '').trim();
         const roomId = String(el.dataset.roomId || '').trim();
         if (!dateStr || !roomId || !roomId.startsWith('temp-')) return true;
+        if (disableTempRoomIdentityPrompt) {
+            bookingTempRoomIdentityConfirmed.add(roomId);
+            const roomMeta = getRoomMetaById(roomId, dateStr);
+            if (roomMeta) roomMeta.confirmed = true;
+            return true;
+        }
         if (bookingTempRoomIdentityConfirmed.has(roomId) && !forcePrompt && !requireExplicit) return true;
         const roomMeta = getRoomMetaById(roomId, dateStr);
         const currentName = String(el.dataset.roomName || roomMeta?.name || '').trim();
@@ -3190,16 +3411,6 @@
         }
     }
 
-    function renderBookingBlockRoomOptions() {
-        if (!bookingToolsEnabled()) return;
-        const dateEl = document.getElementById('bookingBlockDate');
-        const roomEl = document.getElementById('bookingBlockRoom');
-        if (!dateEl || !roomEl) return;
-        roomEl.innerHTML = baseRooms.map((r) => (
-            `<option value="${escapeHtml(String(r.id || ''))}">${escapeHtml(String(r.name || '-'))}</option>`
-        )).join('');
-    }
-
     function toggleBookingRoomSplit(ev, dateStr, roomId) {
         if (ev) {
             ev.preventDefault();
@@ -3252,26 +3463,6 @@
             layer.appendChild(line);
         }
         grid.insertBefore(layer, grid.firstChild);
-    }
-
-    function mergeBlockedSegments(slots = []) {
-        const nums = Array.from(new Set((slots || []).map((v) => parseInt(v, 10)).filter((v) => Number.isFinite(v)))).sort((a, b) => a - b);
-        if (!nums.length) return [];
-        const out = [];
-        let s = nums[0];
-        let e = nums[0] + 1;
-        for (let i = 1; i < nums.length; i += 1) {
-            const cur = nums[i];
-            if (cur <= e) {
-                e = Math.max(e, cur + 1);
-                continue;
-            }
-            out.push({ start: s, end: e });
-            s = cur;
-            e = cur + 1;
-        }
-        out.push({ start: s, end: e });
-        return out;
     }
 
     function buildBookingBlockedSegments(dateStr, roomId, slotStart, slotCount) {
@@ -3540,45 +3731,6 @@
         return false;
     }
 
-    function getBookingConflictSummary(el) {
-        if (!el) return { count: 0, details: [] };
-        const dateStr = String(el.dataset.date || '');
-        const songId = String(el.dataset.songId || '');
-        const start = parseInt(el.dataset.start || '0', 10);
-        const end = parseInt(el.dataset.end || String(start + 1), 10);
-        const duration = Math.max(1, end - start);
-        const details = [];
-        let count = 0;
-
-        const blocked = isEventBlockedByRoomAvailability(el);
-        if (blocked) {
-            count += 1;
-            details.push('예약 불가 시간과 충돌');
-        }
-
-        const unavailable = getUnavailableNames(songId, dateStr, start, duration);
-        if (unavailable.length > 0) {
-            count += 1;
-            details.push(`불가능 인원 ${unavailable.length}명`);
-        }
-
-        const overlaps = getOverlapMembersInRange(dateStr, start, duration, songId, el);
-        if (overlaps.length > 0) {
-            count += 1;
-            details.push(`중복 인원 ${overlaps.length}명`);
-        }
-
-        const roomId = String(el.dataset.roomId || '');
-        const roomCap = getRoomCapacityById(roomId);
-        const memberCount = Math.max(0, (songMemberMap[songId] || []).length);
-        if (roomCap > 0 && memberCount > roomCap) {
-            count += 1;
-            details.push(`정원 초과 ${memberCount}/${roomCap}`);
-        }
-
-        return { count, details };
-    }
-
     function applyBookingConflictBadge(el) {
         if (!el) return;
         const existed = el.querySelector('.booking-conflict-badge');
@@ -3655,45 +3807,6 @@
             : collectBookingRemainingEvents().length;
         btn.disabled = remain > 0;
         btn.title = remain > 0 ? `예약 필요 ${remain}개를 먼저 처리하세요.` : '';
-    }
-
-    function renderBookingRoomSummary() {
-        if (!bookingToolsEnabled()) return;
-        const wrap = document.getElementById('bookingRoomSummary');
-        if (!wrap) return;
-        const events = Array.from(document.querySelectorAll('.board-event')).map((el) => ({
-            room_id: String(el.dataset.roomId || ''),
-            room_name: String(el.dataset.roomName || '-'),
-            date: String(el.dataset.date || ''),
-            start: parseInt(el.dataset.start || '0', 10),
-            end: parseInt(el.dataset.end || '0', 10),
-        }));
-        if (!events.length) {
-            wrap.innerHTML = '<div class="text-muted small">표시할 합주가 없습니다.</div>';
-            return;
-        }
-        const grouped = new Map();
-        events.forEach((ev) => {
-            const key = `${ev.room_id}|${ev.room_name}`;
-            if (!grouped.has(key)) grouped.set(key, []);
-            grouped.get(key).push(ev);
-        });
-        const rows = [];
-        grouped.forEach((items, key) => {
-            const [roomId, roomName] = key.split('|');
-            items.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
-            rows.push({
-                roomId,
-                roomName,
-                count: items.length,
-                first: `${items[0].date} ${formatSlotHHMM(items[0].start)}`,
-                last: `${items[items.length - 1].date} ${formatSlotHHMM(items[items.length - 1].end)}`,
-            });
-        });
-        rows.sort((a, b) => getRoomPriorityRank(a.roomId) - getRoomPriorityRank(b.roomId));
-        wrap.innerHTML = rows.map((row) => (
-            `<div class="booking-item"><strong>${escapeHtml(row.roomName)}</strong> · ${row.count}개 타일<br><span class="text-muted">${escapeHtml(row.first)} ~ ${escapeHtml(row.last)}</span></div>`
-        )).join('');
     }
 
     function updateRoomBlockMapFromBlock(block) {
@@ -3832,24 +3945,13 @@
 
     function renderBookingBlockList() {
         if (!bookingToolsEnabled()) return;
-        const wrap = document.getElementById('bookingBlockList');
-        if (!Array.isArray(bookingRoomBlocks) || bookingRoomBlocks.length === 0) {
-            if (wrap) wrap.innerHTML = '<div class="text-muted small">등록된 예약 불가 일정이 없습니다.</div>';
-            markBookingRoomBlockedEvents();
-            return;
+        if (Array.isArray(bookingRoomBlocks) && bookingRoomBlocks.length > 0) {
+            bookingRoomBlocks.sort((a, b) => (
+                String(a.date || '').localeCompare(String(b.date || ''))
+                || getRoomPriorityRank(String(a.room_id || '')) - getRoomPriorityRank(String(b.room_id || ''))
+                || parseInt(a.start || '0', 10) - parseInt(b.start || '0', 10)
+            ));
         }
-        if (!wrap) {
-            markBookingRoomBlockedEvents();
-            return;
-        }
-        bookingRoomBlocks.sort((a, b) => (
-            String(a.date || '').localeCompare(String(b.date || ''))
-            || getRoomPriorityRank(String(a.room_id || '')) - getRoomPriorityRank(String(b.room_id || ''))
-            || parseInt(a.start || '0', 10) - parseInt(b.start || '0', 10)
-        ));
-        wrap.innerHTML = bookingRoomBlocks.map((b) => (
-            `<div class="booking-item d-flex justify-content-between align-items-start gap-2"><div><strong>${escapeHtml(String(b.date || ''))}</strong> · ${escapeHtml(String(b.room_name || '-'))}<br>${escapeHtml(formatSlotHHMM(parseInt(b.start || '0', 10)))}~${escapeHtml(formatSlotHHMM(parseInt(b.end || '0', 10)))}</div><button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" data-booking-room-block-id="${escapeHtml(String(b.id || ''))}">삭제</button></div>`
-        )).join('');
         markBookingRoomBlockedEvents();
     }
 
@@ -4059,12 +4161,6 @@
             focusEventCardById(target.dataset.eventId || '');
         });
 
-        bindOnce(document.getElementById('bookingBlockList'), 'bookingBlockClickBound', (ev) => {
-            const btn = ev.target.closest('[data-booking-room-block-id]');
-            if (!btn) return;
-            removeBookingRoomBlock(btn.dataset.bookingRoomBlockId || '');
-        });
-
         bindOnce(document.getElementById('failedSongSummaryList'), 'failedWeekClickBound', (ev) => {
             const el = ev.target.closest('[data-failed-week-no]');
             if (!el) return;
@@ -4081,6 +4177,13 @@
             el.dataset.clickBound = '1';
             el.addEventListener('click', handler);
         };
+        const bindHoverPreviewById = (id, onEnter, onLeave) => {
+            const el = document.getElementById(id);
+            if (!el || el.dataset.hoverPreviewBound === '1') return;
+            el.dataset.hoverPreviewBound = '1';
+            el.addEventListener('mouseenter', onEnter);
+            el.addEventListener('mouseleave', onLeave);
+        };
 
         bindClickById('boardLayoutGeneralBtn', () => setBoardLayoutMode('general'));
         bindClickById('boardLayoutRoomslotBtn', () => setBoardLayoutMode('roomslot'));
@@ -4096,30 +4199,76 @@
         bindClickById('goBookingConfirmFromMatchBtn', () => goToBookingConfirmPage());
         bindClickById('goBookingConfirmBtn', () => goToBookingConfirmPage());
         bindClickById('saveResultBtn', () => saveMatchResult());
+        bindClickById('quickResetAllBtn', () => resetAllChanges());
+        bindClickById('quickSaveDraftBtn', (ev) => saveMyWorkDraft(ev.currentTarget));
+        bindClickById('quickSaveDraftBtnBooking', (ev) => saveMyWorkDraft(ev.currentTarget));
+        bindClickById('quickFinalSaveBtn', () => {
+            const saveBtn = document.getElementById('saveResultBtn');
+            if (!saveBtn || saveBtn.disabled) return;
+            saveBtn.click();
+        });
+        bindClickById('quickWeekendToggleBtn', () => toggleAllWeekendVisibility());
+        bindClickById('quickExpandAllBtn', () => toggleAllWeekBoardRange());
+        bindClickById('quickEmptyRoomsToggleBtn', () => toggleQuickEmptyRooms());
+        bindClickById('quickLayoutToggleBtn', () => toggleQuickLayoutMode());
+        bindClickById('quickForcedOnlyBtn', () => toggleQuickForcedOnly());
+        bindClickById('quickTempRoomOnlyBtn', () => toggleQuickTempRoomOnly());
+        bindClickById('quickSharedDiffOnlyBtn', () => toggleQuickSharedDiffOnly());
+        if (isManagerRole) {
+            bindHoverPreviewById('quickForcedOnlyBtn', () => {
+                const btn = document.getElementById('quickForcedOnlyBtn');
+                if (!btn || btn.disabled) return;
+                quickForcedOnlyPreview = true;
+                applyQuickBoardFilters();
+                syncQuickRemoteButtons();
+            }, () => {
+                quickForcedOnlyPreview = false;
+                applyQuickBoardFilters();
+                syncQuickRemoteButtons();
+            });
+            bindHoverPreviewById('quickTempRoomOnlyBtn', () => {
+                const btn = document.getElementById('quickTempRoomOnlyBtn');
+                if (!btn || btn.disabled) return;
+                quickTempRoomOnlyPreview = true;
+                applyQuickBoardFilters();
+                syncQuickRemoteButtons();
+            }, () => {
+                quickTempRoomOnlyPreview = false;
+                applyQuickBoardFilters();
+                syncQuickRemoteButtons();
+            });
+            bindHoverPreviewById('quickSharedDiffOnlyBtn', () => {
+                const btn = document.getElementById('quickSharedDiffOnlyBtn');
+                if (!btn || btn.disabled || btn.style.display === 'none') return;
+                quickSharedDiffOnlyPreview = true;
+                applyQuickBoardFilters();
+                syncQuickRemoteButtons();
+            }, () => {
+                quickSharedDiffOnlyPreview = false;
+                applyQuickBoardFilters();
+                syncQuickRemoteButtons();
+            });
+            bindHoverPreviewById('quickLayoutToggleBtn', () => {
+                const btn = document.getElementById('quickLayoutToggleBtn');
+                if (!btn || btn.disabled || isFinalView) return;
+                const previewMode = (boardLayoutMode === 'roomslot') ? 'general' : 'roomslot';
+                applyQuickLayoutPreviewMode(previewMode);
+            }, () => {
+                applyQuickLayoutPreviewMode('');
+            });
+        }
         bindClickById('bookingSelectAllBtn', () => selectAllBookingEvents());
         bindClickById('bookingClearAllBtn', () => clearBookingSelectionWithConfirm());
         bindClickById('shareCurrentScheduleBtnInline', () => shareCurrentSchedule());
         bindClickById('ackScheduleBtn', () => acknowledgeMySchedule());
         bindClickById('songConflictCloseBtn', () => closeSongConflict());
         bindClickById('eventInfoCloseBtn', () => closeEventInfo());
-        bindClickById('roomChangeCloseBtn', () => closeRoomChangeModal());
-        bindClickById('roomChangeCancelBtn', () => closeRoomChangeModal());
-        bindClickById('roomChangeApplyBtn', () => applyRoomChangeFromModal());
 
         document.querySelectorAll('.booking-empty-room-toggle-btn').forEach((btn) => {
             if (btn.dataset.clickBound === '1') return;
             btn.dataset.clickBound = '1';
             btn.addEventListener('click', () => toggleAllEmptyBookingRooms(btn));
         });
-
-        if (document.body.dataset.roomChangeDelegationBound !== '1') {
-            document.body.dataset.roomChangeDelegationBound = '1';
-            document.body.addEventListener('click', (ev) => {
-                const btn = ev.target.closest('.event-room-change-btn');
-                if (!btn) return;
-                openRoomChangeModal(ev, btn);
-            });
-        }
 
         if (document.body.dataset.matchResultStaticDelegationBound !== '1') {
             document.body.dataset.matchResultStaticDelegationBound = '1';
@@ -4143,6 +4292,11 @@
                 const daySelectBtn = ev.target.closest('button[data-booking-date]');
                 if (daySelectBtn) {
                     toggleBookingSelectDay(ev, daySelectBtn.dataset.bookingDate || '');
+                    return;
+                }
+                const failedWeekBtn = ev.target.closest('[data-failed-week-no]');
+                if (failedWeekBtn) {
+                    jumpToFailedWeek(failedWeekBtn.dataset.failedWeekNo || '');
                     return;
                 }
                 const weekActionBtn = ev.target.closest('button[data-week-action]');
@@ -4235,102 +4389,21 @@
     function getRoomPriorityRank(roomId) {
         const rid = String(roomId || '');
         if (!rid) return 999999;
+        // 임시합주실(temp-*)은 일반 레이아웃에서 항상 최우측(최후순위)으로 보낸다.
+        if (rid.startsWith('temp-')) return 9999999;
         return roomPriorityRankMap.has(rid) ? roomPriorityRankMap.get(rid) : (roomPriorityOrder.length + 999);
     }
 
     function normalizeTempRoomDisplay(roomChoice) {
         if (!roomChoice || roomChoice.status !== 'ok') return roomChoice;
         if (!String(roomChoice.roomId || '').startsWith('temp-')) return roomChoice;
+        const roomMeta = getRoomMetaById(String(roomChoice.roomId || ''), String(roomChoice.date || ''));
+        const displayName = String(roomChoice.roomName || roomMeta?.name || '임시합주실').trim() || '임시합주실';
+        const displayLocation = String(roomChoice.roomLocation || roomMeta?.location || '').trim();
         return {
             ...roomChoice,
-            roomName: '임시합주실',
-        };
-    }
-
-    function getOrCreateCoordinationTempRoomChoice(dateStr, startIdx, duration, movingEl = null) {
-        const dateKey = String(dateStr || '').trim();
-        if (!dateKey) return null;
-        const endIdx = startIdx + Math.max(1, duration);
-        const occupied = new Set(
-            getOverlappingEvents(dateKey, startIdx, endIdx, movingEl)
-                .map((el) => String(el.dataset.roomId || ''))
-                .filter((rid) => rid.startsWith('temp-'))
-        );
-        const tempRooms = getBookingTempRoomsForDate(dateKey);
-        let picked = tempRooms.find((r) => !occupied.has(String(r.id || '')));
-        if (!picked) {
-            const roomId = `temp-auto-${dateKey}-${Date.now()}-${bookingTempRoomCounter}`;
-            bookingTempRoomCounter += 1;
-            picked = {
-                id: roomId,
-                name: '임시합주실',
-                location: '',
-                capacity: 0,
-                temporary: true,
-                date: dateKey,
-                confirmed: false,
-                autoGenerated: true,
-            };
-            tempRooms.push(picked);
-        }
-        return {
-            status: 'ok',
-            roomId: String(picked.id || ''),
-            roomName: '임시합주실',
-            roomLocation: '',
-            temporary: true,
-            capacityForced: false,
-            roomBlockedForced: false,
-            roomOverlapForced: false,
-        };
-    }
-
-    function buildForcedFallbackRoomChoice(state, dateStr, startIdx, fallbackRoomId = '') {
-        const dateKey = String(dateStr || '');
-        const hintId = String(fallbackRoomId || '').trim();
-        const sourceId = String(state?.sourceRoomId || '').trim();
-        const tryIds = [hintId, sourceId].filter(Boolean);
-
-        let chosen = null;
-        for (const rid of tryIds) {
-            const meta = getRoomMetaById(rid, dateKey) || baseRooms.find((r) => String(r.id || '') === rid);
-            if (meta) {
-                chosen = meta;
-                break;
-            }
-        }
-        if (!chosen && baseRooms.length > 0) {
-            chosen = baseRooms[0];
-        }
-        if (!chosen) return null;
-
-        const chosenId = String(chosen.id || '');
-        const duration = Math.max(1, parseInt(state?.duration || '1', 10));
-        const endIdx = startIdx + duration;
-        const movingEl = state?.sourceType === 'event' ? state.el : null;
-        const memberCount = Math.max(0, (songMemberMap[String(state?.songId || '')] || []).length);
-        const overlap = getOverlappingEvents(dateKey, startIdx, endIdx, movingEl).some((el) => (
-            String(el.dataset.roomId || '') === chosenId
-        ));
-        const blocked = Array.from({ length: duration }, (_, i) => startIdx + i).some((slot) => (
-            isRoomBlockedAtSlot(dateKey, chosenId, slot)
-        ));
-        const cap = Number(chosen.capacity || 0);
-        return {
-            status: 'ok',
-            roomId: chosenId,
-            roomName: String(chosen.name || '-'),
-            roomLocation: String(chosen.location || ''),
-            temporary: false,
-            capacityForced: cap > 0 && memberCount > cap,
-            roomBlockedForced: blocked,
-            roomBlockedReasons: blocked
-                ? Array.from(new Set(
-                    Array.from({ length: duration }, (_, i) => startIdx + i)
-                        .flatMap((slot) => getRoomBlockDetailLabelsAtSlot(dateKey, chosenId, slot))
-                ))
-                : [],
-            roomOverlapForced: overlap,
+            roomName: displayName,
+            roomLocation: displayLocation,
         };
     }
 
@@ -4350,7 +4423,12 @@
 
         const overlapMembers = getOverlapMembersInRange(dateStr, start, duration, songId, el);
         if (overlapMembers.length) {
-            overlapMembers.forEach((name) => reasons.push(`인원 중복: ${name}`));
+            const overlapReasonLines = getOverlapMemberSongReasonLines(dateStr, start, duration, songId, el);
+            if (overlapReasonLines.length) {
+                overlapReasonLines.forEach((line) => reasons.push(line));
+            } else {
+                overlapMembers.forEach((name) => reasons.push(`${name} - 합주 중복`));
+            }
         }
 
         const roomId = String(el.dataset.roomId || '');
@@ -4378,6 +4456,19 @@
         if (top + rect.height + pad > vh) top = Math.max(pad, clientY - rect.height - 14);
         el.style.left = `${left}px`;
         el.style.top = `${top}px`;
+    }
+
+    function findBoardEventFromPointIgnoringLayer(clientX, clientY, layer = null) {
+        const overlay = layer || null;
+        if (!overlay) {
+            const hit = document.elementFromPoint(clientX, clientY);
+            return hit ? hit.closest('.board-event') : null;
+        }
+        const prev = overlay.style.pointerEvents;
+        overlay.style.pointerEvents = 'none';
+        const hit = document.elementFromPoint(clientX, clientY);
+        overlay.style.pointerEvents = prev;
+        return hit ? hit.closest('.board-event') : null;
     }
 
     function isRehearsalReasonLine(text) {
@@ -4482,19 +4573,22 @@
         const songId = String(el.dataset.songId || '');
         const dateStr = String(el.dataset.date || '');
         const duration = Math.max(1, end - start);
-        const forcePatternDisabled = isFinalView;
+        const targetMemberMap = getSongMemberMap(songId);
+        const isMySong = mySongIdSet.has(songId) || songParticipantSongIds.has(songId);
+        const forcePatternDisabled = isFinalView && !isManagerRole && !isMySong;
         const unavailableLabels = forcePatternDisabled
             ? []
             : getUnavailableNames(songId, dateStr, start, duration);
         const overlapMembers = forcePatternDisabled
             ? []
-            : getOverlapMembersInRange(dateStr, start, duration, songId, el);
+            : getOverlapMembersInRange(dateStr, start, duration, songId, el, { includeHidden: true });
 
         const popBgTarget = pop;
         const adaptiveRehearsalColor = getAdaptiveRehearsalTextColor(popBgTarget);
 
         const perMemberReasons = new Map(); // key: "username(session)|username|session" lower-cased, value: Set(reason)
         const perMemberOverlap = new Map(); // key: "username(session)|username|session" lower-cased, value: bool
+        const perMemberOverlapReasons = new Map(); // key: same, value: Set("곡제목" | "[미팅명] - 곡제목")
         const memberReasonRe = /^(.+?)\s*-\s*(.+)$/;
         const userWithSessionRe = /^(.+?)\s*\(([^)]+)\)\s*$/;
         const normalizeMemberKey = (who) => String(who || '').trim().toLowerCase();
@@ -4513,6 +4607,16 @@
                 const key = normalizeMemberKey(k);
                 if (!key) return;
                 perMemberOverlap.set(key, true);
+            });
+        };
+        const addMemberOverlapReasonByKeys = (keys, reason) => {
+            const reasonText = String(reason || '').trim();
+            if (!reasonText) return;
+            keys.forEach((k) => {
+                const key = normalizeMemberKey(k);
+                if (!key) return;
+                if (!perMemberOverlapReasons.has(key)) perMemberOverlapReasons.set(key, new Set());
+                perMemberOverlapReasons.get(key).add(reasonText);
             });
         };
         const makeKeys = (username, session) => {
@@ -4545,6 +4649,32 @@
             if (m) addMemberOverlapByKeys(makeKeys(m[1], m[2]));
             else addMemberOverlapByKeys(makeKeys(raw, ''));
         });
+        const overlappingEvents = getOverlappingEvents(dateStr, start, start + duration, el, { includeHidden: true }).filter((node) => (
+            String(node.dataset.songId || '') !== String(songId)
+        ));
+        overlappingEvents.forEach((node) => {
+            const otherSongId = String(node.dataset.songId || '');
+            const otherSongTitle = String(
+                node.dataset.songTitle
+                || node.querySelector('.event-song-title')?.textContent?.trim()
+                || '곡'
+            ).trim();
+            const otherMeetingName = String(
+                node.dataset.meetingName || node.dataset.meetingTitle || node.dataset.meeting || ''
+            ).trim();
+            const overlapReasonLabel = otherMeetingName
+                ? `[${otherMeetingName}] - ${otherSongTitle}`
+                : otherSongTitle;
+            const otherSongMembers = songMemberMap[otherSongId] || [];
+            otherSongMembers.forEach((member) => {
+                const uname = String(member?.username || '').trim();
+                if (!uname) return;
+                if (!Object.prototype.hasOwnProperty.call(targetMemberMap, uname)) return;
+                const targetInfo = targetMemberMap[uname] || {};
+                const sess = String(targetInfo.session || '').trim();
+                addMemberOverlapReasonByKeys(makeKeys(uname, sess), overlapReasonLabel);
+            });
+        });
         const findMemberStatus = (memberName, sessionLabel) => {
             const name = String(memberName || '').trim();
             const sess = String(sessionLabel || '').trim();
@@ -4555,11 +4685,14 @@
                 ...makeKeys(name, sess).map((k) => normalizeMemberKey(k)),
             ];
             const mergedReasons = new Set();
+            const mergedOverlapReasons = new Set();
             let hasOverlap = false;
             keys.forEach((k) => {
                 const set = perMemberReasons.get(k);
                 if (set) set.forEach((r) => mergedReasons.add(r));
                 if (perMemberOverlap.get(k)) hasOverlap = true;
+                const overlapSet = perMemberOverlapReasons.get(k);
+                if (overlapSet) overlapSet.forEach((r) => mergedOverlapReasons.add(r));
             });
             // fallback: "name(다른세션)" 형태도 name 기준으로 연결
             perMemberReasons.forEach((set, whoKey) => {
@@ -4574,6 +4707,18 @@
                     set.forEach((r) => mergedReasons.add(r));
                 }
             });
+            perMemberOverlapReasons.forEach((set, whoKey) => {
+                if (whoKey === normalizeMemberKey(name)) {
+                    set.forEach((r) => mergedOverlapReasons.add(r));
+                    return;
+                }
+                if (whoKey.startsWith(`${normalizeMemberKey(name)}(`)) {
+                    set.forEach((r) => mergedOverlapReasons.add(r));
+                }
+                if (sess && whoKey === normalizeMemberKey(`session:${sess}`)) {
+                    set.forEach((r) => mergedOverlapReasons.add(r));
+                }
+            });
             perMemberOverlap.forEach((on, whoKey) => {
                 if (!on) return;
                 if (whoKey === normalizeMemberKey(name) || whoKey.startsWith(`${normalizeMemberKey(name)}(`)) {
@@ -4583,7 +4728,12 @@
                     hasOverlap = true;
                 }
             });
-            return { reasons: Array.from(mergedReasons), overlap: hasOverlap };
+            if (mergedOverlapReasons.size > 0) hasOverlap = true;
+            return {
+                reasons: Array.from(mergedReasons),
+                overlap: hasOverlap,
+                overlapReasons: Array.from(mergedOverlapReasons),
+            };
         };
         const sessionHtml = sessionRows.length
             ? sessionRows.map((row) => {
@@ -4594,23 +4744,34 @@
                     const status = findMemberStatus(right, left);
                     const reasons = status.reasons || [];
                     const hasOverlap = !!status.overlap;
+                    const overlapReasons = Array.isArray(status.overlapReasons) ? status.overlapReasons : [];
                     const hasRehearsalReason = reasons.some((r) => isRehearsalReasonLine(r));
                     const hasNonRehearsalReason = reasons.some((r) => !isRehearsalReasonLine(r));
                     const unavailable = hasOverlap || reasons.length > 0;
                     const onlyRehearsal = unavailable && !hasOverlap && hasRehearsalReason && !hasNonRehearsalReason;
 
                     const suffixTokens = [];
-                    if (hasOverlap) suffixTokens.push('중복');
+                    if (hasOverlap) {
+                        if (overlapReasons.length > 0) {
+                            overlapReasons.forEach((line) => {
+                                const text = String(line || '').trim();
+                                if (text) suffixTokens.push(text);
+                            });
+                            if (!suffixTokens.length) suffixTokens.push('인원 중복');
+                        } else {
+                            suffixTokens.push('인원 중복');
+                        }
+                    }
                     reasons.forEach((r) => {
                         const reasonText = String(r || '').trim();
                         if (!reasonText) return;
                         if (isRehearsalReasonLine(reasonText)) {
                             suffixTokens.push(normalizeRehearsalReasonText(reasonText));
                         } else {
-                            suffixTokens.push(`(${reasonText})`);
+                            suffixTokens.push(reasonText);
                         }
                     });
-                    const suffix = suffixTokens.map((token) => ` - ${token}`).join('');
+                    const suffix = suffixTokens.length ? ` - ${suffixTokens.join(', ')}` : '';
                     return `<div class="line indent session-line${unavailable ? ' unavailable' : ''}${onlyRehearsal ? ' rehearsal' : ''}"${onlyRehearsal ? ` style="color:${adaptiveRehearsalColor}"` : ''}>${escapeHtml(left)}: ${escapeHtml(right)}${suffix ? ` <span class="session-unavailable-reason">${escapeHtml(suffix)}</span>` : ''}</div>`;
                 }
                 return `<div class="line indent session-line">${escapeHtml(row)}</div>`;
@@ -4660,6 +4821,31 @@
         pop.style.display = 'none';
     }
 
+    function findPinnedConflictCellAtPoint(clientX, clientY, weekBoard = null) {
+        const scope = weekBoard || document;
+        const cells = Array.from(scope.querySelectorAll('.hover-conf-cell.is-visible'));
+        for (const cell of cells) {
+            const rect = cell.getBoundingClientRect();
+            if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+                return cell;
+            }
+        }
+        return null;
+    }
+
+    function updatePinnedConflictPopoverByPointer(clientX, clientY, weekBoard = null) {
+        if (!pinnedSongId) {
+            hideConflictDetailPopover();
+            return;
+        }
+        const cell = findPinnedConflictCellAtPoint(clientX, clientY, weekBoard);
+        if (!cell) {
+            hideConflictDetailPopover();
+            return;
+        }
+        showConflictDetailPopover(cell, clientX, clientY);
+    }
+
     function applyPinnedOverlayInteractivity() {
         const pinned = !!pinnedSongId;
         document.querySelectorAll('.hover-conf-layer').forEach((layer) => {
@@ -4669,9 +4855,13 @@
 
     function toggleSongConflictPin(ev, el) {
         if (dragState) return;
-        if (suppressNextClick) {
+        const nowTs = Date.now();
+        if (suppressNextClick && nowTs <= suppressClickUntilTs) {
             suppressNextClick = false;
             return;
+        }
+        if (suppressNextClick && nowTs > suppressClickUntilTs) {
+            suppressNextClick = false;
         }
         if (ev && ev.target && ev.target.closest('button')) return;
         if (ev) {
@@ -4697,7 +4887,9 @@
         }
         pinnedSongId = sid;
         const weekBoard = el ? el.closest('.week-board') : null;
-        const weekId = weekBoard ? String(weekBoard.dataset.weekId || '') : '';
+        const weekId = weekBoard
+            ? String(weekBoard.dataset.weekId || '')
+            : String(el?.dataset?.weekId || '');
         startSongHover(sid, false, { force: true, pinned: true, weekId });
     }
 
@@ -4828,7 +5020,6 @@
     function applySavedBookingCompletedKeys() {
         if (!bookingToolsEnabled() || !bookingSavedCompletedKeys.size) return;
         document.querySelectorAll('.board-event').forEach((el) => {
-            if (isForcedAssignedEvent(el)) return;
             if (isEventBlockedByRoomAvailability(el)) return;
             const key = getBookingEventKeyFromElement(el);
             if (!key || !bookingSavedCompletedKeys.has(key)) return;
@@ -4874,13 +5065,6 @@
             };
         }
         return { ok: true, message: '' };
-    }
-
-    function getUnplacedFailedCardCount() {
-        if (isFinalView) return 0;
-        return Array.from(document.querySelectorAll('.failed-week-card'))
-            .filter((card) => String(card.dataset.used || '0') === '0')
-            .length;
     }
 
     function refreshBookingEntryButtonsState() {
@@ -5029,16 +5213,8 @@
             refreshBookingEntryButtonsState();
             return;
         }
-        const unplacedCount = getUnplacedFailedCardCount();
-        if (unplacedCount > 0) {
-            const proceed = await openMoveConfirmModal({
-                title: '경고!!',
-                message: '경고!! 아직 배치가 안 끝난 합주가 있습니다.\n이대로 예약을 진행하겠습니까?',
-                reasons: [`미배치 합주 ${unplacedCount}건`],
-                confirmLabel: '그래도 예약 진행',
-            });
-            if (!proceed) return;
-        }
+        const proceedRisk = await confirmRiskSummaryModal('예약 진행');
+        if (!proceedRisk) return;
         const btns = ['goBookingConfirmBtn', 'goBookingConfirmFromMatchBtn']
             .map((id) => document.getElementById(id))
             .filter(Boolean);
@@ -5047,13 +5223,14 @@
         });
         try {
             const events = collectCurrentBoardEvents();
+            const matchParams = collectCurrentMatchParamsForDraft();
             const res = await fetch(bookingStartUrl, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ events }),
+                body: JSON.stringify({ events, match_params: matchParams }),
             });
             const data = await res.json();
             if (data.status === 'success' || data.status === 'already') {
@@ -5075,6 +5252,96 @@
         }
     }
 
+    function collectUnplacedSummaryRows() {
+        return Array.from(document.querySelectorAll('.failed-week-card[data-used="0"]')).map((card) => {
+            const weekBlock = card.closest('.week-block[data-week-number]');
+            const weekNo = String(weekBlock?.dataset?.weekNumber || '').trim();
+            const title = String(card.dataset.songTitle || '').trim() || '제목 없음';
+            const artist = String(card.dataset.songArtist || '').trim();
+            const shortageLabel = String(card.querySelector('.small')?.textContent || '').trim();
+            const base = weekNo ? `${weekNo}주차 · ${title}${artist ? ` - ${artist}` : ''}` : `${title}${artist ? ` - ${artist}` : ''}`;
+            return shortageLabel ? `${base} (${shortageLabel})` : base;
+        });
+    }
+
+    function collectForcedSummaryRows() {
+        const seen = new Set();
+        const rows = [];
+        Array.from(document.querySelectorAll('.board-event')).forEach((el) => {
+            const isForced = (String(el.dataset.isForced || '0') === '1')
+                || el.classList.contains('forced-assigned')
+                || el.classList.contains('has-forced-badge')
+                || !!el.querySelector('.forced-badge');
+            if (!isForced) return;
+            const date = String(el.dataset.date || '').trim();
+            const start = parseInt(el.dataset.start || '0', 10);
+            const eventId = String(el.dataset.eventId || `${el.dataset.songId}|${date}|${start}|${el.dataset.roomId}`);
+            if (seen.has(eventId)) return;
+            seen.add(eventId);
+            const title = String(el.dataset.songTitle || '').trim() || '제목 없음';
+            const room = String(el.dataset.roomName || '').trim() || '-';
+            const line = `${formatDateMMDD(date)} ${formatSlotHHMM(start)} · ${title} (${room})`;
+            rows.push(line);
+        });
+        return rows;
+    }
+
+    function collectTempRoomSummaryRows() {
+        const seen = new Set();
+        const rows = [];
+        Array.from(document.querySelectorAll('.board-event')).forEach((el) => {
+            const date = String(el.dataset.date || '').trim();
+            const roomId = String(el.dataset.roomId || '').trim();
+            const roomMeta = getRoomMetaById(roomId, date);
+            const isTempRoom = roomId.startsWith('temp-') || !!roomMeta?.temporary;
+            if (!isTempRoom) return;
+            const start = parseInt(el.dataset.start || '0', 10);
+            const eventId = String(el.dataset.eventId || `${el.dataset.songId}|${date}|${start}|${roomId}`);
+            if (seen.has(eventId)) return;
+            seen.add(eventId);
+            const title = String(el.dataset.songTitle || '').trim() || '제목 없음';
+            const room = String(el.dataset.roomName || '').trim() || '임시합주실';
+            rows.push(`${formatDateMMDD(date)} ${formatSlotHHMM(start)} · ${title} (${room})`);
+        });
+        return rows;
+    }
+
+    async function confirmRiskSummaryModal(actionLabel = '진행', modalTitle = '경고!', options = {}) {
+        const includeTempRoomRows = !!options.includeTempRoomRows;
+        const unplacedRows = collectUnplacedSummaryRows();
+        const forcedRows = collectForcedSummaryRows();
+        const tempRoomRows = includeTempRoomRows ? collectTempRoomSummaryRows() : [];
+        if (!unplacedRows.length && !forcedRows.length && !tempRoomRows.length) return true;
+
+        const reasons = [];
+        if (unplacedRows.length) {
+            reasons.push(`미배치 합주 (${unplacedRows.length}건)`);
+            unplacedRows.forEach((line) => reasons.push(`- ${line}`));
+        }
+        if (forcedRows.length) {
+            reasons.push(`강제 배치 합주 (${forcedRows.length}건)`);
+            forcedRows.forEach((line) => reasons.push(`- ${line}`));
+        }
+        if (tempRoomRows.length) {
+            reasons.push(`임시 합주실 배치 합주 (${tempRoomRows.length}건)`);
+            tempRoomRows.forEach((line) => reasons.push(`- ${line}`));
+        }
+
+        const message = [
+            unplacedRows.length ? '아직 배치가 끝나지 않은 합주가 있습니다.' : '',
+            forcedRows.length ? '아래 합주가 강제 배치 상태입니다.' : '',
+            tempRoomRows.length ? '아래 합주가 임시합주실에 배치되어 있습니다.' : '',
+            `${actionLabel}을(를) 진행하시겠습니까?`,
+        ].filter(Boolean).join('\n');
+
+        return await openMoveConfirmModal({
+            title: modalTitle,
+            message,
+            reasons,
+            confirmLabel: `그래도 ${actionLabel}`,
+        });
+    }
+
     async function saveMatchResult() {
         const btn = document.getElementById('saveResultBtn');
         if (!btn) return;
@@ -5092,7 +5359,13 @@
             }
         }
 
-        if (isFinalView && canConfirmFinal) {
+        const unplacedRiskCount = collectUnplacedSummaryRows().length;
+        const forcedRiskCount = collectForcedSummaryRows().length;
+        const hasRiskSummary = (unplacedRiskCount + forcedRiskCount) > 0;
+        const proceedRisk = await confirmRiskSummaryModal(isBookingConfirmView ? '예약 확정' : '합주 시간표 확정');
+        if (!proceedRisk) return;
+
+        if (isFinalView && canConfirmFinal && !hasRiskSummary) {
             const finalOk = await openMoveConfirmModal({
                 title: '경고!!',
                 message: '확정 시 모든 개인 멤버 시간표에 현재 합주 일정이 입력됩니다.\n합주 시간표 확정을 진행하겠습니까?',
@@ -5183,18 +5456,37 @@
     }
 
     async function shareCurrentSchedule() {
-        const btn = document.getElementById('shareCurrentScheduleBtn')
-            || document.getElementById('shareCurrentScheduleBtnInline');
+        const btn = document.getElementById('shareCurrentScheduleBtnInline');
         if (!btn) return;
-
-        const okProceed = confirm('현재 임시 일정을 멤버들에게 공유하시겠습니까?');
-        if (!okProceed) return;
-
-        btn.disabled = true;
+        if (shareActionInProgress) return;
+        shareActionInProgress = true;
         const prevText = btn.textContent;
-        btn.textContent = '공유 중...';
+
         try {
+            const hasShareRiskSummary = (
+                collectUnplacedSummaryRows().length
+                + collectForcedSummaryRows().length
+                + collectTempRoomSummaryRows().length
+            ) > 0;
+
+            if (hasShareRiskSummary) {
+                const proceedRisk = await confirmRiskSummaryModal('일정 공유', '경고!!', { includeTempRoomRows: true });
+                if (!proceedRisk) return;
+            } else {
+                const okProceed = await openMoveConfirmModal({
+                    title: '경고!!',
+                    message: '현재 임시 일정을 멤버들에게 공유하시겠습니까?',
+                    reasons: [],
+                    confirmLabel: '일정 공유',
+                });
+                if (!okProceed) return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '공유 중...';
+
             const events = collectCurrentBoardEvents();
+            const matchParams = collectCurrentMatchParamsForDraft();
             sharedScheduleSignature = getWorkDraftSignatureFromRawEvents(events);
             const res = await fetch(prepareFinalUrl, {
                 method: 'POST',
@@ -5202,7 +5494,7 @@
                     'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ events }),
+                body: JSON.stringify({ events, match_params: matchParams }),
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -5216,13 +5508,24 @@
                 location.reload();
                 return;
             }
-            alert(data.message || '현재 일정 공유에 실패했습니다.');
+            await openMoveConfirmModal({
+                title: '안내',
+                message: data.message || '현재 일정 공유에 실패했습니다.',
+                reasons: [],
+                hideForce: true,
+            });
         } catch (_) {
-            alert('네트워크 오류가 발생했습니다.');
+            await openMoveConfirmModal({
+                title: '안내',
+                message: '네트워크 오류가 발생했습니다.',
+                reasons: [],
+                hideForce: true,
+            });
         } finally {
             btn.disabled = false;
             btn.textContent = prevText;
             refreshBookingEntryButtonsState();
+            shareActionInProgress = false;
         }
     }
 
@@ -5334,9 +5637,13 @@
     }
 
     function openEventInfo(ev, el) {
-        if (suppressNextClick) {
+        const nowTs = Date.now();
+        if (suppressNextClick && nowTs <= suppressClickUntilTs) {
             suppressNextClick = false;
             return;
+        }
+        if (suppressNextClick && nowTs > suppressClickUntilTs) {
+            suppressNextClick = false;
         }
         if (bookingToolsEnabled()) {
             if (ev && (ev.shiftKey || ev.altKey || ev.ctrlKey || ev.metaKey)) {
@@ -5474,6 +5781,10 @@
 
     function setBookingRoomActivationByDates(dateKeys = [], mode = 'deactivate') {
         if (!bookingToolsEnabled()) return;
+        setRoomActivationByDates(dateKeys, mode);
+    }
+
+    function setRoomActivationByDates(dateKeys = [], mode = 'deactivate') {
         const uniqueDates = Array.from(new Set((dateKeys || []).map((d) => String(d || '').trim()).filter(Boolean)));
         uniqueDates.forEach((dateKey) => {
             const roomIds = getAllBookingRoomIds(dateKey);
@@ -5513,6 +5824,8 @@
                 ? '전체 합주실 활성화'
                 : '전체 곡 없는 합주실 비활성화';
         }
+        quickEmptyRoomsHidden = mode === 'deactivate';
+        syncQuickRemoteButtons();
     }
 
     function toggleWeekEmptyBookingRooms(btnEl, weekNumber) {
@@ -5538,381 +5851,62 @@
         }
     }
 
-    function getChangeableRoomsForEvent(eventEl) {
-        if (!eventEl) return [];
-        const dateStr = String(eventEl.dataset.date || '');
-        const curRoomId = String(eventEl.dataset.roomId || '');
-        const start = parseInt(eventEl.dataset.start || '0', 10);
-        const duration = Math.max(1, parseInt(eventEl.dataset.duration || '1', 10));
-        const end = start + duration;
-        const songId = String(eventEl.dataset.songId || '');
-        const memberCount = Math.max(0, (songMemberMap[songId] || []).length);
-
-        return baseRooms.filter((room) => {
-            const rid = String(room.id || '');
-            if (!rid || rid === curRoomId) return false;
-
-            const overlaps = getOverlappingEvents(dateStr, start, end, eventEl).some((other) => (
-                String(other.dataset.roomId || '') === rid
-            ));
-            if (overlaps) return false;
-
-            const blocked = Array.from({ length: duration }, (_, i) => start + i).some((slot) => (
-                isRoomBlockedAtSlot(dateStr, rid, slot)
-            ));
-            if (blocked) return false;
-
-            const cap = Number(room.capacity || 0);
-            if (cap > 0 && memberCount > cap) return false;
-            return true;
-        });
-    }
-
-    function refreshRoomChangeButtonStateForEvent(eventEl) {
-        if (!eventEl) return;
-        const btn = eventEl.querySelector('.event-room-change-btn');
-        if (!btn) return;
-        const canChange = isBoardEditable
-            && !isBookingCompletedEvent(eventEl)
-            && getChangeableRoomsForEvent(eventEl).length > 0;
-        btn.disabled = !canChange;
-        btn.style.display = canChange ? '' : 'none';
-        btn.title = canChange ? '합주실 변경' : '변경 가능한 합주실이 없습니다.';
-    }
-
-    function refreshRoomChangeButtons(scope = document) {
-        if (!scope || typeof scope.querySelectorAll !== 'function') return;
-        scope.querySelectorAll('.board-event').forEach((eventEl) => {
-            refreshRoomChangeButtonStateForEvent(eventEl);
-        });
-    }
-
-    function openRoomChangeModal(ev, btnEl) {
-        if (ev) {
-            ev.preventDefault();
-            ev.stopPropagation();
-        }
-        if (!isBoardEditable) return false;
-        const eventEl = btnEl?.closest?.('.board-event');
-        if (!eventEl) return false;
-        if (isBookingCompletedEvent(eventEl)) return false;
-        refreshRoomChangeButtonStateForEvent(eventEl);
-        const triggerBtn = eventEl.querySelector('.event-room-change-btn');
-        if (triggerBtn && triggerBtn.disabled) return false;
-        roomChangeTargetEl = eventEl;
-
-        const currentRoomNameEl = document.getElementById('roomChangeCurrent');
-        if (currentRoomNameEl) {
-            currentRoomNameEl.textContent = String(eventEl.dataset.roomName || '-');
-        }
-        const choicesWrap = document.getElementById('roomChangeChoices');
-        if (!choicesWrap) return false;
-        const availableRooms = getChangeableRoomsForEvent(eventEl);
-        if (!availableRooms.length) {
-            refreshRoomChangeButtonStateForEvent(eventEl);
-            return false;
-        }
-        const curRoomId = String(eventEl.dataset.roomId || '');
-        const curRoomName = String(eventEl.dataset.roomName || '-');
-        roomChangeSelectedRoomId = curRoomId;
-        choicesWrap.innerHTML = '';
-        const roomChoices = [
-            { id: curRoomId, name: `${curRoomName} (현재)` },
-            ...availableRooms.map((r) => ({ id: String(r.id || ''), name: String(r.name || '-') })),
-        ];
-        roomChoices.forEach((r) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn btn-outline-secondary btn-sm room-change-choice-btn';
-            btn.dataset.roomId = String(r.id || '');
-            btn.textContent = String(r.name || '-');
-            btn.addEventListener('click', () => {
-                roomChangeSelectedRoomId = String(r.id || '');
-                choicesWrap.querySelectorAll('.room-change-choice-btn').forEach((node) => {
-                    const isActive = String(node.dataset.roomId || '') === roomChangeSelectedRoomId;
-                    node.classList.toggle('btn-primary', isActive);
-                    node.classList.toggle('btn-outline-secondary', !isActive);
-                });
-            });
-            choicesWrap.appendChild(btn);
-        });
-        const currentBtn = choicesWrap.querySelector(`.room-change-choice-btn[data-room-id="${curRoomId}"]`);
-        if (currentBtn) currentBtn.click();
-
-        const modal = document.getElementById('roomChangeModalBg');
-        if (modal) modal.style.display = 'flex';
-        return false;
-    }
-
-    function closeRoomChangeModal() {
-        const modal = document.getElementById('roomChangeModalBg');
-        if (modal) modal.style.display = 'none';
-        const choicesWrap = document.getElementById('roomChangeChoices');
-        if (choicesWrap) choicesWrap.innerHTML = '';
-        roomChangeTargetEl = null;
-        roomChangeSelectedRoomId = '';
-    }
-
-    async function applyRoomChangeFromModal() {
-        const el = roomChangeTargetEl;
-        const applyBtn = document.getElementById('roomChangeApplyBtn');
-        if (!el) return;
-        if (isBookingCompletedEvent(el)) {
-            closeRoomChangeModal();
-            return;
-        }
-        if (String(el.dataset.manualSplit || '0') === '1') {
-            unlockSplitBatch(el);
-        }
-
-        const nextRoomId = String(roomChangeSelectedRoomId || '');
-        const curRoomId = String(el.dataset.roomId || '');
-        if (!nextRoomId || nextRoomId === curRoomId) {
-            closeRoomChangeModal();
-            return;
-        }
-        const roomMeta = getChangeableRoomsForEvent(el).find((r) => String(r.id) === nextRoomId);
-        if (!roomMeta) return;
-
-        const dateStr = String(el.dataset.date || '');
-        const start = parseInt(el.dataset.start || '0', 10);
-        const duration = Math.max(1, parseInt(el.dataset.duration || '1', 10));
-        const end = start + duration;
-        if (bookingToolsEnabled()) {
-            const songId = String(el.dataset.songId || '');
-            const sameSongOverlap = hasSameSongOverlapInRange(dateStr, start, duration, songId, el);
-            if (sameSongOverlap) {
-                await openMoveConfirmModal({
-                    title: '변경 불가',
-                    message: '동일한 곡이 이미 배치되어 있습니다.',
-                    reasons: [],
-                    hideForce: true,
-                });
-                return;
-            }
-        }
-        const overlappingSameRoomEvents = getOverlappingEvents(dateStr, start, end, el).filter((other) => (
-            String(other.dataset.roomId || '') === nextRoomId
+    function toggleQuickEmptyRooms() {
+        if (!isRoomSlotLayoutEnabled()) return;
+        const dateSet = Array.from(new Set(
+            Array.from(document.querySelectorAll('.board-day-grid[data-in-range="1"]'))
+                .map((el) => String(el.dataset.date || '').trim())
+                .filter(Boolean)
         ));
-        const sameRoomOverlap = overlappingSameRoomEvents.length > 0;
-        let forceForRoomOverlap = false;
-        let forcedModalShown = false;
-        let forceForAvailability = false;
-        if (sameRoomOverlap) {
-            if (bookingToolsEnabled()) {
-                await openMoveConfirmModal({
-                    title: '변경 불가',
-                    message: '예약 확정 페이지에서는 같은 시간에 같은 합주실로 겹쳐 배치할 수 없습니다.',
-                    reasons: [],
-                    hideForce: true,
-                });
-                return;
-            }
-            const overlapTitles = Array.from(new Set(
-                overlappingSameRoomEvents.map((other) => String(other.dataset.songTitle || '').trim()).filter(Boolean)
-            ));
-            const overlapOk = await openMoveConfirmModal({
-                title: '합주실 중복 배치',
-                message: '선택한 합주실이 같은 시간대에 이미 사용 중입니다.\n강제로 같은 방에 배치하시겠습니까?',
-                reasons: overlapTitles.length ? overlapTitles.map((t) => `겹치는 곡: ${t}`) : [],
-                confirmLabel: '강제 배치',
-                hideForce: false,
-            });
-            if (!overlapOk) return;
-            forceForRoomOverlap = true;
-            forcedModalShown = true;
-        }
-        const blocked = Array.from({ length: duration }, (_, i) => start + i).some((slot) => (
-            isRoomBlockedAtSlot(dateStr, nextRoomId, slot)
-        ));
-        if (blocked) {
-            const blockedReasonLines = [];
-            for (let slot = start; slot < end; slot += 1) {
-                if (!isRoomBlockedAtSlot(dateStr, nextRoomId, slot)) continue;
-                const labels = getRoomBlockDetailLabelsAtSlot(dateStr, nextRoomId, slot);
-                if (labels.length) {
-                    labels.forEach((line) => blockedReasonLines.push(`${formatSlotHHMM(slot)} ${line}`));
-                } else {
-                    blockedReasonLines.push(`${formatSlotHHMM(slot)} ${String(roomMeta.name || '-')}: 예약 불가`);
-                }
-            }
-            await openMoveConfirmModal({
-                title: '변경 불가',
-                message: '선택한 합주실은 해당 시간에 사용 불가능합니다.',
-                reasons: blockedReasonLines,
-                hideForce: true,
-            });
-            return;
-        }
-
-        const state = {
-            sourceType: 'event',
-            el,
-            songId: String(el.dataset.songId || ''),
-            sourceDate: dateStr,
-            sourceStart: start,
-            sourceRoomId: curRoomId,
-            duration,
-            drop: {
-                grid: el.closest('.board-day-grid'),
-                date: dateStr,
-                absoluteStart: start,
-                relativeStart: 0,
-            },
-            weekBoard: el.closest('.week-board'),
-        };
-        if (state.drop.grid) {
-            const slotStart = parseInt(state.drop.grid.dataset.slotStart || '18', 10);
-            state.drop.relativeStart = Math.max(0, start - slotStart);
-        }
-        const memberCount = Math.max(0, (songMemberMap[String(state.songId)] || []).length);
-        const roomCap = Number(roomMeta.capacity || 0);
-        let roomChoice = {
-            status: 'ok',
-            roomId: nextRoomId,
-            roomName: String(roomMeta.name || ''),
-            roomLocation: String(roomMeta.location || ''),
-            temporary: false,
-            capacityForced: roomCap > 0 && memberCount > roomCap,
-        };
-
-        if (roomChoice.capacityForced) {
-            const choice = await openMoveConfirmModal({
-                title: '정원 초과 배치',
-                message: '선택된 합주실 정원을 초과합니다.\n해당 합주실로 강제 배치하시겠습니까?',
-                reasons: [`정원 초과: ${memberCount}/${roomCap}`],
-                confirmLabel: '강제 배치',
-            });
-            if (!choice) return;
-            forcedModalShown = true;
-        }
-        const unavailableReasons = getUnavailableNames(state.songId, dateStr, start, duration);
-        if (unavailableReasons.length > 0) {
-            const confirmUnavailable = await openMoveConfirmModal({
-                title: '강제 배치 확인',
-                message: '합주가 불가능한 칸에 배치하였습니다.\n강제로 배치하겠습니까?',
-                reasons: unavailableReasons,
-            });
-            if (!confirmUnavailable) return;
-            forcedModalShown = true;
-            forceForAvailability = true;
-        }
-
-        if (applyBtn) applyBtn.disabled = true;
-        try {
-            let response = await requestMoveEvent(state, forceForAvailability, roomChoice);
-            if (response.status === 'conflict' && response.kind === 'member_overlap') {
-                const okOverlap = await confirmMemberOverlapDoubleCheck(response.reasons || []);
-                if (!okOverlap) return;
-                forcedModalShown = true;
-                response = await requestMoveEvent(state, true, roomChoice);
-            }
-            if (response.status === 'conflict' && response.kind === 'availability_conflict') {
-                const okForce = await openMoveConfirmModal({
-                    title: '강제 배치 확인',
-                    message: '합주가 불가능한 칸에 배치하였습니다.\n강제로 배치하겠습니까?',
-                    reasons: response.reasons || [],
-                });
-                if (!okForce) return;
-                forcedModalShown = true;
-                response = await requestMoveEvent(state, true, roomChoice);
-            }
-            if (response.status !== 'success') {
-                await openMoveConfirmModal({
-                    title: '변경 실패',
-                    message: response.message || '합주실 변경에 실패했습니다.',
-                    reasons: [],
-                    hideForce: true,
-                });
-                return;
-            }
-            state.lastMoveForced = Boolean(response.forced)
-                || forceForRoomOverlap
-                || Boolean(roomChoice.capacityForced)
-                || Boolean(roomChoice.roomBlockedForced)
-                || Boolean(roomChoice.roomOverlapForced);
-            applyMovedPosition(state, roomChoice);
-            closeRoomChangeModal();
-            refreshCompletionIndicators();
-            refreshBookingToolsPanel();
-        } finally {
-            if (applyBtn) applyBtn.disabled = false;
-        }
+        if (!dateSet.length) return;
+        const mode = quickEmptyRoomsHidden ? 'activate' : 'deactivate';
+        setRoomActivationByDates(dateSet, mode);
+        quickEmptyRoomsHidden = mode === 'deactivate';
+        syncQuickRemoteButtons();
     }
 
-    async function addBookingRoomBlock() {
-        if (!bookingToolsEnabled()) return;
-        const dateEl = document.getElementById('bookingBlockDate');
-        const roomEl = document.getElementById('bookingBlockRoom');
-        const startEl = document.getElementById('bookingBlockStart');
-        const endEl = document.getElementById('bookingBlockEnd');
-        const btn = document.getElementById('bookingBlockAddBtn');
-        if (!dateEl || !roomEl || !startEl || !endEl || !btn) return;
-        const payload = {
-            date: String(dateEl.value || ''),
-            room_id: String(roomEl.value || ''),
-            start: parseInt(startEl.value || '0', 10),
-            end: parseInt(endEl.value || '0', 10),
-        };
-        if (!payload.date || !payload.room_id || !Number.isFinite(payload.start) || !Number.isFinite(payload.end) || payload.start >= payload.end) {
-            alert('예약 불가 일정 입력값을 확인해주세요.');
-            return;
-        }
-        btn.disabled = true;
-        try {
-            const res = await fetch(roomBlockManageUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (data.status !== 'success') {
-                alert(data.message || '예약 불가 일정 추가에 실패했습니다.');
-                return;
-            }
-            const block = data.block || payload;
-            if (!bookingRoomBlocks.some((x) => String(x.id || '') === String(block.id || ''))) {
-                bookingRoomBlocks.push(block);
-            }
-            updateRoomBlockMapFromBlock(block);
-            refreshBookingToolsPanel();
-            applyBookingRoomVisibilityForDate(String(block.date || ''));
-        } catch (_) {
-            alert('네트워크 오류가 발생했습니다.');
-        } finally {
-            btn.disabled = false;
-        }
+    function toggleQuickLayoutMode() {
+        if (isFinalView) return;
+        const nextMode = boardLayoutMode === 'roomslot' ? 'general' : 'roomslot';
+        setBoardLayoutMode(nextMode);
+        syncQuickRemoteButtons();
     }
 
-    async function removeBookingRoomBlock(blockId) {
-        if (!bookingToolsEnabled()) return;
-        const id = String(blockId || '').trim();
-        if (!id) return;
-        const target = bookingRoomBlocks.find((b) => String(b.id || '') === id);
-        if (!target) return;
-        try {
-            const res = await fetch(roomBlockManageUrl, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ block_id: id }),
-            });
-            const data = await res.json();
-            if (data.status !== 'success') {
-                alert(data.message || '삭제에 실패했습니다.');
-                return;
-            }
-            bookingRoomBlocks = bookingRoomBlocks.filter((b) => String(b.id || '') !== id);
-            removeRoomBlockFromMap(target);
-            refreshBookingToolsPanel();
-        } catch (_) {
-            alert('네트워크 오류가 발생했습니다.');
-        }
+    function toggleQuickForcedOnly() {
+        quickForcedOnlyActive = !quickForcedOnlyActive;
+        applyQuickBoardFilters();
+        syncQuickRemoteButtons();
+    }
+
+    function toggleQuickSharedDiffOnly() {
+        quickSharedDiffOnlyActive = !quickSharedDiffOnlyActive;
+        applyQuickBoardFilters();
+        syncQuickRemoteButtons();
+    }
+
+    function toggleQuickTempRoomOnly() {
+        quickTempRoomOnlyActive = !quickTempRoomOnlyActive;
+        applyQuickBoardFilters();
+        syncQuickRemoteButtons();
+    }
+
+    function applyQuickLayoutPreviewMode(nextMode = '') {
+        if (!isManagerRole) return;
+        const next = String(nextMode || '').trim();
+        if (next && next !== 'general' && next !== 'roomslot') return;
+        if (quickLayoutPreviewMode === next) return;
+        quickLayoutPreviewMode = next;
+        updateBoardLayoutToggleUI();
+        document.querySelectorAll('.board-day-grid').forEach((grid) => {
+            relayoutDayGrid(grid);
+            renderMyUnavailableOverlayForGrid(grid);
+        });
+        renderBookingRoomToggleCells();
+        applyBookingRoomVisibilityForDate();
+        markBookingRoomBlockedEvents();
+        recomputeForcedBadgesForBoard();
+        refreshCompletionIndicators();
+        syncQuickRemoteButtons();
     }
 
     function onBoardEventEnter(ev, el) {
@@ -5923,12 +5917,31 @@
         const weekId = weekBoard ? String(weekBoard.dataset.weekId || '') : '';
         startSongHover(sid, false, { weekId });
         if (ev) {
+            const pinnedCell = findPinnedConflictCellAtPoint(
+                ev.clientX,
+                ev.clientY,
+                weekBoard
+            );
+            if (pinnedSongId && pinnedCell) {
+                hideSongQuickInfo();
+                return;
+            }
             showSongQuickInfo(el, ev.clientX, ev.clientY);
         }
     }
 
     function onBoardEventMove(ev, el) {
         if (!el || !ev) return;
+        const weekBoard = el.closest('.week-board');
+        const pinnedCell = findPinnedConflictCellAtPoint(
+            ev.clientX,
+            ev.clientY,
+            weekBoard
+        );
+        if (pinnedSongId && pinnedCell) {
+            hideSongQuickInfo();
+            return;
+        }
         if (isBoardEditable && !dragState && !resizeState) {
             const edge = isBookingCompletedEvent(el) ? '' : detectResizeEdge(el, ev.clientY);
             el.style.cursor = edge ? 'ns-resize' : '';
@@ -5951,93 +5964,6 @@
         document.getElementById('songConflictModalBg').style.display = 'none';
     }
 
-    function slotLabel(idx) {
-        const h = Math.floor(idx / 2);
-        const m = idx % 2 === 0 ? '00' : '30';
-        return `${String(h).padStart(2, '0')}:${m}`;
-    }
-
-    function fmtDate(d) {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${dd}`;
-    }
-
-    function openSongConflict(songId, songTitle) {
-        const payload = songConflictMap[songId];
-        const wrap = document.getElementById('songConflictContent');
-        document.getElementById('songConflictTitle').innerText = `곡 충돌 보기: ${songTitle}`;
-
-        if (!payload) {
-            wrap.innerHTML = '<div class="text-muted small">충돌 데이터가 없습니다.</div>';
-            document.getElementById('songConflictModalBg').style.display = 'flex';
-            return;
-        }
-
-        const start = new Date('{{ meeting.practice_start_date|date:"Y-m-d" }}');
-        const end = new Date('{{ meeting.practice_end_date|date:"Y-m-d" }}');
-        const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-
-        // 시작 주 월요일 맞추기
-        const base = new Date(start);
-        const wd = base.getDay();
-        base.setDate(base.getDate() + (wd === 0 ? -6 : 1 - wd));
-
-        let html = '';
-        let cursor = new Date(base);
-        let weekNo = 1;
-
-        while (cursor <= end) {
-            const weekStart = new Date(cursor);
-            const weekEnd = new Date(cursor);
-            weekEnd.setDate(weekStart.getDate() + 6);
-
-            html += `<div class="mb-3"><div class="fw-bold mb-1">${weekNo}주차 (${fmtDate(weekStart)} ~ ${fmtDate(weekEnd)})</div>`;
-            html += `<div class="song-heat-grid">`;
-            html += `<div class="song-heat-cell song-heat-head">시간</div>`;
-
-            const weekDates = [];
-            for (let i = 0; i < 7; i++) {
-                const d = new Date(weekStart);
-                d.setDate(weekStart.getDate() + i);
-                weekDates.push(d);
-                html += `<div class="song-heat-cell song-heat-head">${weekdays[i]}<br>${d.getMonth() + 1}/${d.getDate()}</div>`;
-            }
-
-            for (let slot = 18; slot < 48; slot++) {
-                html += `<div class="song-heat-cell song-heat-time">${slotLabel(slot)}</div>`;
-                for (const d of weekDates) {
-                    const inRange = d >= start && d <= end;
-                    if (!inRange) {
-                        html += `<div class="song-heat-cell"></div>`;
-                        continue;
-                    }
-                    const dStr = fmtDate(d);
-                    const missing = (((payload.data || {})[dStr] || {})[String(slot)]) || [];
-                    if (missing.length === 0) {
-                        html += `<div class="song-heat-cell"></div>`;
-                    } else {
-                        const memberCount = payload.member_count || 1;
-                        const ratio = Math.min(1, missing.length / memberCount);
-                        const gray = Math.round(230 - ratio * 120); // 많을수록 진한 회색
-                        const bg = `rgb(${gray}, ${gray}, ${gray})`;
-                        const txt = ratio > 0.55 ? '#fff' : '#212529';
-                        const reason = `불가능 사유: ${missing.join(', ')}`;
-                        html += `<div class="song-heat-cell song-heat-unavailable" style="background:${bg};color:${txt}" title="${escapeHtml(reason)}">${missing.length}명</div>`;
-                    }
-                }
-            }
-            html += `</div></div>`;
-
-            cursor.setDate(cursor.getDate() + 7);
-            weekNo += 1;
-        }
-
-        wrap.innerHTML = html;
-        document.getElementById('songConflictModalBg').style.display = 'flex';
-    }
-
     function clearHoverLayers(animated = false) {
         document.querySelectorAll('.hover-conf-layer').forEach(layer => {
             const cells = Array.from(layer.querySelectorAll('.hover-conf-cell'));
@@ -6056,6 +5982,59 @@
             });
         });
         renderedHoverSongId = null;
+        clearCapacityShortageGuideHighlights();
+    }
+
+    function clearCapacityShortageGuideHighlights() {
+        document.querySelectorAll('.booking-room-guide-col.capacity-shortage').forEach((col) => {
+            col.classList.remove('capacity-shortage');
+            col.removeAttribute('title');
+            col.querySelectorAll('.booking-room-guide-capacity-flag').forEach((flag) => flag.remove());
+        });
+    }
+
+    function applyCapacityShortageGuideHighlights(songId, weekId = '') {
+        clearCapacityShortageGuideHighlights();
+        if (!isRoomSlotLayoutEnabled()) return;
+        const sid = String(songId || '');
+        if (!sid) return;
+        const targetWeekId = String(weekId || '');
+        const fallbackCount = Math.max(0, (songMemberMap[sid] || []).length);
+        const payloadCount = Math.max(0, Number((songConflictMap[sid] || {}).member_count || 0));
+        const memberCount = Math.max(fallbackCount, payloadCount);
+        if (memberCount <= 0) return;
+
+        document.querySelectorAll('.board-day-grid').forEach((grid) => {
+            if (targetWeekId) {
+                const wb = grid.closest('.week-board');
+                const wid = wb ? String(wb.dataset.weekId || '') : '';
+                if (wid !== targetWeekId) return;
+            }
+            const dateStr = String(grid.dataset.date || '');
+            if (!dateStr) return;
+            const activeRoomIds = getActiveSplitRoomIdsForDate(dateStr);
+            if (!activeRoomIds.length) return;
+            const cols = Array.from(grid.querySelectorAll('.booking-room-guide-col'));
+            if (!cols.length) return;
+
+            for (let i = 0; i < Math.min(cols.length, activeRoomIds.length); i += 1) {
+                const roomId = String(activeRoomIds[i] || '');
+                if (!roomId) continue;
+                const roomMeta = getRoomMetaById(roomId, dateStr);
+                const isTemp = roomId.startsWith('temp-') || !!roomMeta?.temporary;
+                if (isTemp) continue;
+                const cap = Math.max(0, Number(roomMeta?.capacity || 0));
+                if (!(cap > 0 && memberCount > cap)) continue;
+
+                const col = cols[i];
+                col.classList.add('capacity-shortage');
+                col.title = `정원 부족: ${memberCount}/${cap}`;
+                const flag = document.createElement('span');
+                flag.className = 'booking-room-guide-capacity-flag';
+                flag.textContent = `정원부족 ${memberCount}/${cap}`;
+                col.appendChild(flag);
+            }
+        });
     }
 
     function setBoardEventOpaque(el, enabled) {
@@ -6112,26 +6091,38 @@
         }
     }
 
-    function clearBoardHoverVisualState() {
-        document.querySelectorAll('.board-event').forEach((el) => {
+    function getHoverScopeRoot(weekId = '') {
+        const wid = String(weekId || '').trim();
+        if (!wid) return document;
+        return getWeekBoardById(wid) || document;
+    }
+
+    function clearBoardHoverVisualState(weekId = '') {
+        const root = getHoverScopeRoot(weekId);
+        root.querySelectorAll('.board-event').forEach((el) => {
             el.classList.remove('is-dimmed', 'is-hovered', 'is-storage-muted');
             setBoardEventOpaque(el, false);
         });
-        document.querySelectorAll('.hover-conf-layer').forEach((layer) => {
+        root.querySelectorAll('.hover-conf-layer').forEach((layer) => {
             layer.classList.remove('is-storage-muted');
         });
         document.body.classList.remove('storage-hover-active');
         visualHoveredSongId = null;
+        visualHoveredWeekId = null;
     }
 
-    function clearBoardHoverVisualStateForSong(songId) {
+    function clearBoardHoverVisualStateForSong(songId, weekId = '') {
         const sid = String(songId || '');
         if (!sid) return;
-        document.querySelectorAll(`.board-event[data-song-id="${sid}"]`).forEach((el) => {
+        const root = getHoverScopeRoot(weekId);
+        root.querySelectorAll(`.board-event[data-song-id="${sid}"]`).forEach((el) => {
             el.classList.remove('is-hovered', 'is-storage-muted', 'is-my-hover-priority');
             setBoardEventOpaque(el, false);
         });
-        visualHoveredSongId = null;
+        if (visualHoveredSongId === sid) {
+            visualHoveredSongId = null;
+            visualHoveredWeekId = null;
+        }
     }
 
     function scheduleHoverConflictRender(songId, options = {}) {
@@ -6182,7 +6173,8 @@
         document.body.classList.toggle('storage-hover-active', !!fromStorage);
 
         if (fromStorage || activeHoverFromStorage) {
-            document.querySelectorAll('.board-event').forEach(el => {
+            const root = getHoverScopeRoot(hoverWeekId);
+            root.querySelectorAll('.board-event').forEach(el => {
                 const isTarget = String(el.dataset.songId) === sid;
                 const isMyTarget = isTarget && mySongIdSet.has(sid);
                 el.classList.toggle('is-hovered', isTarget);
@@ -6190,27 +6182,30 @@
                 setBoardEventOpaque(el, isTarget);
                 el.classList.toggle('is-storage-muted', !!fromStorage && !isTarget);
             });
-            document.querySelectorAll('.hover-conf-layer').forEach(layer => {
+            root.querySelectorAll('.hover-conf-layer').forEach(layer => {
                 layer.classList.toggle('is-storage-muted', !!fromStorage);
             });
         } else {
             if (prevVisualSid && prevVisualSid !== sid) {
-                document.querySelectorAll(`.board-event[data-song-id="${prevVisualSid}"]`).forEach((el) => {
+                const prevRoot = getHoverScopeRoot(visualHoveredWeekId || hoverWeekId);
+                prevRoot.querySelectorAll(`.board-event[data-song-id="${prevVisualSid}"]`).forEach((el) => {
                     el.classList.remove('is-hovered', 'is-storage-muted', 'is-my-hover-priority');
                     setBoardEventOpaque(el, false);
                 });
             }
-            document.querySelectorAll(`.board-event[data-song-id="${sid}"]`).forEach((el) => {
+            const root = getHoverScopeRoot(hoverWeekId);
+            root.querySelectorAll(`.board-event[data-song-id="${sid}"]`).forEach((el) => {
                 el.classList.add('is-hovered');
                 el.classList.toggle('is-my-hover-priority', mySongIdSet.has(sid));
                 el.classList.remove('is-storage-muted');
                 setBoardEventOpaque(el, true);
             });
-            document.querySelectorAll('.hover-conf-layer').forEach(layer => {
+            root.querySelectorAll('.hover-conf-layer').forEach(layer => {
                 layer.classList.remove('is-storage-muted');
             });
         }
         visualHoveredSongId = sid;
+        visualHoveredWeekId = hoverWeekId;
 
         scheduleHoverConflictRender(sid, { weekId: hoverWeekId });
     }
@@ -6235,9 +6230,9 @@
         pendingHoverConflictSongId = null;
         pendingHoverConflictOptions = null;
         if (wasFromStorage) {
-            clearBoardHoverVisualState();
+            clearBoardHoverVisualState(activeHoverWeekId || visualHoveredWeekId || '');
         } else {
-            clearBoardHoverVisualStateForSong(sid);
+            clearBoardHoverVisualStateForSong(sid, activeHoverWeekId || visualHoveredWeekId || '');
         }
         clearHoverLayers(false);
         hideConflictDetailPopover();
@@ -6255,10 +6250,6 @@
     }
 
     function renderHoverConflict(songId, options = {}) {
-        if (isFinalReadonlyStageView) {
-            clearHoverLayers(false);
-            return;
-        }
         const instant = !!options.instant;
         let targetWeekId = String(options.weekId || activeHoverWeekId || '');
         if (!targetWeekId) {
@@ -6276,6 +6267,8 @@
         const payload = songConflictMap[songId];
         if (!payload || !payload.data) return;
         const sid = String(songId || '');
+        applyCapacityShortageGuideHighlights(sid, targetWeekId);
+        const suppressRoomShortageOverlay = deferDurationSync || !!dragState || !!resizeState;
         const resizeOverlayLocked = !!(
             resizeState
             && String(resizeState.songId || '') === sid
@@ -6363,7 +6356,7 @@
                 }
                 const missing = (((payload.data || {})[dateStr] || {})[String(slotIdx)]) || [];
                 const slotShortageInfo = getRoomShortageCached(dateStr, slotIdx);
-                const slotShortage = !!slotShortageInfo.isShortage;
+                const slotShortage = !suppressRoomShortageOverlay && !!slotShortageInfo.isShortage;
                 const overlapMembers = getOverlapMembersCached(dateStr, slotIdx);
                 const capacityInfo = getCapacityInfoCached(dateStr, slotIdx);
                 if (!missing.length && !slotShortage && !overlapMembers.length && !capacityInfo.isOverflow) {
@@ -6374,7 +6367,7 @@
                 const baseNames = [...missing].sort();
                 const baseOverlapMembers = [...overlapMembers].sort();
                 const baseShortage = slotShortage;
-                const baseShortageReasons = [...(slotShortageInfo.reasons || [])];
+                const baseShortageReasons = slotShortage ? [...(slotShortageInfo.reasons || [])] : [];
                 const baseCapacity = capacityInfo.isOverflow;
                 const baseCapacityText = String(capacityInfo.detailText || '');
                 const baseKey = `${baseNames.join('|')}|overlap:${baseOverlapMembers.join('|')}|cap:${baseCapacity ? 1 : 0}|capText:${baseCapacityText}|room:${baseShortage ? 1 : 0}|roomReasons:${baseShortageReasons.join('|')}`;
@@ -6416,6 +6409,9 @@
                 cell.style.height = `calc(${span} * var(--slot-h) - 1px)`;
                 if (overlapPeople.length) {
                     cell.style.background = 'rgb(73, 80, 87)';
+                } else if (hasRoomShortage) {
+                    // 공간 부족은 별도 배지/테두리와 함께 우선 강조한다.
+                    cell.style.background = 'rgb(255, 236, 179)';
                 } else if (hasCapacityOverflow) {
                     // Same tone as 2-reason unavailable cells.
                     cell.style.background = 'rgb(173, 181, 189)';
@@ -6433,13 +6429,19 @@
                 if (overlapPeople.length) {
                     cell.classList.add('overlap-detected');
                 }
+                if (hasRoomShortage) {
+                    cell.classList.add('room-shortage');
+                }
+                if (hasCapacityOverflow) {
+                    cell.classList.add('capacity-overflow');
+                }
                 const tooltipLines = [];
                 if (overlapPeople.length) {
                     if (canSeeDetailedConflict) {
                         tooltipLines.push('중복 인원:');
                         overlapPeople.forEach(label => tooltipLines.push(label));
                     } else {
-                        tooltipLines.push(`중복 인원 ${overlapPeople.length}명`);
+                        tooltipLines.push(hideMemberConflictInfo ? '인원 중복' : `중복 인원 ${overlapPeople.length}명`);
                     }
                 }
                 if (reasons.length) {
@@ -6447,7 +6449,7 @@
                         tooltipLines.push('불가능 인원:');
                         reasons.forEach(label => tooltipLines.push(label));
                     } else {
-                        tooltipLines.push(`불가능 인원 ${reasons.length}명`);
+                        tooltipLines.push(hideMemberConflictInfo ? '일정 불가' : `불가능 인원 ${reasons.length}명`);
                     }
                 }
                 if (hasCapacityOverflow) {
@@ -6462,6 +6464,7 @@
                 cell.addEventListener('mouseenter', (ev) => {
                     if (!pinnedSongId) return;
                     showConflictDetailPopover(cell, ev.clientX, ev.clientY);
+                    hideSongQuickInfo();
                 });
                 cell.addEventListener('mousemove', (ev) => {
                     if (!pinnedSongId) return;
@@ -6471,6 +6474,7 @@
                 });
                 cell.addEventListener('mouseleave', () => {
                     hideConflictDetailPopover();
+                    hideSongQuickInfo();
                 });
 
                 const contentHeightPx = Math.max(10, (span * slotHeightPx) - 6);
@@ -6481,6 +6485,7 @@
                     overlapCount: overlapPeople.length,
                     reasonCount: reasons.length,
                     summaryOnly: !canSeeDetailedConflict,
+                    hideMemberInfo: hideMemberConflictInfo,
                     hasCapacityOverflow,
                     hasRoomShortage,
                     shortageReasons: canSeeDetailedConflict ? shortageReasons : [],
@@ -6534,19 +6539,6 @@
         return session === 'd' || session.includes('drum') || session.includes('드럼');
     }
 
-    function renderMissingPeopleHtml(missingLabels, options = {}) {
-        const overlap = !!options.overlap;
-        return (missingLabels || []).map((label) => {
-            const cls = [
-                'hover-conf-reason',
-                overlap ? 'overlap' : '',
-                isRehearsalReasonLine(label) ? 'rehearsal' : '',
-                isDrumSessionLabel(label) ? 'drum' : '',
-            ].filter(Boolean).join(' ');
-            return `<span class="${cls}">${escapeHtml(label)}</span>`;
-        }).join(', ');
-    }
-
     function renderMissingPersonHtml(label, options = {}) {
         const overlap = !!options.overlap;
         const cls = [
@@ -6564,6 +6556,7 @@
         overlapCount = 0,
         reasonCount = 0,
         summaryOnly = false,
+        hideMemberInfo = false,
         hasCapacityOverflow,
         hasRoomShortage,
         shortageReasons = [],
@@ -6575,13 +6568,14 @@
         const reasonList = Array.isArray(reasons) ? reasons : [];
         const overlapTotal = summaryOnly ? Number(overlapCount || 0) : overlaps.length;
         const reasonTotal = summaryOnly ? Number(reasonCount || 0) : reasonList.length;
+        const shouldHideMembers = !!hideMemberInfo;
 
         // Badge priority: overlap > capacity overflow > room shortage
         if (overlapTotal > 0) {
-            topBadges.push(`<span class="hover-conf-overlap-badge">${overlapTotal}명중복</span>`);
-            if (summaryOnly) {
+            topBadges.push(`<span class="hover-conf-overlap-badge">${shouldHideMembers ? '인원중복' : `${overlapTotal}명중복`}</span>`);
+            if (summaryOnly && !shouldHideMembers) {
                 lines.push(`<span class="hover-conf-reason overlap">중복 인원 ${overlapTotal}명</span>`);
-            } else {
+            } else if (!summaryOnly && !shouldHideMembers) {
                 overlaps.forEach((label) => lines.push(renderMissingPersonHtml(label, { overlap: true })));
             }
         }
@@ -6591,10 +6585,15 @@
         if (hasRoomShortage) {
             topBadges.push('<span class="hover-conf-shortage-badge">공간부족</span>');
         }
+        if (reasonTotal > 0 && shouldHideMembers) {
+            topBadges.push('<span class="hover-conf-unavailable-badge">일정불가</span>');
+        }
         if (summaryOnly) {
-            if (reasonTotal > 0) lines.push(`<span class="hover-conf-reason">불가능 인원 ${reasonTotal}명</span>`);
+            if (reasonTotal > 0 && !shouldHideMembers) lines.push(`<span class="hover-conf-reason">불가능 인원 ${reasonTotal}명</span>`);
         } else {
-            reasonList.forEach((label) => lines.push(renderMissingPersonHtml(label)));
+            if (!shouldHideMembers) {
+                reasonList.forEach((label) => lines.push(renderMissingPersonHtml(label)));
+            }
         }
 
         const hasBadgeRow = topBadges.length > 0;
@@ -6872,6 +6871,205 @@
         weekBoard.classList.toggle('is-full-view', !!isExpanded);
     }
 
+    function getAllWeekBoards() {
+        return Array.from(document.querySelectorAll('.week-board'));
+    }
+
+    function isAllWeekBoardsExpanded() {
+        const weekBoards = getAllWeekBoards();
+        if (!weekBoards.length) return false;
+        return weekBoards.every((weekBoard) => String(weekBoard.dataset.userExpanded || '0') === '1');
+    }
+
+    function isEventChangedFromInitial(el) {
+        if (!el) return false;
+        const eventId = String(el.dataset.eventId || '');
+        if (!eventId) return false;
+        const init = initialEventState.get(eventId);
+        if (!init) return true;
+        const start = parseInt(el.dataset.start || '0', 10);
+        const end = parseInt(el.dataset.end || String(start + 1), 10);
+        const currentForced = isForcedAssignedEvent(el);
+        return (
+            String(init.date || '') !== String(el.dataset.date || '')
+            || parseInt(init.start || '0', 10) !== start
+            || parseInt(init.end || '0', 10) !== end
+            || String(init.roomId || '') !== String(el.dataset.roomId || '')
+            || Boolean(init.isForced) !== Boolean(currentForced)
+        );
+    }
+
+    function applyQuickBoardFilters(options = {}) {
+        const skipRelayout = !!options.skipRelayout;
+        document.querySelectorAll('.board-event').forEach((el) => {
+            let hide = false;
+            if (isQuickForcedOnlyEffective() && !isForcedAssignedEvent(el)) {
+                hide = true;
+            }
+            if (!hide && isQuickTempRoomOnlyEffective() && !String(el.dataset.roomId || '').startsWith('temp-')) {
+                hide = true;
+            }
+            if (!hide && isQuickSharedDiffOnlyEffective() && !isEventChangedFromInitial(el)) {
+                hide = true;
+            }
+            el.classList.toggle('is-quick-filter-hidden', hide);
+            if (hide) {
+                el.classList.remove('is-dimmed', 'is-hovered', 'drag-origin-dim', 'is-my-hover-priority');
+            }
+        });
+        if (!skipRelayout) {
+            document.querySelectorAll('.board-day-grid').forEach((grid) => {
+                relayoutDayGrid(grid);
+            });
+        }
+        clearHoverLayers();
+        hideConflictDetailPopover();
+        activeHoverSongId = null;
+    }
+
+    function syncQuickRemoteButtons() {
+        const root = document.getElementById('matchResultRoot');
+        const resetBtn = document.getElementById('quickResetAllBtn');
+        const saveDraftBtn = document.getElementById('quickSaveDraftBtn');
+        const finalSaveBtn = document.getElementById('quickFinalSaveBtn');
+        const forcedOnlyBtn = document.getElementById('quickForcedOnlyBtn');
+        const tempRoomOnlyBtn = document.getElementById('quickTempRoomOnlyBtn');
+        const sharedDiffOnlyBtn = document.getElementById('quickSharedDiffOnlyBtn');
+        const weekendBtn = document.getElementById('quickWeekendToggleBtn');
+        const expandBtn = document.getElementById('quickExpandAllBtn');
+        const emptyRoomsBtn = document.getElementById('quickEmptyRoomsToggleBtn');
+        const layoutBtn = document.getElementById('quickLayoutToggleBtn');
+        if (!resetBtn && !saveDraftBtn && !finalSaveBtn && !forcedOnlyBtn && !tempRoomOnlyBtn && !sharedDiffOnlyBtn && !weekendBtn && !expandBtn && !emptyRoomsBtn && !layoutBtn) return;
+
+        const expanded = isAllWeekBoardsExpanded();
+        if (expandBtn) {
+            expandBtn.textContent = expanded ? '전체 시간표 압축' : '전체 시간표 확장';
+            expandBtn.classList.toggle('btn-primary', expanded);
+            expandBtn.classList.toggle('btn-outline-primary', !expanded);
+        }
+        if (weekendBtn) {
+            weekendBtn.textContent = isWeekendHidden ? '주말 보이기' : '주말 가리기';
+            weekendBtn.classList.toggle('btn-primary', isWeekendHidden);
+            weekendBtn.classList.toggle('btn-outline-secondary', !isWeekendHidden);
+        }
+        if (resetBtn) {
+            resetBtn.disabled = !isBoardEditable;
+            resetBtn.title = isBoardEditable ? '' : '읽기 전용 화면에서는 사용할 수 없습니다.';
+            resetBtn.style.display = (!isManagerRole && resetBtn.disabled) ? 'none' : '';
+        }
+        if (saveDraftBtn) {
+            saveDraftBtn.disabled = !isBoardEditable;
+            saveDraftBtn.title = isBoardEditable ? '' : '읽기 전용 화면에서는 사용할 수 없습니다.';
+            saveDraftBtn.style.display = (!isManagerRole && saveDraftBtn.disabled) ? 'none' : '';
+        }
+        if (finalSaveBtn) {
+            const saveBtn = document.getElementById('saveResultBtn');
+            if (!saveBtn) {
+                finalSaveBtn.style.display = 'none';
+            } else {
+                finalSaveBtn.style.display = '';
+                finalSaveBtn.disabled = !!saveBtn.disabled;
+                finalSaveBtn.textContent = isBookingConfirmView ? '예약 확정' : '확정 저장';
+                if (!isManagerRole && finalSaveBtn.disabled) {
+                    finalSaveBtn.style.display = 'none';
+                }
+            }
+        }
+        if (emptyRoomsBtn) {
+            const enabled = isRoomSlotLayoutEnabled();
+            emptyRoomsBtn.disabled = !enabled;
+            emptyRoomsBtn.textContent = quickEmptyRoomsHidden ? '전체 합주실 보기' : '빈 합주실 가리기';
+            emptyRoomsBtn.classList.toggle('btn-primary', enabled && quickEmptyRoomsHidden);
+            emptyRoomsBtn.classList.toggle('btn-outline-secondary', !quickEmptyRoomsHidden);
+            emptyRoomsBtn.style.display = (!isManagerRole && emptyRoomsBtn.disabled) ? 'none' : '';
+        }
+        if (layoutBtn) {
+            const canToggleLayout = !isFinalView;
+            const isRoomMode = getEffectiveBoardLayoutMode() === 'roomslot';
+            layoutBtn.disabled = !canToggleLayout;
+            layoutBtn.textContent = isRoomMode ? '일반 보기' : '룸 보기';
+            layoutBtn.classList.remove('btn-primary');
+            layoutBtn.classList.toggle('btn-outline-primary', isRoomMode);
+            layoutBtn.classList.toggle('btn-outline-secondary', !isRoomMode);
+            layoutBtn.style.display = (!isManagerRole && layoutBtn.disabled) ? 'none' : '';
+        }
+        if (forcedOnlyBtn) {
+            forcedOnlyBtn.disabled = !isBoardEditable;
+            const forcedOn = isQuickForcedOnlyEffective();
+            forcedOnlyBtn.classList.toggle('btn-warning', forcedOn);
+            forcedOnlyBtn.classList.toggle('btn-outline-warning', !forcedOn);
+            forcedOnlyBtn.style.display = (!isManagerRole && forcedOnlyBtn.disabled) ? 'none' : '';
+        }
+        if (tempRoomOnlyBtn) {
+            tempRoomOnlyBtn.disabled = !isBoardEditable;
+            const tempOn = isQuickTempRoomOnlyEffective();
+            tempRoomOnlyBtn.classList.toggle('btn-secondary', tempOn);
+            tempRoomOnlyBtn.classList.toggle('btn-outline-secondary', !tempOn);
+            tempRoomOnlyBtn.style.display = (!isManagerRole && tempRoomOnlyBtn.disabled) ? 'none' : '';
+        }
+        if (sharedDiffOnlyBtn) {
+            const canUseSharedDiff = Boolean(shareWarningNeeded) || bookingToolsEnabled();
+            sharedDiffOnlyBtn.style.display = canUseSharedDiff ? '' : 'none';
+            sharedDiffOnlyBtn.disabled = !isBoardEditable;
+            if (!canUseSharedDiff && quickSharedDiffOnlyActive) {
+                quickSharedDiffOnlyActive = false;
+            }
+            if (!canUseSharedDiff && quickSharedDiffOnlyPreview) {
+                quickSharedDiffOnlyPreview = false;
+            }
+            const sharedOn = isQuickSharedDiffOnlyEffective();
+            sharedDiffOnlyBtn.classList.toggle('btn-info', sharedOn);
+            sharedDiffOnlyBtn.classList.toggle('btn-outline-info', !sharedOn);
+            if (!isManagerRole && sharedDiffOnlyBtn.disabled) {
+                sharedDiffOnlyBtn.style.display = 'none';
+            }
+        }
+        if (root) {
+            root.classList.toggle('match-weekend-hidden', isWeekendHidden);
+        }
+    }
+
+    function applyWeekendVisibility(hidden, options = {}) {
+        const persist = options.persist !== false;
+        isWeekendHidden = !!hidden;
+        syncQuickRemoteButtons();
+        if (persist) {
+            try {
+                localStorage.setItem(weekendVisibilityStorageKey, isWeekendHidden ? '1' : '0');
+            } catch (_) {}
+        }
+        getAllWeekBoards().forEach((weekBoard) => {
+            weekBoard.querySelectorAll('.board-day-grid').forEach((grid) => {
+                relayoutDayGrid(grid);
+                if (isRoomSlotLayoutEnabled()) {
+                    renderBookingRoomSplitGuidesForGrid(grid);
+                    renderBookingBlockedOverlaysForGrid(grid);
+                }
+            });
+        });
+        if (isRoomSlotLayoutEnabled()) {
+            markBookingRoomBlockedEvents();
+        }
+    }
+
+    function toggleAllWeekendVisibility() {
+        applyWeekendVisibility(!isWeekendHidden);
+    }
+
+    function toggleAllWeekBoardRange() {
+        const nextExpand = !isAllWeekBoardsExpanded();
+        document.querySelectorAll('.week-block').forEach((weekBlock) => {
+            const weekBoard = weekBlock.querySelector('.week-board');
+            const toggleBtn = weekBlock.querySelector('.week-toggle-btn[data-week-action="toggle-range"]');
+            if (!weekBoard || !toggleBtn) return;
+            const expanded = String(weekBoard.dataset.userExpanded || '0') === '1';
+            if (expanded !== nextExpand) {
+                toggleWeekBoardRange(toggleBtn);
+            }
+        });
+        syncQuickRemoteButtons();
+    }
+
     function toggleWeekBoardRange(btn) {
         const weekBlock = btn.closest('.week-block');
         if (!weekBlock) return;
@@ -6901,6 +7099,7 @@
             btn.classList.remove('btn-outline-primary');
             btn.classList.add('btn-primary');
         }
+        syncQuickRemoteButtons();
     }
 
     function askResetConfirm() {
@@ -7010,7 +7209,7 @@
     }
 
     function computeCompactRangeFromWeekBoard(weekBoard) {
-        const events = Array.from(weekBoard.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden)'));
+        const events = Array.from(weekBoard.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden)'));
         if (!events.length) {
             return {
                 start: parseInt(weekBoard.dataset.compactStart || '18', 10),
@@ -7059,8 +7258,12 @@
         return Array.from(set);
     }
 
-    function getOverlappingEvents(dateStr, startIdx, endIdx, excludeEl = null) {
-        const all = Array.from(document.querySelectorAll('.board-event:not(.drag-preview):not(.drag-ghost):not(.is-my-filter-hidden)'));
+    function getOverlappingEvents(dateStr, startIdx, endIdx, excludeEl = null, options = {}) {
+        const includeHidden = !!options.includeHidden;
+        const selector = includeHidden
+            ? '.board-event:not(.drag-preview):not(.drag-ghost)'
+            : '.board-event:not(.drag-preview):not(.drag-ghost):not(.is-my-filter-hidden):not(.is-quick-filter-hidden)';
+        const all = Array.from(document.querySelectorAll(selector));
         return all.filter(el => {
             if (excludeEl && el === excludeEl) return false;
             if (String(el.dataset.date || '') !== String(dateStr)) return false;
@@ -7137,6 +7340,7 @@
         const card = document.createElement('div');
         card.className = 'event-card success-storage-card perfect';
         card.dataset.songId = songId;
+        card.dataset.weekId = String(weekId || '');
         const title = String(songMeta.title || '곡');
         const artist = String(songMeta.artist || '');
         const color = String(songMeta.color || '');
@@ -7154,6 +7358,7 @@
         card.replaceChildren(titleEl, artistEl);
         card.addEventListener('mouseenter', () => startSongHover(songId, true, { weekId: String(weekId || '') }));
         card.addEventListener('mouseleave', () => endSongHover(songId));
+        card.addEventListener('click', (ev) => toggleSongConflictPin(ev, card));
 
         list.appendChild(card);
         updateSuccessStorageEmptyState(list, empty);
@@ -7215,49 +7420,6 @@
         refreshBookingToolsPanel();
     }
 
-    function getContiguousSameSongRoomId(dateStr, startIdx, duration, movingEl = null, preferredRoomId = '') {
-        const songId = String(movingEl?.dataset?.songId || '');
-        if (!songId) return '';
-        const endIdx = startIdx + Math.max(1, duration);
-        const preferredId = String(preferredRoomId || '').trim();
-        const candidates = Array.from(document.querySelectorAll('.board-event:not(.drag-preview):not(.drag-ghost):not(.is-my-filter-hidden):not(.is-room-filter-hidden)'))
-            .filter((el) => {
-                if (movingEl && el === movingEl) return false;
-                if (String(el.dataset.songId || '') !== songId) return false;
-                if (String(el.dataset.date || '') !== String(dateStr || '')) return false;
-                const rid = String(el.dataset.roomId || '');
-                if (!rid) return false;
-                if (rid.startsWith('temp-')) return false;
-                return true;
-            })
-            .map((el) => {
-                const s = parseInt(el.dataset.start || '0', 10);
-                const e = parseInt(el.dataset.end || String(s + 1), 10);
-                const overlap = Math.max(0, Math.min(endIdx, e) - Math.max(startIdx, s));
-                const contiguous = (e === startIdx) || (s === endIdx) || overlap > 0;
-                return {
-                    roomId: String(el.dataset.roomId || ''),
-                    start: s,
-                    end: e,
-                    overlap,
-                    contiguous,
-                };
-            })
-            .filter((x) => x.contiguous);
-        if (!candidates.length) return '';
-        candidates.sort((a, b) => {
-            const aPref = preferredId && a.roomId === preferredId ? 0 : 1;
-            const bPref = preferredId && b.roomId === preferredId ? 0 : 1;
-            if (aPref !== bPref) return aPref - bPref;
-            if (a.overlap !== b.overlap) return b.overlap - a.overlap;
-            const aTouch = Math.min(Math.abs(a.end - startIdx), Math.abs(a.start - endIdx));
-            const bTouch = Math.min(Math.abs(b.end - startIdx), Math.abs(b.start - endIdx));
-            if (aTouch !== bTouch) return aTouch - bTouch;
-            return getRoomPriorityRank(a.roomId) - getRoomPriorityRank(b.roomId);
-        });
-        return String(candidates[0].roomId || '');
-    }
-
     function resolveRoomAssignment(dateStr, startIdx, duration, movingEl, preferredRoomId = '') {
         const endIdx = startIdx + duration;
         const slotRange = Array.from({ length: duration }, (_, i) => startIdx + i);
@@ -7297,9 +7459,7 @@
                 roomOverlapForced: occupiedByOther,
             };
         }
-        const roomCandidates = bookingToolsEnabled()
-            ? getRoomsForDate(dateStr, { includeTemporary: false })
-            : baseRooms;
+        const roomCandidates = getRoomsForDate(dateStr, { includeTemporary: true });
         let freeRooms = roomCandidates.filter(r => {
             const rid = String(r.id);
             if (occupied.has(rid)) return false;
@@ -7317,13 +7477,14 @@
         if (freeRooms.length > 0) {
             const matchedRoom = freeRooms.find((r) => Number(r.capacity || 0) >= memberCount);
             const chosenRoom = matchedRoom || freeRooms[0];
+            const isTempChosen = String(chosenRoom.id || '').startsWith('temp-') || !!chosenRoom.temporary;
             return {
                 status: 'ok',
                 roomId: String(chosenRoom.id),
                 roomName: String(chosenRoom.name || ''),
                 roomLocation: String(chosenRoom.location || ''),
-                temporary: false,
-                capacityForced: !matchedRoom && memberCount > 0,
+                temporary: isTempChosen,
+                capacityForced: isTempChosen ? false : (!matchedRoom && memberCount > 0),
                 roomBlockedForced: false,
                 roomBlockedReasons: [],
                 roomOverlapForced: false,
@@ -7344,12 +7505,9 @@
         };
     }
 
-    function isRoomShortageAtSlot(dateStr, slotIdx) {
-        return getRoomShortageInfoAtSlot(dateStr, slotIdx, '', null).isShortage;
-    }
-
     function getRoomShortageInfoAtSlot(dateStr, slotIdx, movingSongId = '', excludeEl = null) {
-        const rooms = getRoomsForDate(dateStr, { includeTemporary: false });
+        // 임시합주실은 단계와 무관하게 실제 가용 공간으로 본다.
+        const rooms = getRoomsForDate(dateStr, { includeTemporary: true });
         if (!rooms.length) return { isShortage: true, reasons: ['합주실 없음'] };
 
         const overlapping = getOverlappingEvents(dateStr, slotIdx, slotIdx + 1, excludeEl);
@@ -7435,13 +7593,13 @@
         return Array.from(overlap).sort();
     }
 
-    function getOverlapMembersInRange(dateStr, startIdx, duration, songId, excludeEl = null) {
+    function getOverlapMembersInRange(dateStr, startIdx, duration, songId, excludeEl = null, options = {}) {
         const targetMemberMap = getSongMemberMap(songId);
         const targetNames = new Set(Object.keys(targetMemberMap));
         if (!targetNames.size) return [];
 
         const endIdx = startIdx + Math.max(1, duration);
-        const overlapping = getOverlappingEvents(dateStr, startIdx, endIdx, excludeEl).filter(el => (
+        const overlapping = getOverlappingEvents(dateStr, startIdx, endIdx, excludeEl, options).filter(el => (
             String(el.dataset.songId || '') !== String(songId)
         ));
 
@@ -7459,6 +7617,38 @@
             });
         });
         return Array.from(overlap).sort();
+    }
+
+    function getOverlapMemberSongReasonLines(dateStr, startIdx, duration, songId, excludeEl = null, options = {}) {
+        const targetMemberMap = getSongMemberMap(songId);
+        const targetNames = new Set(Object.keys(targetMemberMap));
+        if (!targetNames.size) return [];
+
+        const endIdx = startIdx + Math.max(1, duration);
+        const overlapping = getOverlappingEvents(dateStr, startIdx, endIdx, excludeEl, options).filter((el) => (
+            String(el.dataset.songId || '') !== String(songId)
+        ));
+
+        const lines = new Set();
+        overlapping.forEach((el) => {
+            const otherSongId = String(el.dataset.songId || '');
+            const otherSongTitle = String(
+                el.dataset.songTitle
+                || el.querySelector('.event-song-title')?.textContent?.trim()
+                || '곡'
+            ).trim();
+            const otherSongMembers = songMemberMap[otherSongId] || [];
+            otherSongMembers.forEach((member) => {
+                const uname = String(member?.username || '').trim();
+                if (!uname || !targetNames.has(uname)) return;
+                const info = targetMemberMap[uname] || {};
+                const sess = String(info.session || '').trim();
+                const displayName = String(info.displayName || uname).trim();
+                const who = sess ? `${displayName}(${sess})` : displayName;
+                lines.add(`${who} - ${otherSongTitle}`);
+            });
+        });
+        return Array.from(lines).sort((a, b) => a.localeCompare(b, 'ko'));
     }
 
     function hasSameSongOverlapInRange(dateStr, startIdx, duration, songId, excludeEl = null) {
@@ -7601,6 +7791,7 @@
         if (!grid) return;
         const weekBoard = el.closest('.week-board');
         if (!weekBoard) return;
+        deferDurationSync = true;
         const start = parseInt(el.dataset.start || '0', 10);
         const end = parseInt(el.dataset.end || String(start + 1), 10);
         const fullStart = parseInt(weekBoard.dataset.fullStart || '18', 10);
@@ -7673,8 +7864,10 @@
         document.body.classList.remove('dragging-event');
         const state = resizeState;
         resizeState = null;
+        deferDurationSync = false;
         if (!state.el || !state.grid) return;
-        suppressNextClick = !!state.moved && !bookingToolsEnabled();
+        suppressNextClick = true;
+        suppressClickUntilTs = Date.now() + 280;
         state.el.classList.remove('resizing');
         state.el.style.cursor = '';
         const revertResize = () => {
@@ -7690,7 +7883,20 @@
         };
 
         const nextDuration = Math.max(1, state.end - state.start);
+        let resizeForcedModalShown = false;
         if (state.moved) {
+            const shortageInfo = getRoomShortageInfoInRange(
+                String(state.sourceDate || ''),
+                state.start,
+                nextDuration,
+                String(state.songId || ''),
+                state.el
+            );
+            if (shortageInfo.isShortage) {
+                await promptCreateTempRoomOnShortage(String(state.sourceDate || ''), shortageInfo.reasons || []);
+                revertResize();
+                return;
+            }
             let forcedModalShown = false;
             const memberCount = Math.max(0, (songMemberMap[String(state.songId)] || []).length);
             const roomCap = getRoomCapacityById(state.sourceRoomId);
@@ -7702,18 +7908,31 @@
                 temporary: String(state.sourceRoomId || '').startsWith('temp-'),
                 capacityForced: roomCap > 0 && memberCount > roomCap,
             };
-            if (roomChoice.capacityForced) {
-                const forceCapacity = await openMoveConfirmModal({
-                    title: '정원 초과 배치',
-                    message: '선택된 합주실 정원을 초과합니다.\n해당 합주실로 강제 배치하시겠습니까?',
-                    reasons: [`정원 초과: ${memberCount}/${roomCap}`],
-                    confirmLabel: '강제 배치',
+            const roomOverlapForced = getOverlappingEvents(
+                String(state.sourceDate || ''),
+                state.start,
+                state.start + nextDuration,
+                state.el
+            ).some((ev) => String(ev.dataset.roomId || '') === String(state.sourceRoomId || ''));
+            if (roomOverlapForced) {
+                await openMoveConfirmModal({
+                    title: '변경 불가',
+                    message: '선택한 합주실이 같은 시간대에 이미 사용 중입니다.\n다른 빈 합주실 또는 임시합주실을 추가해 배치해주세요.',
+                    reasons: [],
+                    hideForce: true,
                 });
-                if (!forceCapacity) {
-                    revertResize();
-                    return;
-                }
-                forcedModalShown = true;
+                revertResize();
+                return;
+            }
+            if (roomChoice.capacityForced) {
+                await openMoveConfirmModal({
+                    title: '변경 불가',
+                    message: '선택된 합주실 정원을 초과해 배치할 수 없습니다.\n더 큰 합주실 또는 임시합주실을 추가한 뒤 다시 배치해주세요.',
+                    reasons: [`정원 초과: ${memberCount}/${roomCap}`],
+                    hideForce: true,
+                });
+                revertResize();
+                return;
             }
             const probeState = {
                 sourceType: 'event',
@@ -7794,6 +8013,7 @@
                 }
                 forcedModalShown = true;
             }
+            resizeForcedModalShown = forcedModalShown;
             state.lastMoveForced = Boolean(response.forced)
                 || Boolean(roomChoice.capacityForced)
                 || forceForAvailability
@@ -7811,6 +8031,21 @@
         recomputeForcedBadgesForBoard();
         refreshCompletionIndicators();
         refreshBookingToolsPanel();
+        if (state.moved) {
+            const forcedAfterResize = !!(
+                String(state.el.dataset.isForced || '0') === '1'
+                || state.el.classList.contains('forced-assigned')
+                || state.el.classList.contains('has-forced-badge')
+            );
+            if (forcedAfterResize && !resizeForcedModalShown) {
+                await openMoveConfirmModal({
+                    title: '강제 배치 안내',
+                    message: '길이 조절 결과가 강제 배치로 반영되었습니다.',
+                    reasons: [],
+                    confirmLabel: '확인',
+                });
+            }
+        }
         if (activeHoverSongId) {
             renderHoverConflict(String(activeHoverSongId || ''), {
                 instant: true,
@@ -7823,7 +8058,6 @@
     function onEventMouseDown(e, el) {
         if (!isBoardEditable) return;
         if (e.button !== 0) return;
-        if (e.target.closest('button, a')) return;
         if (dragState || pendingPressState || resizeState) return;
         if (isBookingCompletedEvent(el)) return;
         if (bookingToolsEnabled() && String(el?.dataset?.roomId || '').startsWith('temp-')) {
@@ -7847,72 +8081,21 @@
             startResizeFromEventMouseDown(e, el, resizeEdge);
             return;
         }
-        if (derivedDuration <= 1) {
-            pendingPressState = {
-                el,
-                downX: e.clientX,
-                downY: e.clientY,
-                splitDone: false,
-                timerId: null,
-                progressRaf: null,
-                holdStartedAt: Date.now(),
-            };
-
-            const onMove = (ev) => {
-                if (!pendingPressState || pendingPressState.el !== el) return;
-                const dx = Math.abs(ev.clientX - pendingPressState.downX);
-                const dy = Math.abs(ev.clientY - pendingPressState.downY);
-                if (dx < dragStartThresholdPx && dy < dragStartThresholdPx) return;
-                clearPendingPress();
-                startDragFromEventMouseDown(ev, el);
-            };
-
-            const onUp = () => {
-                clearPendingPress();
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-            };
-
-            pendingPressState.cleanup = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-            return;
-        }
-
+        if (!Number.isFinite(derivedDuration) || derivedDuration < 1) return;
         pendingPressState = {
             el,
             downX: e.clientX,
             downY: e.clientY,
-            lastClientX: e.clientX,
-            lastClientY: e.clientY,
             splitDone: false,
             timerId: null,
             progressRaf: null,
             holdStartedAt: Date.now(),
         };
-        beginSplitHoldProgress(pendingPressState);
-
-        pendingPressState.timerId = window.setTimeout(() => {
-            if (!pendingPressState) return;
-            if (pendingPressState.el !== el) return;
-            const didSplit = splitEventAtNearestBoundary(el, pendingPressState.lastClientY);
-            if (didSplit) {
-                pendingPressState.splitDone = true;
-                suppressNextClick = true;
-                clearPendingPress();
-            }
-        }, splitHoldMs);
 
         const onMove = (ev) => {
             if (!pendingPressState || pendingPressState.el !== el) return;
-            pendingPressState.lastClientX = ev.clientX;
-            pendingPressState.lastClientY = ev.clientY;
             const dx = Math.abs(ev.clientX - pendingPressState.downX);
             const dy = Math.abs(ev.clientY - pendingPressState.downY);
-            if (pendingPressState.splitDone) return;
             if (dx < dragStartThresholdPx && dy < dragStartThresholdPx) return;
             clearPendingPress();
             startDragFromEventMouseDown(ev, el);
@@ -8003,6 +8186,7 @@
         clearWeekdayFocusOverlay();
         const sourceGrid = el.closest('.board-day-grid');
         if (!sourceGrid) return;
+        deferDurationSync = true;
         const weekBoard = el.closest('.week-board');
         unlockSplitBatch(el);
 
@@ -8162,6 +8346,7 @@
         if (e.button !== 0) return;
         if (dragState) return;
         if (String(el.dataset.used || '0') === '1') return;
+        deferDurationSync = true;
         clearWeekdayFocusOverlay();
         clearPendingPress();
 
@@ -8271,7 +8456,7 @@
             drop.targetRoomId || ''
         );
         dragState.preview.classList.remove('drag-target-warn1', 'drag-target-warn2', 'drag-target-warn3', 'drag-target-overlap');
-        const shortageInvalid = (roomPick.status === 'shortage') && bookingToolsEnabled();
+        const shortageInvalid = !deferDurationSync && (roomPick.status === 'shortage');
         dragState.preview.classList.toggle(
             'drag-target-invalid',
             shortageInvalid
@@ -8365,7 +8550,9 @@
 
         const state = dragState;
         dragState = null;
-        suppressNextClick = !!state.moved && !bookingToolsEnabled();
+        deferDurationSync = false;
+        suppressNextClick = true;
+        suppressClickUntilTs = Date.now() + 280;
         clearFailedDropHighlight();
 
         if (!state.drop) {
@@ -8423,24 +8610,28 @@
             state.drop?.targetRoomId || ''
         );
         let forceSticky = false;
-        if (!bookingToolsEnabled()) {
-            const shortageInfo = getRoomShortageInfoInRange(
-                targetDate,
-                targetStart,
-                state.duration,
-                state.songId,
-                state.sourceType === 'event' ? state.el : null
-            );
-            if (shortageInfo.isShortage) {
-                roomChoice = {
-                    status: 'shortage',
-                    reasons: (shortageInfo.reasons && shortageInfo.reasons.length)
-                        ? shortageInfo.reasons
-                        : ['합주 공간 부족'],
-                };
-            }
+        if (roomChoice.status === 'shortage') {
+            await promptCreateTempRoomOnShortage(targetDate, roomChoice.reasons || ['합주 공간 부족']);
+            cleanupDrag(state);
+            collapseWeekBoardAfterDrag(state.weekBoard);
+            endSongHover(state.songId);
+            return;
         }
-        let forceForRoomOverlap = false;
+        const shortageInfo = getRoomShortageInfoInRange(
+            targetDate,
+            targetStart,
+            state.duration,
+            state.songId,
+            state.sourceType === 'event' ? state.el : null
+        );
+        if (shortageInfo.isShortage) {
+            roomChoice = {
+                status: 'shortage',
+                reasons: (shortageInfo.reasons && shortageInfo.reasons.length)
+                    ? shortageInfo.reasons
+                    : ['합주 공간 부족'],
+            };
+        }
         let forcedModalShown = false;
         if (bookingToolsEnabled() && roomChoice.status === 'ok' && roomChoice.roomBlockedForced) {
             await openMoveConfirmModal({
@@ -8457,32 +8648,16 @@
             return;
         }
         if (roomChoice.status === 'ok' && roomChoice.roomOverlapForced) {
-            if (bookingToolsEnabled()) {
-                await openMoveConfirmModal({
-                    title: '이동 불가',
-                    message: '예약 확정 페이지에서는 같은 시간에 같은 합주실로 겹쳐 배치할 수 없습니다.',
-                    reasons: [],
-                    hideForce: true,
-                });
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            const overlapOk = await openMoveConfirmModal({
-                title: '합주실 중복 배치',
-                message: '선택한 합주실이 같은 시간대에 이미 사용 중입니다.\n그래도 해당 합주실로 배치하시겠습니까?',
+            await openMoveConfirmModal({
+                title: '이동 불가',
+                message: '선택한 합주실이 같은 시간대에 이미 사용 중입니다.\n다른 빈 합주실 또는 임시합주실을 추가해 배치해주세요.',
                 reasons: [],
-                confirmLabel: '그래도 배치',
+                hideForce: true,
             });
-            if (!overlapOk) {
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            forceForRoomOverlap = true;
-            forcedModalShown = true;
+            cleanupDrag(state);
+            collapseWeekBoardAfterDrag(state.weekBoard);
+            endSongHover(state.songId);
+            return;
         }
         const overlapMembers = getOverlapMembersInRange(
             targetDate,
@@ -8505,76 +8680,27 @@
             forcedModalShown = true;
         }
         if (roomChoice.status === 'shortage') {
-            if (!bookingToolsEnabled()) {
-                const proceedTemp = await openMoveConfirmModal({
-                    title: '합주 공간 부족',
-                    message: '해당 시간대는 합주 공간이 부족합니다.\n임시합주실로 배치하시겠습니까?',
-                    reasons: roomChoice.reasons || ['합주 공간 부족'],
-                    confirmLabel: '임시합주실 배치',
-                });
-                if (!proceedTemp) {
-                    cleanupDrag(state);
-                    collapseWeekBoardAfterDrag(state.weekBoard);
-                    endSongHover(state.songId);
-                    return;
-                }
-                forcedModalShown = true;
-                const tempChoice = getOrCreateCoordinationTempRoomChoice(
-                    targetDate,
-                    targetStart,
-                    state.duration,
-                    state.sourceType === 'event' ? state.el : null
-                );
-                if (!tempChoice) {
-                    cleanupDrag(state);
-                    collapseWeekBoardAfterDrag(state.weekBoard);
-                    endSongHover(state.songId);
-                    return;
-                }
-                forceSticky = true;
-                roomChoice = tempChoice;
-            } else {
-            const forceShortage = await openMoveConfirmModal({
-                title: '합주 공간 부족',
-                message: '해당 시간대는 합주 공간이 부족합니다.\n임시합주실을 만들지 않고 선택한 합주실 기준으로 강제 배치하시겠습니까?',
-                reasons: roomChoice.reasons || ['합주 공간 부족'],
-                confirmLabel: '강제 배치',
-            });
-            if (!forceShortage) {
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            forcedModalShown = true;
-            const fallbackChoice = buildForcedFallbackRoomChoice(state, targetDate, targetStart, state.drop?.targetRoomId || '');
-            if (!fallbackChoice) {
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            roomChoice = fallbackChoice;
-            }
+            await promptCreateTempRoomOnShortage(targetDate, roomChoice.reasons || ['합주 공간 부족']);
+            cleanupDrag(state);
+            collapseWeekBoardAfterDrag(state.weekBoard);
+            endSongHover(state.songId);
+            return;
         }
         if (roomChoice.status === 'ok' && roomChoice.capacityForced) {
             const memberCount = Math.max(0, (songMemberMap[String(state.songId)] || []).length);
             const roomCap = Number(
                 (baseRooms.find((r) => String(r.id) === String(roomChoice.roomId)) || {}).capacity || 0
             );
-            const forceCapacity = await openMoveConfirmModal({
-                title: '정원 초과 배치',
-                message: '선택된 합주실 정원을 초과합니다.\n임시합주실을 만들지 않고 해당 합주실로 강제 배치하시겠습니까?',
+            await openMoveConfirmModal({
+                title: '이동 불가',
+                message: '선택된 합주실 정원을 초과해 배치할 수 없습니다.\n더 큰 합주실 또는 임시합주실을 추가한 뒤 다시 배치해주세요.',
                 reasons: roomCap > 0 ? [`정원 초과: ${memberCount}/${roomCap}`] : [],
-                confirmLabel: '강제 배치',
+                hideForce: true,
             });
-            if (!forceCapacity) {
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            forcedModalShown = true;
+            cleanupDrag(state);
+            collapseWeekBoardAfterDrag(state.weekBoard);
+            endSongHover(state.songId);
+            return;
         }
         const unavailableReasons = getUnavailableNames(
             state.songId,
@@ -8646,40 +8772,14 @@
                 endSongHover(state.songId);
                 return;
             }
-            const proceedTemp = await openMoveConfirmModal({
-                title: '합주 공간 부족',
-                message: '선택한 합주실은 해당 시간에 이용 불가입니다.\n임시합주실로 배치하시겠습니까?',
+            await openMoveConfirmModal({
+                title: '이동 불가',
+                message: '선택한 합주실은 해당 시간에 이용 불가입니다.\n임시합주실을 직접 추가한 뒤 다시 배치해주세요.',
                 reasons: response.reasons || ['다른 미팅 사용으로 이용 불가'],
-                confirmLabel: '임시합주실 배치',
+                hideForce: true,
             });
-            if (!proceedTemp) {
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            const tempChoice = getOrCreateCoordinationTempRoomChoice(
-                targetDate,
-                targetStart,
-                state.duration,
-                state.sourceType === 'event' ? state.el : null
-            );
-            if (!tempChoice) {
-                cleanupDrag(state);
-                collapseWeekBoardAfterDrag(state.weekBoard);
-                endSongHover(state.songId);
-                return;
-            }
-            state.lastMoveForced = true;
-            state.forceSticky = true;
-            cleanupDrag(state, true);
-            if (state.sourceType === 'failed') {
-                const createdEventEl = materializeFailedCardToEvent(state, tempChoice);
-                collapseWeekBoardAfterDrag(state.drop.grid.closest('.week-board'), createdEventEl);
-            } else {
-                applyMovedPosition(state, tempChoice);
-                collapseWeekBoardAfterDrag(state.weekBoard, state.el);
-            }
+            cleanupDrag(state);
+            collapseWeekBoardAfterDrag(state.weekBoard);
             endSongHover(state.songId);
             return;
         }
@@ -8713,7 +8813,6 @@
         }
         roomChoice = normalizeTempRoomDisplay(roomChoice);
         state.lastMoveForced = Boolean(response.forced)
-            || forceForRoomOverlap
             || Boolean(roomChoice.roomBlockedForced)
             || Boolean(roomChoice.roomOverlapForced)
             || Boolean(roomChoice.capacityForced)
@@ -8722,13 +8821,32 @@
             || forcedModalShown;
         state.forceSticky = forceSticky;
 
+        let movedEventEl = null;
         cleanupDrag(state, true);
         if (state.sourceType === 'failed') {
             const createdEventEl = materializeFailedCardToEvent(state, roomChoice);
+            movedEventEl = createdEventEl;
             collapseWeekBoardAfterDrag(state.drop.grid.closest('.week-board'), createdEventEl);
         } else {
+            movedEventEl = state.el;
             applyMovedPosition(state, roomChoice);
             collapseWeekBoardAfterDrag(state.weekBoard, state.el);
+        }
+        const forcedAfterDrop = !!(
+            movedEventEl
+            && (
+                String(movedEventEl.dataset.isForced || '0') === '1'
+                || movedEventEl.classList.contains('forced-assigned')
+                || movedEventEl.classList.contains('has-forced-badge')
+            )
+        );
+        if (forcedAfterDrop && !forcedModalShown) {
+            await openMoveConfirmModal({
+                title: '강제 배치 안내',
+                message: '드래그 결과가 강제 배치로 반영되었습니다.',
+                reasons: [],
+                confirmLabel: '확인',
+            });
         }
         endSongHover(state.songId);
     }
@@ -8789,7 +8907,7 @@
             });
             return;
         }
-        const events = Array.from(document.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden)'));
+        const events = Array.from(document.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden)'));
         const forcedByEventId = new Map();
 
         events.forEach((el) => {
@@ -8801,7 +8919,9 @@
             const end = parseInt(el.dataset.end || String(start + 1), 10);
             const duration = Math.max(1, end - start);
 
-            let forced = (String(el.dataset.forceSticky || '0') === '1');
+            let forced = (String(el.dataset.forceSticky || '0') === '1')
+                || (String(el.dataset.isForced || '0') === '1')
+                || el.classList.contains('forced-assigned');
             if (getUnavailableNames(songId, dateStr, start, duration).length > 0) {
                 forced = true;
             }
@@ -8926,6 +9046,7 @@
         el.addEventListener('mouseenter', () => startSongHover(songId, false, { weekId }));
         el.addEventListener('mouseleave', () => endSongHover(songId));
         el.addEventListener('mousedown', (ev) => onFailedCardMouseDown(ev, el));
+        el.addEventListener('click', (ev) => toggleSongConflictPin(ev, el));
     }
 
     // 추가합주 카드를 최종 시간표 보드에 렌더링
@@ -9022,7 +9143,6 @@
 
     function refreshCompletionIndicators() {
         syncSongWeekDurationVisuals();
-        refreshRoomChangeButtons();
         const weekBlocks = Array.from(document.querySelectorAll('[data-week-block]'));
         let completed = 0;
         let failedTotalInstances = 0;
@@ -9111,16 +9231,6 @@
                     `</div>` +
                     `</div>`
                 )).join('');
-            }
-        }
-        const totalCountEl = document.getElementById('resultTotalCount');
-        const successCountEl = document.getElementById('resultSuccessCount');
-        if (totalCountEl && successCountEl) {
-            const totalCount = Number(totalCountEl.textContent || '0');
-            if (Number.isFinite(totalCount) && totalCount >= 0) {
-                const failedSongCount = failedSongWeeks.size;
-                const successCount = Math.max(0, totalCount - failedSongCount);
-                successCountEl.textContent = `${successCount}곡`;
             }
         }
         refreshBookingEntryButtonsState();
@@ -9239,7 +9349,7 @@
     function relayoutDayGrid(grid) {
         if (!grid) return;
         const slotStart = parseInt(grid.dataset.slotStart || '18', 10);
-        const events = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-room-filter-hidden)'));
+        const events = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden):not(.is-room-filter-hidden)'));
         if (!events.length) return;
 
         const normalizeContinuousLaneWidth = (rows, countProp, indexProp, extraKeyParts = [], options = {}) => {
@@ -9349,7 +9459,7 @@
             flush();
         });
 
-        const mergedEvents = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-room-filter-hidden)'));
+        const mergedEvents = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden):not(.is-room-filter-hidden)'));
         if (!mergedEvents.length) return;
 
         const rows = mergedEvents.map(el => {
@@ -9634,8 +9744,9 @@
         });
     }
     renderExtraPracticeCards();
-    // 오늘 날짜 헤더에 is-today 클래스 추가
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // 오늘 날짜 헤더에 is-today 클래스 추가 (UTC가 아닌 로컬 날짜 기준)
+    const nowLocal = new Date();
+    const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
     document.querySelectorAll('.board-head-day[data-date-str]').forEach((el) => {
         if (el.dataset.dateStr === todayStr) el.classList.add('is-today');
     });
@@ -9644,17 +9755,24 @@
         relayoutDayGrid(grid);
         renderMyUnavailableOverlayForGrid(grid);
     });
+    try {
+        isWeekendHidden = String(localStorage.getItem(weekendVisibilityStorageKey) || '0') === '1';
+    } catch (_) {
+        isWeekendHidden = false;
+    }
+    applyWeekendVisibility(isWeekendHidden, { persist: false });
     document.querySelectorAll('.week-board').forEach((weekBoard) => {
         if (disableWeekdayOverlay) {
             clearWeekdayFocusOverlay(weekBoard);
             return;
         }
         weekBoard.addEventListener('mousemove', (event) => {
+            updatePinnedConflictPopoverByPointer(event.clientX, event.clientY, weekBoard);
             if (dragState || resizeState) {
                 clearWeekdayFocusOverlay(weekBoard);
                 return;
             }
-            if (event.target && event.target.closest('.board-event, .event-room-change-btn, .event-song-title')) {
+            if (event.target && event.target.closest('.board-event, .event-song-title')) {
                 clearWeekdayFocusOverlay(weekBoard);
                 return;
             }
@@ -9667,15 +9785,19 @@
         });
         weekBoard.addEventListener('mouseleave', () => {
             clearWeekdayFocusOverlay(weekBoard);
+            hideConflictDetailPopover();
         });
     });
-    refreshRoomChangeButtons();
-    recomputeForcedBadgesForBoard();
+    syncQuickRemoteButtons();
+        recomputeForcedBadgesForBoard();
     captureInitialEventState();
+    applyQuickBoardFilters();
     initializeSongWeekRequirementMap();
     if (bookingToolsEnabled()) {
         initBookingToolControls();
     } else if (!isFinalView) {
+        // 조율 단계 새로고침 후에도 temp-* 이벤트가 숨겨지지 않게 임시합주실 메타를 복원한다.
+        ensureBookingTempRoomsFromEvents();
         renderBookingRoomToggleCells();
         applyBookingRoomVisibilityForDate();
         markBookingRoomBlockedEvents();
@@ -9724,6 +9846,7 @@
                 el.classList.remove('is-dimmed', 'is-hovered', 'drag-origin-dim', 'is-my-hover-priority');
             }
         });
+        applyQuickBoardFilters({ skipRelayout: true });
 
         document.querySelectorAll('.board-day-grid').forEach((grid) => {
             relayoutDayGrid(grid);
@@ -9795,10 +9918,12 @@
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
         if (persist) {
-            localStorage.setItem(bookingToolsPanelStorageKey, JSON.stringify({
-                left: Math.round(pos.left),
-                top: Math.round(pos.top),
-            }));
+            try {
+                localStorage.setItem(bookingToolsPanelStorageKey, JSON.stringify({
+                    left: Math.round(pos.left),
+                    top: Math.round(pos.top),
+                }));
+            } catch (_) {}
         }
     }
 
@@ -9828,7 +9953,12 @@
         if (!head || panel.dataset.dragBound === '1') return;
         panel.dataset.dragBound = '1';
 
-        const savedRaw = localStorage.getItem(bookingToolsPanelStorageKey);
+        let savedRaw = null;
+        try {
+            savedRaw = localStorage.getItem(bookingToolsPanelStorageKey);
+        } catch (_) {
+            savedRaw = null;
+        }
         if (savedRaw) {
             try {
                 const saved = JSON.parse(savedRaw);
@@ -9929,7 +10059,7 @@
         if (ev.button !== 0) return;
         const grid = ev.currentTarget;
         if (!grid || String(grid.dataset.inRange || '1') !== '1') return;
-        if (ev.target.closest('.board-event, .event-room-change-btn, button, a')) return;
+        if (ev.target.closest('.board-event, button, a')) return;
         ev.preventDefault();
         const dateStr = String(grid.dataset.date || '');
         const roomId = getRoomIdByGridX(grid, ev.clientX);

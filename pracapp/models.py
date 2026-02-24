@@ -426,6 +426,7 @@ class Membership(models.Model):
     band = models.ForeignKey(Band, on_delete=models.CASCADE, related_name='memberships')
     message = models.TextField(max_length=500, blank=True, null=True, verbose_name='가입 인사')
     is_approved = models.BooleanField(default=False)
+    approval_notified = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
 
     ROLE_CHOICES = [
@@ -523,6 +524,40 @@ class RecurringBlock(models.Model):
     def __str__(self):
         return f'{self.user.realname} - {self.day_of_week} : {self.start_index} ~ {self.end_index}'
 
+
+class SchedulePeriodPreset(models.Model):
+    PRESET_SEMESTER_1 = 'SEMESTER_1'
+    PRESET_SUMMER_BREAK = 'SUMMER_BREAK'
+    PRESET_SEMESTER_2 = 'SEMESTER_2'
+    PRESET_WINTER_BREAK = 'WINTER_BREAK'
+    PRESET_CUSTOM = 'CUSTOM'
+    PRESET_CHOICES = [
+        (PRESET_SEMESTER_1, '1학기'),
+        (PRESET_SUMMER_BREAK, '여름방학'),
+        (PRESET_SEMESTER_2, '2학기'),
+        (PRESET_WINTER_BREAK, '겨울방학'),
+        (PRESET_CUSTOM, '기타(직접 설정)'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='schedule_period_presets')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    preset_code = models.CharField(max_length=20, choices=PRESET_CHOICES, default=PRESET_CUSTOM)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'start_date', 'end_date'], name='sched_preset_user_range_unique'),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'start_date', 'end_date'], name='sched_preset_user_range_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} - {self.start_date}~{self.end_date} ({self.preset_code})'
+
+
 class OneOffBlock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='oneoff_blocks')
@@ -564,11 +599,11 @@ class RecurringException(models.Model):
     start_index = models.IntegerField()
     end_index = models.IntegerField()
     reason = models.CharField(max_length=30, default='취소')
+    # 특정 recurring 블록만 취소할 때 사용 (비어있으면 기존 slot 기반 예외로 처리)
+    target_payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # 한 유저가 같은 날짜, 같은 시간에 중복해서 예외를 만들 필요는 없음
-        unique_together = ('user', 'date', 'start_index')
         indexes = [
             models.Index(fields=['user', 'date'], name='rex_user_date_idx'),
         ]
@@ -626,6 +661,7 @@ class MeetingFinalDraft(models.Model):
     """
     meeting = models.OneToOneField(Meeting, on_delete=models.CASCADE, related_name='final_draft')
     events = models.JSONField(default=list)
+    match_params = models.JSONField(default=dict, blank=True)
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

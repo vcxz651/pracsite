@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.db import transaction
 from collections import defaultdict
 import datetime
+import uuid
 
 
 SESSION_ABBR_MAP = {
@@ -21,6 +22,74 @@ SESSION_ABBR_MAP = {
 
 def _session_abbr(name):
     return SESSION_ABBR_MAP.get(name, name)
+
+
+def _normalize_exception_day_payload(day_payload):
+    if isinstance(day_payload, dict):
+        slots = day_payload.get('slots', []) or []
+        targeted = day_payload.get('targeted', []) or []
+        return {'slots': list(slots), 'targeted': list(targeted)}
+    if isinstance(day_payload, list):
+        return {'slots': list(day_payload), 'targeted': []}
+    return {'slots': [], 'targeted': []}
+
+
+def _block_target_payload(day_of_week, start_idx, end_idx, reason, scope_start, scope_end):
+    return {
+        'day_of_week': int(day_of_week),
+        'start': int(start_idx),
+        'end': int(end_idx),
+        'reason': str(reason or '').strip(),
+        'scope_start': str(scope_start or ''),
+        'scope_end': str(scope_end or ''),
+    }
+
+
+def _target_matches_block(target, block_day, block_start, block_end, block_reason, block_scope_start, block_scope_end):
+    if not isinstance(target, dict):
+        return False
+    try:
+        t_day = int(target.get('day_of_week'))
+        t_start = int(target.get('start'))
+        t_end = int(target.get('end'))
+    except (TypeError, ValueError):
+        return False
+
+    t_reason = str(target.get('reason') or '').strip()
+    t_scope_start = str(target.get('scope_start') or '')
+    t_scope_end = str(target.get('scope_end') or '')
+
+    return (
+        t_day == int(block_day)
+        and t_start == int(block_start)
+        and t_end == int(block_end)
+        and t_reason == str(block_reason or '').strip()
+        and t_scope_start == str(block_scope_start or '')
+        and t_scope_end == str(block_scope_end or '')
+    )
+
+
+def _is_block_slot_cancelled(slot, day_payload, block_day, block_start, block_end, block_reason, block_scope_start, block_scope_end):
+    normalized = _normalize_exception_day_payload(day_payload)
+    if slot in set(normalized['slots']):
+        return True
+    for target_row in normalized['targeted']:
+        t_start = int(target_row.get('start', -1))
+        t_end = int(target_row.get('end', -1))
+        if not (t_start <= slot < t_end):
+            continue
+        target = target_row.get('target') or {}
+        if _target_matches_block(
+            target,
+            block_day=block_day,
+            block_start=block_start,
+            block_end=block_end,
+            block_reason=block_reason,
+            block_scope_start=block_scope_start,
+            block_scope_end=block_scope_end,
+        ):
+            return True
+    return False
 
 
 def _build_user_unavailable_reason_map(user_ids, start_date, end_date):
@@ -56,18 +125,26 @@ def _build_user_unavailable_reason_map(user_ids, start_date, end_date):
         d_key = ob.date.strftime('%Y-%m-%d')
         oneoff_by_user_date[ob.user_id][d_key].append(ob)
 
-    exc_slots_by_user_date = defaultdict(lambda: defaultdict(set))
+    exc_payload_by_user_date = defaultdict(lambda: defaultdict(lambda: {'slots': [], 'targeted': []}))
     for ex in exc_qs:
         d_key = ex.date.strftime('%Y-%m-%d')
+        target_payload = ex.target_payload or {}
+        if isinstance(target_payload, dict) and target_payload:
+            exc_payload_by_user_date[ex.user_id][d_key]['targeted'].append({
+                'start': int(ex.start_index),
+                'end': int(ex.end_index),
+                'target': target_payload,
+            })
+            continue
         for slot in range(ex.start_index, ex.end_index):
-            exc_slots_by_user_date[ex.user_id][d_key].add(slot)
+            exc_payload_by_user_date[ex.user_id][d_key]['slots'].append(int(slot))
 
     for uid in user_ids:
         cursor = start_date
         while cursor <= end_date:
             d_key = cursor.strftime('%Y-%m-%d')
             day_idx = cursor.weekday()
-            exc_slots = exc_slots_by_user_date[uid].get(d_key, set())
+            exc_payload = exc_payload_by_user_date[uid].get(d_key, {'slots': [], 'targeted': []})
 
             for rb in recurring_by_user_weekday[uid].get(day_idx, []):
                 block_start = rb.start_date or start_date
@@ -75,8 +152,19 @@ def _build_user_unavailable_reason_map(user_ids, start_date, end_date):
                 if not (block_start <= cursor <= block_end):
                     continue
                 reason = (rb.reason or '').strip() or '고정 일정'
+                block_scope_start = block_start.strftime('%Y-%m-%d')
+                block_scope_end = block_end.strftime('%Y-%m-%d')
                 for slot in range(rb.start_index, rb.end_index):
-                    if slot in exc_slots:
+                    if _is_block_slot_cancelled(
+                        slot,
+                        exc_payload,
+                        block_day=rb.day_of_week,
+                        block_start=rb.start_index,
+                        block_end=rb.end_index,
+                        block_reason=rb.reason,
+                        block_scope_start=block_scope_start,
+                        block_scope_end=block_scope_end,
+                    ):
                         continue
                     result[uid][d_key][slot].add(reason)
 
@@ -147,7 +235,11 @@ def _recompute_forced_flags(meeting, schedule_events, song_ids=None):
         room_obj = ev.get('room')
         room_id = getattr(room_obj, 'id', None)
         if room_id:
-            event_room_ids.add(room_id)
+            try:
+                event_room_ids.add(uuid.UUID(str(room_id)))
+            except (ValueError, TypeError, AttributeError):
+                # 프론트 가상 임시합주실 id(temp-*)는 RoomBlock 조회 대상에서 제외
+                pass
         d_raw = ev.get('date')
         if isinstance(d_raw, datetime.date):
             event_dates.add(d_raw)
@@ -157,14 +249,14 @@ def _recompute_forced_flags(meeting, schedule_events, song_ids=None):
             except Exception:
                 pass
 
-    room_block_slots = defaultdict(set)  # {(room_id, date): {slot...}}
+    room_block_slots = defaultdict(set)  # {(room_id_str, date): {slot...}}
     if event_room_ids and event_dates:
         rb_qs = RoomBlock.objects.filter(
             room_id__in=list(event_room_ids),
             date__in=list(event_dates),
         ).exclude(source_meeting=meeting)
         for rb in rb_qs:
-            key = (rb.room_id, rb.date)
+            key = (str(rb.room_id), rb.date)
             for slot in range(int(rb.start_index), int(rb.end_index)):
                 room_block_slots[key].add(slot)
 
@@ -200,7 +292,7 @@ def _recompute_forced_flags(meeting, schedule_events, song_ids=None):
             room_obj = ev.get('room')
             room_id = getattr(room_obj, 'id', None)
             if (not forced) and room_id and d_obj is not None:
-                blocked_slots = room_block_slots.get((room_id, d_obj), set())
+                blocked_slots = room_block_slots.get((str(room_id), d_obj), set())
                 for slot in range(start, end):
                     if slot in blocked_slots:
                         forced = True
@@ -450,7 +542,7 @@ def clear_recurring_data(user, start_date, end_date):
     ).delete()
 
 
-def save_recurring_data(user, data, start_date, end_date):
+def save_recurring_data(user, data, start_date, end_date, additional_periods=None):
     """
     [Data Saver] 청소 후 저장
     """
@@ -469,6 +561,37 @@ def save_recurring_data(user, data, start_date, end_date):
                 start_date=start_date,
                 end_date=end_date
             )
+
+    # 3. 특정 기간 추가 고정 일정 저장
+    for period in (additional_periods or []):
+        p_start_raw = period.get('start_date')
+        p_end_raw = period.get('end_date')
+        period_data = period.get('data') or {}
+        if not p_start_raw or not p_end_raw:
+            continue
+        try:
+            p_start = datetime.datetime.strptime(str(p_start_raw), "%Y-%m-%d").date()
+            p_end = datetime.datetime.strptime(str(p_end_raw), "%Y-%m-%d").date()
+        except Exception:
+            continue
+
+        # 현재 편집 범위 밖/역전 기간은 무시
+        if p_start > p_end:
+            continue
+        if p_start < start_date or p_end > end_date:
+            continue
+
+        for day_idx, blocks in period_data.items():
+            for block in blocks:
+                RecurringBlock.objects.create(
+                    user=user,
+                    day_of_week=int(day_idx),
+                    start_index=block['start'],
+                    end_index=block['end'],
+                    reason=block['reason'],
+                    start_date=p_start,
+                    end_date=p_end
+                )
 
 
 def load_recurring_data(user, start_date=None, end_date=None):
@@ -552,8 +675,10 @@ def load_oneoff_data(user, start_date, end_date, include_generated=False):
 
 def save_exception_data(user, data, start_date, end_date):
     """
-    [Data Saver] 예외 데이터를 받아서 범위(Range)로 변환 후 DB에 저장
-    :param exceptions_data: { '2026-02-14': [18, 19, 20], ... } 형태의 딕셔너리
+    [Data Saver] 예외 데이터 저장
+    지원 형식:
+    - 구형: { '2026-02-14': [18, 19, 20], ... }
+    - 신형: { '2026-02-14': { 'slots': [...], 'targeted': [{start,end,target{...}}] }, ... }
     """
     # 1. 기존 데이터 삭제 (덮어쓰기 전략)
     RecurringException.objects.filter(
@@ -562,40 +687,75 @@ def save_exception_data(user, data, start_date, end_date):
     ).delete()
 
     # 2. 새 데이터 저장
-    for date_str, indexes in data.items():
-        if not indexes:
+    for date_str, day_payload in data.items():
+        normalized = _normalize_exception_day_payload(day_payload)
+        indexes = normalized['slots']
+        targeted = normalized['targeted']
+
+        if not indexes and not targeted:
             continue
 
-        ranges = _group_indices_to_ranges(indexes)
+        if indexes:
+            ranges = _group_indices_to_ranges(indexes)
 
-        # (3) 변환된 범위대로 DB 저장
-        for r_start, r_end in ranges:
+            for r_start, r_end in ranges:
+                RecurringException.objects.create(
+                    user=user,
+                    date=date_str,
+                    start_index=r_start,
+                    end_index=r_end,
+                    reason='취소',
+                    target_payload={},
+                )
+
+        for t in targeted:
+            try:
+                t_start = int(t.get('start'))
+                t_end = int(t.get('end'))
+            except (TypeError, ValueError):
+                continue
+            if t_end <= t_start:
+                continue
+            target = t.get('target') or {}
+            if not isinstance(target, dict) or not target:
+                continue
             RecurringException.objects.create(
                 user=user,
                 date=date_str,
-                start_index=r_start,
-                end_index=r_end,
-                reason='취소'
+                start_index=t_start,
+                end_index=t_end,
+                reason='취소',
+                target_payload=target,
             )
 
 
 def load_exception_data(user, start_date, end_date):
     """
-    [Data Loader] 기간 내 예외(취소) 시간을 날짜별(str) '인덱스 리스트'로 반환
-    Returns: { '2026-02-14': [18, 19, 20, 21], ... }
-    (예외는 보통 '범위'보다 '포함 여부 확인'용으로 많이 쓰여서 풀어서 주는 게 편합니다)
+    [Data Loader] 기간 내 예외(취소) 데이터를 날짜별 payload로 반환
+    Returns: {
+      '2026-02-14': {
+        'slots': [18,19],
+        'targeted': [{'start':18,'end':22,'target': {...}}]
+      }
+    }
     """
     data = {}
     excs = RecurringException.objects.filter(user=user, date__range=[start_date, end_date])
     for e in excs:
         d_str = e.date.strftime('%Y-%m-%d')
 
-        # 최초의 날짜인 경우 키값 생성
         if d_str not in data:
-            data[d_str] = []
+            data[d_str] = {'slots': [], 'targeted': []}
 
-        # 범위(range)를 풀어서 인덱스 리스트로 저장
-        data[d_str].extend(range(e.start_index, e.end_index))
+        target_payload = e.target_payload or {}
+        if isinstance(target_payload, dict) and target_payload:
+            data[d_str]['targeted'].append({
+                'start': int(e.start_index),
+                'end': int(e.end_index),
+                'target': target_payload,
+            })
+        else:
+            data[d_str]['slots'].extend(range(e.start_index, e.end_index))
     return data
 
 
@@ -614,12 +774,44 @@ def prepare_edit(user, start_str, end_str):
     one_data = load_oneoff_data(user, s_date, e_date)
     exc_data = load_exception_data(user, s_date, e_date)
 
+    base_data = {}
+    additional_grouped = {}
+    for day_idx, blocks in rec_data.items():
+        for block in blocks:
+            b_start = block.get('start_date')
+            b_end = block.get('end_date')
+            target = base_data
+            group_key = None
+            if b_start != s_date or b_end != e_date:
+                group_key = (str(b_start), str(b_end))
+                if group_key not in additional_grouped:
+                    additional_grouped[group_key] = {}
+                target = additional_grouped[group_key]
+
+            day_key = str(day_idx)
+            if day_key not in target:
+                target[day_key] = []
+            target[day_key].append({
+                'start': block.get('start'),
+                'end': block.get('end'),
+                'reason': block.get('reason'),
+            })
+
+    additional_periods = []
+    for (p_start, p_end), period_data in additional_grouped.items():
+        additional_periods.append({
+            'start_date': p_start,
+            'end_date': p_end,
+            'data': period_data,
+        })
+
     # 3. 세션에 넣기 좋게 포장 (JSON 직렬화)
     # 딕셔너리를 통째로 만들어서 리턴합니다.
     return {
         'schedule_start': start_str,
         'schedule_end': end_str,
-        'temp_recurring': json.loads(json.dumps(rec_data, default=str)),
+        'temp_recurring': json.loads(json.dumps(base_data, default=str)),
+        'temp_recurring_additional': json.loads(json.dumps(additional_periods, default=str)),
         'temp_oneoff': json.loads(json.dumps(one_data, default=str)),
         'temp_exceptions': json.loads(json.dumps(exc_data, default=str)),
     }
@@ -649,23 +841,31 @@ def calculate_user_schedule(user, start_date, end_date, session_exceptions=None,
         # 기본값: 09:00(18) ~ 24:00(48) 모두 가능
         available_slots = set(range(18, 48))
 
-        # (A) 고정 빼기
-        for block in recurring_blocks:
+        day_exceptions = _normalize_exception_day_payload(exceptions_map.get(curr_str, []))
 
-            # 걸쳐진거도 빼버리는 방지용으로
+        # (A) 고정 빼기 (해당 블록에 매칭되는 예외만 적용)
+        for block in recurring_blocks:
             if block.day_of_week == day_idx:
                 block_start = block.start_date or start_date
                 block_end = block.end_date or end_date
                 if block_start <= curr <= block_end:
+                    scope_start = block_start.strftime('%Y-%m-%d')
+                    scope_end = block_end.strftime('%Y-%m-%d')
                     for i in range(block.start_index, block.end_index):
+                        if _is_block_slot_cancelled(
+                            i,
+                            day_exceptions,
+                            block_day=block.day_of_week,
+                            block_start=block.start_index,
+                            block_end=block.end_index,
+                            block_reason=block.reason,
+                            block_scope_start=scope_start,
+                            block_scope_end=scope_end,
+                        ):
+                            continue
                         available_slots.discard(i)
 
-        # (B) 예외 더하기
-        if curr_str in exceptions_map:
-            for i in exceptions_map[curr_str]:
-                if 18 <= i < 48: available_slots.add(i)
-
-        # (C) 단발 빼기
+        # (B) 단발 빼기
         if curr_str in oneoff_data:
             for block in oneoff_data[curr_str]:
                 for i in range(block['start'], block['end']): available_slots.discard(i)
@@ -693,14 +893,26 @@ def confirm_and_save_schedule(user, start_date, end_date):
         )
 
 
-def get_schedule_summary(rec_map, one_map, exc_map):
+def get_schedule_summary(rec_map, one_map, exc_map, additional_periods=None):
     """
     [Unified Display] 세션(또는 딕셔너리 형태) 데이터를 받아서
     화면(Template)에 뿌리기 좋은 형태로 가공하여 반환
     """
     DAYS_MAP = ['월', '화', '수', '목', '금', '토', '일']
 
-    # 1. 고정 스케줄 가공
+    additional_periods = additional_periods or []
+
+    def _format_period_kor(start_str, end_str):
+        s_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
+        e_date = datetime.datetime.strptime(end_str, "%Y-%m-%d").date()
+        sy = str(s_date.year)[-2:]
+        ey = str(e_date.year)[-2:]
+        start_text = f"{sy}년 {s_date.month}월 {s_date.day}일"
+        if s_date.year == e_date.year:
+            return f"{start_text} ~ {e_date.month}월 {e_date.day}일"
+        return f"{start_text} ~ {ey}년 {e_date.month}월 {e_date.day}일"
+
+    # 1. 기본 고정 스케줄 가공
     fixed_grouped = []
     # 키 정렬 (문자열 '0' -> 정수 0)
     sorted_days = sorted(rec_map.keys(), key=lambda x: int(x))
@@ -724,6 +936,38 @@ def get_schedule_summary(rec_map, one_map, exc_map):
             'items': day_schedules
         })
 
+    # 1-2. 특수 기간 고정 스케줄 가공
+    special_period_grouped = []
+    for period in additional_periods:
+        p_start = str(period.get('start_date') or '').strip()
+        p_end = str(period.get('end_date') or '').strip()
+        p_data = period.get('data') or {}
+        if not p_start or not p_end or not isinstance(p_data, dict):
+            continue
+
+        grouped_days = []
+        for day_key in sorted(p_data.keys(), key=lambda x: int(x)):
+            blocks = p_data.get(day_key) or []
+            if not blocks:
+                continue
+            blocks = sorted(blocks, key=lambda x: x.get('start', 0))
+            items = []
+            for b in blocks:
+                items.append({
+                    'reason': b.get('reason') or '고정 일정',
+                    'time_str': f"{get_time_str(b['start'])} ~ {get_time_str(b['end'])}"
+                })
+            grouped_days.append({
+                'day_str': DAYS_MAP[int(day_key)],
+                'items': items,
+            })
+
+        if grouped_days:
+            special_period_grouped.append({
+                'period_text': _format_period_kor(p_start, p_end),
+                'days': grouped_days,
+            })
+
     # 2. 예외/추가 스케줄 가공
     all_exceptions = []
 
@@ -741,21 +985,69 @@ def get_schedule_summary(rec_map, one_map, exc_map):
             })
 
     # (B) 취소된 일정 (Exception)
-    for date_str, indices in exc_map.items():
-        if not indices: continue
+    for date_str, day_payload in exc_map.items():
+        normalized = _normalize_exception_day_payload(day_payload)
+        indices = normalized['slots']
+        targeted = normalized['targeted']
+        if not indices and not targeted:
+            continue
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        day_idx = dt.weekday()
+        day_blocks = list(rec_map.get(str(day_idx), rec_map.get(day_idx, [])) or [])
 
-        # ★ 분리해둔 헬퍼 함수 사용! (코드가 훨씬 깔끔해짐)
-        ranges = _group_indices_to_ranges(indices)
+        # 취소 날짜에 해당하는 특수 기간 고정 스케줄도 포함
+        for period in additional_periods:
+            p_start = str(period.get('start_date') or '').strip()
+            p_end = str(period.get('end_date') or '').strip()
+            p_data = period.get('data') or {}
+            if not p_start or not p_end or not isinstance(p_data, dict):
+                continue
+            if p_start <= date_str <= p_end:
+                day_blocks.extend(p_data.get(str(day_idx), []) or [])
 
-        for r_start, r_end in ranges:
+        # 취소 대상 날짜의 "원래 고정 일정" 슬롯별 사유 맵
+        slot_reason_map = {}
+        for block in day_blocks:
+            reason = str(block.get('reason') or '').strip() or '고정 일정'
+            start_idx = int(block.get('start', 0))
+            end_idx = int(block.get('end', start_idx))
+            for slot in range(start_idx, end_idx):
+                slot_reason_map[slot] = reason
+
+        if indices:
+            ranges = _group_indices_to_ranges(indices)
+            for r_start, r_end in ranges:
+                reasons = []
+                for slot in range(r_start, r_end):
+                    rs = slot_reason_map.get(slot)
+                    if rs and rs not in reasons:
+                        reasons.append(rs)
+                reason_text = ', '.join(reasons) if reasons else '고정 일정'
+
+                all_exceptions.append({
+                    'type': 'cancelled',
+                    'date': dt,
+                    'day_str': DAYS_MAP[dt.weekday()],
+                    'start_time': get_time_str(r_start),
+                    'end_time': get_time_str(r_end),
+                    'reason': reason_text
+                })
+
+        for t in targeted:
+            try:
+                t_start = int(t.get('start'))
+                t_end = int(t.get('end'))
+            except (TypeError, ValueError):
+                continue
+            target = t.get('target') or {}
+            target_reason = str(target.get('reason') or '').strip() or '고정 일정'
             all_exceptions.append({
                 'type': 'cancelled',
                 'date': dt,
                 'day_str': DAYS_MAP[dt.weekday()],
-                'start_time': get_time_str(r_start),
-                'end_time': get_time_str(r_end),
-                'reason': '취소됨'
+                'start_time': get_time_str(t_start),
+                'end_time': get_time_str(t_end),
+                'reason': target_reason
             })
 
     # [수정 전] 날짜로만 정렬 (순서 보장 안 됨)
@@ -768,7 +1060,7 @@ def get_schedule_summary(rec_map, one_map, exc_map):
         x['start_time']  # 3순위: 같은 타입이면 시간 빠른 순
     ))
 
-    return fixed_grouped, all_exceptions
+    return fixed_grouped, special_period_grouped, all_exceptions
 
 
 def get_confirmation_summaryandshuldbeupdated(user, start_date, end_date, session_data=None):
@@ -854,7 +1146,7 @@ def get_busy_events(user, start_date, end_date):
 
         # (A) 고정 스케줄 처리 (날짜 유효성 체크 추가!)
         if day_idx in recurring_map:
-            exceptions = set(exception_map.get(d_str, []))
+            day_exceptions = _normalize_exception_day_payload(exception_map.get(d_str, []))
 
             for r_block in recurring_map[day_idx]:
                 # ★ 유효 기간 체크 로직 (New!)
@@ -864,7 +1156,22 @@ def get_busy_events(user, start_date, end_date):
 
                 # 현재 날짜(curr)가 유효 기간 안에 있을 때만 추가
                 if block_start <= curr <= block_end:
-                    split_events = _apply_exception_to_block(r_block, exceptions)
+                    block_scope_start = block_start.strftime('%Y-%m-%d') if hasattr(block_start, 'strftime') else str(block_start)
+                    block_scope_end = block_end.strftime('%Y-%m-%d') if hasattr(block_end, 'strftime') else str(block_end)
+                    block_exception_slots = set()
+                    for slot in range(r_block['start'], r_block['end']):
+                        if _is_block_slot_cancelled(
+                            slot,
+                            day_exceptions,
+                            block_day=day_idx,
+                            block_start=r_block['start'],
+                            block_end=r_block['end'],
+                            block_reason=r_block.get('reason'),
+                            block_scope_start=block_scope_start,
+                            block_scope_end=block_scope_end,
+                        ):
+                            block_exception_slots.add(slot)
+                    split_events = _apply_exception_to_block(r_block, block_exception_slots)
                     daily_events.extend(split_events)
 
         # (B) 단발성 스케줄 처리 (기존 동일)

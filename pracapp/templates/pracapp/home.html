@@ -4,34 +4,13 @@
 {% if user.is_authenticated %}
 
 <div class="container mt-4 home-wrap">
-    <div class="card shadow-sm border-0 mb-4 schedule-card">
-        <div class="card-body p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-            <div>
-                <h4 class="fw-bold mb-1">내 일정</h4>
-                {% if has_schedule %}
-                    <p class="text-muted mb-0 small">등록된 시간표가 있습니다. 언제든 수정 가능합니다.</p>
-                {% else %}
-                    <p class="text-danger mb-0 small fw-bold">아직 시간표가 없습니다. 먼저 등록해주세요.</p>
-                {% endif %}
-            </div>
-            <div class="d-flex gap-2">
-                {% if has_schedule %}
-                    <a href="{% url 'my_schedule' %}" class="btn btn-light border fw-bold">조회</a>
-                    <a href="{% url 'schedule_list' %}" class="btn btn-outline-secondary fw-bold">수정</a>
-                {% else %}
-                    <a href="{% url 'schedule_setup' %}" class="btn btn-dark fw-bold px-4">시간표 만들기</a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold m-0">내 밴드</h4>
     </div>
     <div class="row g-3">
         {% for band in my_band %}
             <div class="col-12 col-lg-6">
-                <div class="card h-100 shadow-sm border-0 home-card hover-effect position-relative">
+                <div class="card h-100 shadow-sm border-0 home-card hover-effect position-relative band-summary-card">
                     <div class="card-body position-relative">
                         <a href="{% url 'dashboard' %}?band_id={{ band.id }}" class="stretched-link" aria-label="{{ band.name }} 대시보드로 이동"></a>
                         <div class="d-flex justify-content-between align-items-start gap-2">
@@ -49,16 +28,98 @@
                 </div>
             </div>
         {% endfor %}
-        <div class="col-12">
+        <div class="col-12 col-lg-6">
             <div class="card h-100 shadow-sm home-card create-join-card">
-                <div class="card-body d-flex flex-column justify-content-center align-items-center text-center gap-2">
-                    <h5 class="card-title fw-bold text-dark mb-1">새로운 밴드 생성/가입</h5>
-                    <p class="card-text text-muted small mb-2">새 밴드를 만들거나 기존 밴드에 가입할 수 있습니다.</p>
-                    <div class="d-flex gap-2">
+                <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                    <div>
+                        <h5 class="card-title fw-bold text-dark mb-1">새로운 밴드 생성/가입</h5>
+                    </div>
+                    <div class="d-flex gap-2 ms-md-auto">
                         <a href="{% url 'band_create' %}" class="btn btn-dark btn-sm">밴드 생성</a>
                         <a href="{% url 'band_list' %}" class="btn btn-outline-dark btn-sm">밴드 가입</a>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+        <h4 class="fw-bold m-0">내 일정</h4>
+    </div>
+    {% if has_schedule %}
+        <div class="row g-3 mb-4">
+            {% for card in schedule_cards %}
+                <div class="col-12 col-lg-6">
+                    <div class="card shadow-sm border-0 home-card schedule-card h-100">
+                        <div class="card-body p-4 d-flex flex-column justify-content-between gap-3">
+                            <div>
+                                <h5 class="text-dark mb-1 fw-bold schedule-card-title">{{ card.label }} 일정</h5>
+                                <p class="text-muted mb-0 small">{{ card.period_text }}</p>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'schedule_edit_loader' %}?start={{ card.start_str }}&end={{ card.end_str }}&next=confirm&readonly=1&view_label={{ card.label|urlencode }}" class="btn btn-light border fw-bold btn-sm">조회</a>
+                                <a href="{% url 'schedule_edit_loader' %}?start={{ card.start_str }}&end={{ card.end_str }}" class="btn btn-outline-secondary fw-bold btn-sm">이 기간 수정</a>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-danger fw-bold btn-sm"
+                                    onclick="openDeleteScheduleModal('{{ card.start_str }}','{{ card.end_str }}','{{ card.label|escapejs }}')"
+                                >
+                                    이 기간 삭제
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            <div class="col-12 col-lg-6">
+                <div class="card h-100 shadow-sm home-card create-schedule-card">
+                    <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <h5 class="card-title fw-bold text-dark mb-1">새로운 일정 생성</h5>
+                        </div>
+                        <div class="d-flex gap-2 ms-md-auto">
+                            <a href="{% url 'schedule_setup' %}" class="btn btn-dark btn-sm">일정 생성</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card shadow-sm border-0 mb-4 home-card schedule-card schedule-card-empty">
+            <div class="card-body p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div>
+                    <h5 class="text-danger mb-0 schedule-empty-title fw-bold">시간표를 등록해주세요.</h5>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'schedule_setup' %}" class="btn btn-dark fw-bold px-4">일정 생성</a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="deleteScheduleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger bg-opacity-10">
+                <h5 class="modal-title fw-bold text-danger">⚠️ 시간표 삭제</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-bold mb-2" id="deleteSchedulePeriodText"></p>
+                <p class="mb-2 small text-muted">
+                    이 기간의 개인 시간표 데이터가 삭제됩니다.
+                    (고정 일정, 예외 일정, 특수 기간 고정 일정)
+                </p>
+                <p class="mb-3 small text-muted">
+                    합주로 자동 생성된 일정은 삭제되지 않습니다. 삭제 후 되돌릴 수 없습니다.
+                </p>
+                <label for="deleteScheduleConfirmInput" class="form-label fw-bold small">확인을 위해 <code>삭제</code>를 입력하세요.</label>
+                <input id="deleteScheduleConfirmInput" type="text" class="form-control" placeholder="삭제">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteScheduleBtn" onclick="confirmDeleteSchedule()">삭제</button>
             </div>
         </div>
     </div>
@@ -70,13 +131,40 @@
     }
     .schedule-card {
         background: linear-gradient(145deg, #f3f6fa 0%, #ffffff 100%);
+        min-height: 138px;
+    }
+    .schedule-card-empty {
+        background: #fff;
+        border: 2px dashed #f1b0b7 !important;
     }
     .home-card {
         border-radius: 14px;
+        border: 1px solid #ebedf0;
     }
     .create-join-card {
         border: 2px dashed #adb5bd !important;
         background: #fafbfc;
+        min-height: 124px;
+    }
+    .create-schedule-card {
+        border: 2px dashed #adb5bd !important;
+        background: #fafbfc;
+        min-height: 124px;
+    }
+    .band-summary-card {
+        min-height: 124px;
+    }
+    .section-subtitle {
+        font-size: 1rem;
+        line-height: 1.35;
+    }
+    .schedule-card-title {
+        font-size: 1.25rem;
+        line-height: 1.3;
+    }
+    .schedule-empty-title {
+        font-size: 1.35rem;
+        line-height: 1.25;
     }
     .hover-effect {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -86,6 +174,60 @@
         box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important;
     }
 </style>
+
+<script>
+    let deleteScheduleModal = null;
+    let deleteTargetStart = '';
+    let deleteTargetEnd = '';
+
+    function openDeleteScheduleModal(startStr, endStr, label) {
+        deleteTargetStart = startStr;
+        deleteTargetEnd = endStr;
+        const periodEl = document.getElementById('deleteSchedulePeriodText');
+        const inputEl = document.getElementById('deleteScheduleConfirmInput');
+        periodEl.innerText = `${label} (${startStr} ~ ${endStr})`;
+        inputEl.value = '';
+        if (!deleteScheduleModal) {
+            deleteScheduleModal = new bootstrap.Modal(document.getElementById('deleteScheduleModal'));
+        }
+        deleteScheduleModal.show();
+    }
+
+    function confirmDeleteSchedule() {
+        const inputEl = document.getElementById('deleteScheduleConfirmInput');
+        const btnEl = document.getElementById('confirmDeleteScheduleBtn');
+        if (inputEl.value.trim() !== '삭제') {
+            alert("입력값이 올바르지 않습니다. '삭제'를 입력해주세요.");
+            inputEl.focus();
+            return;
+        }
+        btnEl.disabled = true;
+        fetch("{% url 'schedule_delete' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                start: deleteTargetStart,
+                end: deleteTargetEnd
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+                return;
+            }
+            alert(data.message || '삭제 중 오류가 발생했습니다.');
+            btnEl.disabled = false;
+        })
+        .catch(() => {
+            alert('삭제 요청 중 오류가 발생했습니다.');
+            btnEl.disabled = false;
+        });
+    }
+</script>
 
 {% else %}
 <div class="text-center mt-5 pt-5">

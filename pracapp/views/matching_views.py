@@ -1,5 +1,6 @@
 import datetime
 import json
+import uuid
 from collections import defaultdict
 import logging
 
@@ -210,6 +211,19 @@ def _build_booking_event_key(song_id, date_str, start, duration, room_id):
     return f"{str(song_id or '')}|{str(date_str or '')}|{int(start)}|{int(duration)}|{str(room_id or '')}"
 
 
+def _sanitize_uuid_str_list(values):
+    cleaned = []
+    for raw in (values or []):
+        s = str(raw or '').strip()
+        if not s:
+            continue
+        try:
+            cleaned.append(str(uuid.UUID(s)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+    return cleaned
+
+
 def _get_overlapping_band_meeting_ids(meeting, start_date, end_date, exclude_self=True):
     qs = Meeting.objects.filter(band=meeting.band).filter(
         Q(practice_start_date__isnull=True)
@@ -224,7 +238,11 @@ def _get_overlapping_band_meeting_ids(meeting, start_date, end_date, exclude_sel
     return list(qs.values_list('id', flat=True))
 
 
-def _validate_normalized_events_against_external_conflicts(meeting, normalized_events):
+def _validate_normalized_events_against_external_conflicts(
+    meeting,
+    normalized_events,
+    allow_forced_member_overlap=False,
+):
     """
     normalized_events: [
       {'song': Song, 'date': date, 'start': int, 'end': int, 'room': PracticeRoom, ...}, ...
@@ -242,10 +260,16 @@ def _validate_normalized_events_against_external_conflicts(meeting, normalized_e
     )
 
     # 1) 합주실 점유 충돌 검사
+    # 임시 가상 room_id("temp-*")는 DB room_id 타입과 달라 필터 시 오류를 낼 수 있으므로
+    # 실제 DB에 존재하는 합주실 id만 충돌 검증 쿼리에 사용한다.
+    valid_room_ids = {
+        str(rid)
+        for rid in _available_rooms_qs(meeting, include_temporary=True).values_list('id', flat=True)
+    }
     candidate_room_ids = sorted({
         str(item['room'].id)
         for item in normalized_events
-        if item.get('room') is not None
+        if item.get('room') is not None and str(item['room'].id) in valid_room_ids
     })
     room_blocks_by_key = defaultdict(list)
     if candidate_room_ids and date_set:
@@ -301,6 +325,7 @@ def _validate_normalized_events_against_external_conflicts(meeting, normalized_e
             'song_title': item['song'].title,
             'start': int(item['start']),
             'end': int(item['end']),
+            'is_forced': bool(item.get('is_forced', False)),
             'assignees': set(payload_song_assignees.get(sid, set())),
         })
 
@@ -317,6 +342,8 @@ def _validate_normalized_events_against_external_conflicts(meeting, normalized_e
                 if a['start'] >= b['end'] or b['start'] >= a['end']:
                     continue
                 if a['assignees'].isdisjoint(b['assignees']):
+                    continue
+                if allow_forced_member_overlap and (a.get('is_forced') or b.get('is_forced')):
                     continue
                 return False, f"[{d}] 같은 멤버가 '{a['song_title']}'와 '{b['song_title']}'에 중복 배정되었습니다."
 
@@ -351,6 +378,8 @@ def _validate_normalized_events_against_external_conflicts(meeting, normalized_e
                 if local['start'] >= ext_end or ext_start >= local['end']:
                     continue
                 if local['assignees'].isdisjoint(ext_assignees):
+                    continue
+                if allow_forced_member_overlap and local.get('is_forced'):
                     continue
                 return False, f"[{d}] '{local['song_title']}' 멤버가 [{sch.meeting.title}] - {sch.song.title}와 시간 중복입니다."
 
@@ -497,7 +526,7 @@ def schedule_match_settings(request, meeting_id):
         get_room_initial = room_initial
         if saved_settings:
             initial = {
-                'duration_minutes': saved_settings.get('duration_minutes', 30),
+                'duration_minutes': saved_settings.get('duration_minutes', 60),
                 'required_count': saved_settings.get('required_count', 1),
                 'priority_order': ",".join(saved_settings.get('priority_order', MatchSettingsForm.DEFAULT_PRIORITY_ORDER)),
                 'room_priority_order': ",".join(saved_settings.get('room_priority_order', saved_settings.get('room_ids', []))),
@@ -655,6 +684,21 @@ def schedule_match_run(request, meeting_id):
     selected_room_ids = [x.strip() for x in raw_rooms.split(',') if x.strip()] if raw_rooms else None
     raw_room_pref = _param_with_saved('rp', '')
     room_preferred_ids = [x.strip() for x in raw_room_pref.split(',') if x.strip()] if raw_room_pref else None
+    # r/rp 쿼리에 프론트 임시합주실 식별자(temp-*)가 섞일 수 있으므로
+    # 매칭 실행에서는 실제 밴드 합주실 UUID만 허용한다.
+    available_room_id_set = {
+        str(rid) for rid in _available_rooms_qs(meeting).values_list('id', flat=True)
+    }
+    if selected_room_ids is not None:
+        selected_room_ids = _sanitize_uuid_str_list(selected_room_ids)
+        selected_room_ids = [rid for rid in selected_room_ids if rid in available_room_id_set]
+        if not selected_room_ids:
+            selected_room_ids = None
+    if room_preferred_ids is not None:
+        room_preferred_ids = _sanitize_uuid_str_list(room_preferred_ids)
+        room_preferred_ids = [rid for rid in room_preferred_ids if rid in available_room_id_set]
+        if not room_preferred_ids:
+            room_preferred_ids = None
     exclude_weekends = str(_param_with_saved('w', '0')) == '1'
     room_efficiency_priority = str(_param_with_saved('re', '0')) == '1'
     maximize_feasibility = False
@@ -1019,6 +1063,21 @@ def schedule_match_run(request, meeting_id):
 
     completed_week_count = sum(1 for w in weekly_data if w.get('is_complete'))
     total_week_count = len(weekly_data)
+    week_song_required_slots = {}
+    for week_idx, week in enumerate(weekly_data):
+        week_song_ids = set()
+        for day in week.get('days', []):
+            for e in day.get('events', []):
+                song_obj = e.get('song')
+                song_id = str(getattr(song_obj, 'id', '') or '')
+                if song_id:
+                    week_song_ids.add(song_id)
+        for item in week.get('failed_items', []):
+            song_id = str(item.get('song_id') or '').strip()
+            if song_id:
+                week_song_ids.add(song_id)
+        for song_id in week_song_ids:
+            week_song_required_slots[f"{week_idx}|{song_id}"] = int(required_slots_per_week)
 
     # 5. 곡 클릭 시 보여줄 "불가능 시간(사유: 멤버명)" 맵 계산
     # 매칭 단계에서는 미배치(failed) 카드도 오버레이를 보여줘야 하므로
@@ -1163,6 +1222,7 @@ def schedule_match_run(request, meeting_id):
         'song_conflict_map_json': json.dumps(song_conflict_map),
         'song_member_map_json': json.dumps(song_member_map),
         'song_color_map_json': json.dumps(song_color_map),
+        'week_song_required_slots_json': json.dumps(week_song_required_slots),
         'room_block_map_json': json.dumps(room_block_map_json_ready),
         'room_block_manual_map_json': json.dumps(room_block_manual_map_json_ready),
         'room_block_detail_map_json': json.dumps(room_block_detail_map_json_ready),
@@ -1179,6 +1239,7 @@ def schedule_match_run(request, meeting_id):
         'excluded_song_count': excluded_song_count,
         'is_booking_in_progress': bool(meeting.is_booking_in_progress),
         'share_warning_needed': bool(meeting.is_final_schedule_released),
+        'shared_schedule_updated_at': (draft_obj.updated_at if draft_obj else None),
         'schedule_stage_label': meeting.schedule_stage_label,
         'loaded_user_work_draft': bool(load_saved and user_work_draft),
         'effective_match_params_json': json.dumps(effective_match_params),
@@ -1254,6 +1315,9 @@ def schedule_match_work_draft_save(request, meeting_id):
     raw_events = data.get('events') or []
     if not isinstance(raw_events, list):
         return JsonResponse({'status': 'error', 'message': 'events 형식이 잘못되었습니다.'}, status=400)
+    raw_match_params = data.get('match_params') or {}
+    if not isinstance(raw_match_params, dict):
+        raw_match_params = {}
     raw_params = data.get('match_params') or {}
     if not isinstance(raw_params, dict):
         raw_params = {}
@@ -1380,6 +1444,9 @@ def schedule_booking_start(request, meeting_id):
     raw_events = data.get('events')
     if raw_events is not None and not isinstance(raw_events, list):
         return JsonResponse({'status': 'error', 'message': 'events 형식이 잘못되었습니다.'}, status=400)
+    raw_match_params = data.get('match_params') or {}
+    if not isinstance(raw_match_params, dict):
+        raw_match_params = {}
     if not meeting.is_final_schedule_released:
         return JsonResponse({'status': 'error', 'message': '공유된 일정이 없습니다. 먼저 저장 후 공유를 진행해주세요.'}, status=409)
 
@@ -1427,6 +1494,7 @@ def schedule_booking_start(request, meeting_id):
         is_valid, conflict_message = _validate_normalized_events_against_external_conflicts(
             meeting,
             normalized_preview,
+            allow_forced_member_overlap=True,
         )
         if not is_valid:
             return JsonResponse({
@@ -1444,10 +1512,14 @@ def schedule_booking_start(request, meeting_id):
         incoming_sig = _build_events_signature(raw_events)
         if shared_sig != incoming_sig:
             return JsonResponse({'status': 'error', 'message': '공유 이후 일정이 변경되었습니다. 다시 공유 후 예약을 진행해주세요.'}, status=409)
+        persisted_match_params = raw_match_params
+        if (not persisted_match_params) and isinstance(draft_obj.match_params, dict):
+            persisted_match_params = dict(draft_obj.match_params or {})
         MeetingFinalDraft.objects.update_or_create(
             meeting=meeting,
             defaults={
                 'events': raw_events,
+                'match_params': persisted_match_params,
                 'updated_by': request.user,
             }
         )
@@ -1504,9 +1576,18 @@ def schedule_final(request, meeting_id):
     )
     draft_obj = MeetingFinalDraft.objects.filter(meeting=meeting).first()
     draft_events = draft_obj.events if draft_obj else None
-    # 예약 페이지(mode=booking)는 항상 공용 공유본(MeetingFinalDraft)을 기준으로 본다.
-    # 개인 작업중 저장본(MeetingWorkDraft)은 합주 조율 페이지에서만 로드한다.
     loaded_user_work_draft = False
+    # 예약 편집 단계에서는 관리자 임시저장(MeetingWorkDraft.events)을 우선 복원해
+    # 새로고침 시 방 이동/길이 변경이 날아가지 않게 한다.
+    if is_booking_confirm_view:
+        user_work_draft_for_booking = MeetingWorkDraft.objects.filter(meeting=meeting, user=request.user).first()
+        if (
+            user_work_draft_for_booking
+            and isinstance(user_work_draft_for_booking.events, list)
+            and len(user_work_draft_for_booking.events) > 0
+        ):
+            draft_events = user_work_draft_for_booking.events
+            loaded_user_work_draft = True
     has_confirmed_rows = PracticeSchedule.objects.filter(meeting=meeting).exists()
     is_confirmed_final = bool(
         meeting.is_final_schedule_confirmed
@@ -1664,40 +1745,10 @@ def schedule_final(request, meeting_id):
         except Exception:
             return None
 
-    # 최종 페이지의 미배치 계산은 "현재 보드와 동일한 작업본"의 파라미터를 우선 사용한다.
-    # 현재 사용자 작업본이 아니어도 시그니처가 일치하면 동일 보드로 간주한다.
+    # 최종/예약 화면의 기준 파라미터는 공유본(MeetingFinalDraft)의 match_params를 단일 소스로 사용한다.
     reliable_params = {}
-    current_board_events = []
-    for item in full_schedule:
-        song_obj = item.get('song')
-        room_obj = item.get('room')
-        if not song_obj or not room_obj:
-            continue
-        start = int(item.get('start', 0))
-        end = int(item.get('end', start))
-        current_board_events.append({
-            'song_id': str(song_obj.id),
-            'date': str(item.get('date') or ''),
-            'start': start,
-            'duration': max(1, end - start),
-            'room_id': str(getattr(room_obj, 'id', '') or ''),
-            'is_forced': bool(item.get('is_forced', False)),
-        })
-    current_board_signature = _build_events_signature(current_board_events)
-    candidate_drafts = MeetingWorkDraft.objects.filter(meeting=meeting).order_by('-updated_at')
-    for wd in candidate_drafts:
-        if not isinstance(wd.events, list):
-            continue
-        if _build_events_signature(wd.events) != current_board_signature:
-            continue
-        if isinstance(wd.match_params, dict):
-            reliable_params = wd.match_params
-            break
-
-    if not reliable_params:
-        my_latest_draft = MeetingWorkDraft.objects.filter(meeting=meeting, user=request.user).order_by('-updated_at').first()
-        if my_latest_draft and isinstance(my_latest_draft.match_params, dict):
-            reliable_params = my_latest_draft.match_params
+    if draft_obj and isinstance(getattr(draft_obj, 'match_params', None), dict):
+        reliable_params = dict(draft_obj.match_params or {})
 
     def _parse_csv_or_list(raw):
         if isinstance(raw, (list, tuple)):
@@ -1707,14 +1758,14 @@ def schedule_final(request, meeting_id):
             return []
         return [x.strip() for x in txt.split(',') if x.strip()]
 
-    selected_room_ids_for_view = _parse_csv_or_list(reliable_params.get('r'))
-    preferred_room_ids_for_view = _parse_csv_or_list(reliable_params.get('rp'))
+    selected_room_ids_for_view = _sanitize_uuid_str_list(_parse_csv_or_list(reliable_params.get('r')))
+    preferred_room_ids_for_view = _sanitize_uuid_str_list(_parse_csv_or_list(reliable_params.get('rp')))
     ordered_room_ids_for_view = [rid for rid in preferred_room_ids_for_view if rid in selected_room_ids_for_view]
     for rid in selected_room_ids_for_view:
         if rid not in ordered_room_ids_for_view:
             ordered_room_ids_for_view.append(rid)
 
-    duration_minutes = _safe_int(reliable_params.get('d'), 30)
+    duration_minutes = _safe_int(reliable_params.get('d'), 60)
     required_count = max(1, _safe_int(reliable_params.get('c'), 1))
     duration_slots = max(1, int(duration_minutes // 30))
     required_slots_per_week = max(1, duration_slots * required_count)
@@ -1842,6 +1893,21 @@ def schedule_final(request, meeting_id):
 
     completed_week_count = sum(1 for w in weekly_data if w.get('is_complete'))
     total_week_count = len(weekly_data)
+    week_song_required_slots = {}
+    for week_idx, week in enumerate(weekly_data):
+        week_song_ids = set()
+        for day in week.get('days', []):
+            for e in day.get('events', []):
+                song_obj = e.get('song')
+                song_id = str(getattr(song_obj, 'id', '') or '')
+                if song_id:
+                    week_song_ids.add(song_id)
+        for item in week.get('failed_items', []):
+            song_id = str(item.get('song_id') or '').strip()
+            if song_id:
+                week_song_ids.add(song_id)
+        for song_id in week_song_ids:
+            week_song_required_slots[f"{week_idx}|{song_id}"] = int(required_slots_per_week)
     scheduled_song_ids = {str(e.get('song_id')) for e in (draft_events or []) if e.get('song_id')} if draft_events else {
         str(sid) for sid in PracticeSchedule.objects.filter(meeting=meeting).values_list('song_id', flat=True)
     }
@@ -1862,16 +1928,12 @@ def schedule_final(request, meeting_id):
     booking_saved_completed_keys = []
     if is_booking_confirm_view and is_manager_role:
         user_work_draft = MeetingWorkDraft.objects.filter(meeting=meeting, user=request.user).first()
-        current_board_signature = _build_events_signature(draft_events) if isinstance(draft_events, list) else ''
         if user_work_draft and isinstance(user_work_draft.match_params, dict):
             saved_keys = user_work_draft.match_params.get('booking_completed_keys') or []
-            saved_signature = str(user_work_draft.match_params.get('booking_completed_signature') or '')
-            if (
-                isinstance(saved_keys, list)
-                and saved_signature
-                and current_board_signature
-                and saved_signature == current_board_signature
-            ):
+            # 시그니처가 조금만 달라도 복원을 통째로 버리면 새로고침 시 임시예약이 초기화되는 체감이 크다.
+            # 키 기반 매핑은 프론트에서 현재 보드에 존재하는 이벤트만 반영하므로,
+            # 여기서는 저장된 key 목록을 우선 전달해 가능한 범위까지 복원한다.
+            if isinstance(saved_keys, list):
                 booking_saved_completed_keys = [str(k) for k in saved_keys if str(k).strip()]
     participants = list(User.objects.filter(id__in=participant_ids).order_by('realname', 'username'))
     confirmed_ids = set(
@@ -1993,6 +2055,7 @@ def schedule_final(request, meeting_id):
         'song_conflict_map_json': json.dumps(song_conflict_map),
         'song_member_map_json': json.dumps(song_member_map),
         'song_color_map_json': json.dumps(song_color_map),
+        'week_song_required_slots_json': json.dumps(week_song_required_slots),
         'room_block_map_json': json.dumps(room_block_map_json_ready),
         'room_block_manual_map_json': json.dumps(room_block_manual_map_json_ready),
         'room_block_detail_map_json': json.dumps(room_block_detail_map_json_ready),
@@ -2004,9 +2067,13 @@ def schedule_final(request, meeting_id):
             ordered_room_ids_for_view or [str(r.id) for r in room_rows]
         ),
         'effective_match_params_json': json.dumps({
+            'd': str(duration_minutes),
+            'c': str(required_count),
             'r': ",".join(selected_room_ids_for_view),
             'rp': ",".join(ordered_room_ids_for_view),
         }),
+        'match_duration_minutes': duration_minutes,
+        'match_required_count': required_count,
         'my_unavailable_slots_json': json.dumps(my_unavailable_slots_json_ready, ensure_ascii=False),
         'room_count': len(room_rows),
         'is_final_view': True,
@@ -2021,6 +2088,7 @@ def schedule_final(request, meeting_id):
         'is_manager_role': is_manager_role,
         'is_booking_in_progress': bool(meeting.is_booking_in_progress),
         'share_warning_needed': bool(meeting.is_final_schedule_released),
+        'shared_schedule_updated_at': (draft_obj.updated_at if draft_obj else None),
         'schedule_stage_label': meeting.schedule_stage_label,
         'loaded_user_work_draft': bool(loaded_user_work_draft),
         'participant_count': len(participants),
@@ -2166,6 +2234,9 @@ def schedule_final_prepare(request, meeting_id):
     raw_events = data.get('events') or []
     if not isinstance(raw_events, list):
         return JsonResponse({'status': 'error', 'message': 'events 형식이 잘못되었습니다.'}, status=400)
+    raw_match_params = data.get('match_params') or {}
+    if not isinstance(raw_match_params, dict):
+        raw_match_params = {}
 
     # 공유 직전에도 저장 단계와 동일한 외부 충돌 검증을 수행한다.
     song_ids = {str(e.get('song_id')) for e in raw_events if e.get('song_id')}
@@ -2210,6 +2281,7 @@ def schedule_final_prepare(request, meeting_id):
     is_valid, conflict_message = _validate_normalized_events_against_external_conflicts(
         meeting,
         normalized_preview,
+        allow_forced_member_overlap=True,
     )
     if not is_valid:
         return JsonResponse({
@@ -2222,10 +2294,16 @@ def schedule_final_prepare(request, meeting_id):
         if _is_final_locked(locked_meeting):
             return JsonResponse({'status': 'error', 'message': _final_lock_state_message(locked_meeting)}, status=409)
 
+        persisted_match_params = raw_match_params
+        existing_draft = MeetingFinalDraft.objects.filter(meeting=locked_meeting).first()
+        if (not persisted_match_params) and existing_draft and isinstance(existing_draft.match_params, dict):
+            persisted_match_params = dict(existing_draft.match_params or {})
+
         MeetingFinalDraft.objects.update_or_create(
             meeting=locked_meeting,
             defaults={
                 'events': raw_events,
+                'match_params': persisted_match_params,
                 'updated_by': request.user,
             }
         )
@@ -2235,6 +2313,7 @@ def schedule_final_prepare(request, meeting_id):
             user=request.user,
             defaults={
                 'events': raw_events,
+                'match_params': persisted_match_params,
             }
         )
 
@@ -2482,6 +2561,7 @@ def schedule_save_result(request, meeting_id):
     is_valid, conflict_message = _validate_normalized_events_against_external_conflicts(
         meeting,
         normalized,
+        allow_forced_member_overlap=bool(meeting.is_booking_in_progress),
     )
     if not is_valid:
         return JsonResponse({

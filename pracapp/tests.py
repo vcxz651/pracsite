@@ -333,6 +333,38 @@ class TestMatchResultFlow(TestCase):
         self.assertEqual(resp.status_code, 409)
         self.assertEqual(resp.json().get('status'), 'error')
 
+    def test_schedule_final_prepare_allows_forced_member_overlap(self):
+        Session.objects.create(song=self.song_1, name='Vocal', assignee=self.user_a)
+        Session.objects.create(song=self.song_2, name='Vocal', assignee=self.user_a)
+        self.client.login(username='manager', password='pw123456')
+        target_date = datetime.date(2026, 3, 3)
+        payload = {
+            'events': [
+                {
+                    'song_id': str(self.song_1.id),
+                    'date': target_date.isoformat(),
+                    'start': 20,
+                    'duration': 1,
+                    'room_id': str(self.room.id),
+                    'room_name': self.room.name,
+                    'is_forced': False,
+                },
+                {
+                    'song_id': str(self.song_2.id),
+                    'date': target_date.isoformat(),
+                    'start': 20,
+                    'duration': 1,
+                    'room_id': str(self.room_b.id),
+                    'room_name': self.room_b.name,
+                    'is_forced': True,
+                },
+            ]
+        }
+        url = reverse('schedule_final_prepare', args=[self.meeting.id])
+        resp = self.client.post(url, data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json().get('status'), 'success')
+
     def test_schedule_booking_start_blocks_external_room_conflict(self):
         self.client.login(username='manager', password='pw123456')
         conflict_date = datetime.date(2026, 3, 3)
@@ -371,6 +403,50 @@ class TestMatchResultFlow(TestCase):
         )
         self.assertEqual(resp.status_code, 409)
         self.assertEqual(resp.json().get('status'), 'error')
+
+    def test_schedule_booking_start_allows_forced_member_overlap(self):
+        Session.objects.create(song=self.song_1, name='Vocal', assignee=self.user_a)
+        Session.objects.create(song=self.song_2, name='Vocal', assignee=self.user_a)
+        self.client.login(username='manager', password='pw123456')
+        target_date = datetime.date(2026, 3, 3)
+        payload_events = [
+            {
+                'song_id': str(self.song_1.id),
+                'date': target_date.isoformat(),
+                'start': 20,
+                'duration': 1,
+                'room_id': str(self.room.id),
+                'room_name': self.room.name,
+                'is_forced': False,
+            },
+            {
+                'song_id': str(self.song_2.id),
+                'date': target_date.isoformat(),
+                'start': 20,
+                'duration': 1,
+                'room_id': str(self.room_b.id),
+                'room_name': self.room_b.name,
+                'is_forced': True,
+            },
+        ]
+        MeetingFinalDraft.objects.update_or_create(
+            meeting=self.meeting,
+            defaults={
+                'events': payload_events,
+                'updated_by': self.manager,
+            }
+        )
+        self.meeting.is_final_schedule_released = True
+        self.meeting.save(update_fields=['is_final_schedule_released'])
+
+        url = reverse('schedule_booking_start', args=[self.meeting.id])
+        resp = self.client.post(
+            url,
+            data=json.dumps({'events': payload_events}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json().get('status'), 'success')
 
     def test_schedule_save_result_blocks_external_member_conflict(self):
         Session.objects.create(song=self.song_1, name='Vocal', assignee=self.user_a)

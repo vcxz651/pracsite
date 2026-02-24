@@ -213,15 +213,37 @@ def _role_label_of(session_name):
     if not session_name:
         return None
     n = str(session_name).strip().lower()
-    if n.startswith('vocal') or n.startswith('보컬'):
+    normalized = ''.join(ch for ch in n if ch.isalnum())
+    if (
+        n.startswith('vocal')
+        or n.startswith('보컬')
+        or normalized in {'v'}
+    ):
         return '보컬'
-    if n.startswith('guitar') or n.startswith('기타'):
+    if (
+        n.startswith('guitar')
+        or n.startswith('기타')
+        or normalized in {'g', 'g1', 'g2'}
+    ):
         return '기타'
-    if n.startswith('bass') or n.startswith('베이스'):
+    if (
+        n.startswith('bass')
+        or n.startswith('베이스')
+        or normalized in {'b'}
+    ):
         return '베이스'
-    if n.startswith('drum') or n.startswith('드럼'):
+    if (
+        n.startswith('drum')
+        or n.startswith('드럼')
+        or normalized in {'d'}
+    ):
         return '드럼'
-    if n.startswith('keyboard') or n.startswith('키보드') or n.startswith('건반'):
+    if (
+        n.startswith('keyboard')
+        or n.startswith('키보드')
+        or n.startswith('건반')
+        or normalized in {'k'}
+    ):
         return '키보드'
     return None
 
@@ -230,15 +252,39 @@ def _role_label_of_instrument(instrument):
     if not instrument:
         return None
     n = str(instrument).strip().lower()
-    if n == 'vocal':
+    normalized = ''.join(ch for ch in n if ch.isalnum())
+    if (
+        n.startswith('vocal')
+        or n.startswith('보컬')
+        or normalized in {'v'}
+    ):
         return '보컬'
-    if n == 'guitar':
+    if (
+        n.startswith('guitar')
+        or n.startswith('기타')
+        or normalized in {'g', 'g1', 'g2'}
+        or normalized.startswith('g1')
+        or normalized.startswith('g2')
+    ):
         return '기타'
-    if n == 'bass':
+    if (
+        n.startswith('bass')
+        or n.startswith('베이스')
+        or normalized in {'b'}
+    ):
         return '베이스'
-    if n == 'drum':
+    if (
+        n.startswith('drum')
+        or n.startswith('드럼')
+        or normalized in {'d'}
+    ):
         return '드럼'
-    if n == 'keyboard':
+    if (
+        n.startswith('keyboard')
+        or n.startswith('키보드')
+        or n.startswith('건반')
+        or normalized in {'k'}
+    ):
         return '키보드'
     return None
 
@@ -341,35 +387,31 @@ def _build_session_stats_payload(meeting):
             if avg_assigned <= 0:
                 m['load_bg'] = 'rgba(25, 135, 84, 0.20)'
                 continue
-            ratio = assigned / max(avg_assigned, 0.01)
+            avg = max(float(avg_assigned), 0.01)
+            # 평균 배정수에 가장 가까울수록 초록, 멀어질수록 경고색으로 이동
+            deviation = abs(float(assigned) - avg) / avg
 
             green = (25, 135, 84)
             amber = (255, 193, 7)
             orange = (255, 140, 0)
             red = (220, 53, 69)
 
-            if ratio < 0.80:
-                # 충분히 여유: 초록 강조
-                intensity = min(1.0, ratio / 0.80)
+            if deviation <= 0.18:
                 rgb = green
-                alpha = 0.18 + (0.12 * intensity)
-            elif ratio < 1.15:
-                # 평균을 약간 넘는 구간까지는 초록 기조 유지 (빡빡함 완화)
-                t = (ratio - 0.80) / 0.35
+                alpha = 0.32
+            elif deviation <= 0.45:
+                t = (deviation - 0.18) / 0.27
                 rgb = _mix_rgb(green, amber, t)
-                alpha = 0.20 + (0.08 * t)
-            elif ratio < 1.45:
-                # 초과 폭이 어느 정도 쌓였을 때부터 주황으로 이동
-                t = (ratio - 1.15) / 0.30
+                alpha = 0.30 - (0.06 * t)
+            elif deviation <= 0.90:
+                t = (deviation - 0.45) / 0.45
                 rgb = _mix_rgb(amber, orange, t)
-                alpha = 0.24 + (0.06 * t)
-            elif ratio < 1.90:
-                # 초과 폭이 커질수록: 주황 -> 빨강
-                t = (ratio - 1.45) / 0.45
+                alpha = 0.24 + (0.08 * t)
+            elif deviation <= 1.40:
+                t = (deviation - 0.90) / 0.50
                 rgb = _mix_rgb(orange, red, t)
-                alpha = 0.28 + (0.08 * t)
+                alpha = 0.32 + (0.06 * t)
             else:
-                # 과부하 구간
                 rgb = red
                 alpha = 0.38
 
@@ -511,7 +553,7 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
         requested_quick_filter = (self.request.GET.get('quick_filter') or '').strip()
         quick_filter = requested_quick_filter if requested_quick_filter in ['assigned', 'applied'] else ''
         allowed_sort_options = (
-            ['default', 'created_desc', 'unassigned_desc']
+            ['default', 'created_desc', 'unassigned_desc', 'applicant_coverage_desc', 'applicant_coverage_reverse']
             if is_manager else ['default']
         )
         sort_option = requested_sort_option if requested_sort_option in allowed_sort_options else 'default'
@@ -541,6 +583,7 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
             session_list = list(song_obj.sessions.all())
             applicant_counts = [int(getattr(sess, 'applicant_count', 0) or 0) for sess in session_list]
             song_obj.unassigned_session_count = sum(1 for sess in session_list if not sess.assignee_id)
+            song_obj.missing_applicant_session_count = sum(1 for cnt in applicant_counts if cnt <= 0)
             song_obj.total_applicant_count = sum(applicant_counts)
             song_obj.all_sessions_have_applicants = bool(session_list) and all(cnt > 0 for cnt in applicant_counts)
             song_obj.my_assigned_count = sum(1 for sess in session_list if sess.assignee_id == self.request.user.id)
@@ -580,6 +623,10 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
 
             if sort_option == 'unassigned_desc':
                 songs.sort(key=lambda s: (-s.unassigned_session_count, -s.total_applicant_count, s.title))
+            elif sort_option == 'applicant_coverage_desc':
+                songs.sort(key=lambda s: (s.missing_applicant_session_count, -s.total_applicant_count, s.title))
+            elif sort_option == 'applicant_coverage_reverse':
+                songs.sort(key=lambda s: (-s.missing_applicant_session_count, -s.total_applicant_count, s.title))
             elif sort_option == 'created_desc':
                 songs.sort(key=lambda s: (-(s.created_at.timestamp() if getattr(s, 'created_at', None) else 0), s.title))
             else:
@@ -598,21 +645,22 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
             unassigned_song_count = sum(1 for s in songs if not s.all_assigned)
             unassigned_song_titles = [s.title for s in songs if not s.all_assigned]
         elif can_participate:
-            list_mode = 'all'
-            song_page = None
-            if quick_filter:
-                songs = list(songs_qs)
-                for s in songs:
-                    enrich_song(s, include_ordered=False)
-                if quick_filter == 'assigned':
-                    songs = [s for s in songs if s.my_assigned_count > 0]
-                elif quick_filter == 'applied':
-                    songs = [s for s in songs if s.my_applied_count > 0]
-                visible_songs = songs
-                song_count = len(songs)
-            else:
-                visible_songs = list(songs_qs)
-                song_count = len(visible_songs)
+            songs = list(songs_qs)
+            for s in songs:
+                enrich_song(s, include_ordered=False)
+
+            if quick_filter == 'assigned':
+                songs = [s for s in songs if s.my_assigned_count > 0]
+            elif quick_filter == 'applied':
+                songs = [s for s in songs if s.my_applied_count > 0]
+
+            list_mode = 'paged'
+            paginator = Paginator(songs, 30)
+            page_number = self.request.GET.get('page') or 1
+            song_page = paginator.get_page(page_number)
+            visible_songs = list(song_page.object_list)
+            song_count = len(songs)
+
             for s in visible_songs:
                 enrich_song(s, include_ordered=True)
             assigned_song_count = 0
@@ -1065,6 +1113,119 @@ def random_assign_all(request, meeting_id):
         role_member_assigned_count[role][picked_user_id] += 1
         total_assigned_count[picked_user_id] += 1
 
+    return redirect(target)
+
+
+@login_required
+def random_apply_all(request, meeting_id):
+    """
+    [기능] 클릭 1회당 멤버별 1건 임의 지원
+    - 승인 참가자/관리자 전원을 대상으로 한다.
+    - 각 멤버는 자기 악기(역할)와 매칭되는 세션 중 "아직 지원하지 않은 곡" 1개에만 지원된다.
+    - 즉 버튼을 여러 번 누를수록 점진적으로 지원이 채워진다.
+    """
+    target = _meeting_detail_target_with_state(request, meeting_id)
+    if request.method != 'POST':
+        return redirect(target)
+
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    membership = Membership.objects.filter(user=request.user, band=meeting.band).first()
+    if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
+        messages.error(request, '권한이 없습니다.')
+        return redirect(target)
+
+    participant_user_ids = _effective_meeting_participant_user_ids(meeting)
+    member_rows = (
+        Membership.objects.filter(
+            band=meeting.band,
+            is_approved=True,
+            user_id__in=participant_user_ids,
+        )
+        .select_related('user')
+    )
+    user_role_map = {}
+    for mem in member_rows:
+        role_label = _role_label_of_instrument(getattr(mem.user, 'instrument', '') or '')
+        if not role_label:
+            role_label = _role_label_of_instrument(getattr(mem.user, 'instrument_detail', '') or '')
+        if role_label:
+            user_role_map[mem.user_id] = role_label
+
+    if not user_role_map:
+        messages.info(request, '악기 정보가 있는 멤버가 없어 임의 지원을 진행할 수 없습니다.')
+        return redirect(target)
+
+    songs = list(
+        meeting.songs.prefetch_related(
+            Prefetch('sessions', queryset=Session.objects.prefetch_related('applicant'))
+        )
+    )
+    through = Session.applicant.through
+    role_song_sessions = defaultdict(lambda: defaultdict(list))
+    applicant_cache = {}
+    for song in songs:
+        for sess in song.sessions.all():
+            role_label = _role_label_of(sess.name)
+            if not role_label:
+                continue
+            role_song_sessions[role_label][song.id].append(sess)
+            applicant_cache[sess.id] = set(sess.applicant.values_list('id', flat=True))
+
+    pending_rows = []
+    added_count = 0
+    for uid, role_label in user_role_map.items():
+        song_sessions_map = role_song_sessions.get(role_label) or {}
+        if not song_sessions_map:
+            continue
+
+        eligible_song_ids = []
+        for song_id, candidate_sessions in song_sessions_map.items():
+            # 같은 곡 내 같은 역할 세션 중 하나라도 이미 지원했으면 제외
+            if any(uid in applicant_cache.get(sess.id, set()) for sess in candidate_sessions):
+                continue
+            eligible_song_ids.append(song_id)
+
+        if not eligible_song_ids:
+            continue
+
+        picked_song_id = random.choice(eligible_song_ids)
+        candidate_sessions = song_sessions_map[picked_song_id]
+        picked_session = random.choice(candidate_sessions)
+
+        applicant_cache[picked_session.id].add(uid)
+        pending_rows.append(through(session_id=picked_session.id, user_id=uid))
+        added_count += 1
+
+    if pending_rows:
+        through.objects.bulk_create(pending_rows, ignore_conflicts=True)
+        messages.success(request, f'임의 지원이 {added_count}건 추가되었습니다. (멤버당 최대 1건)')
+    else:
+        messages.info(request, '추가 가능한 임의 지원 대상이 없습니다.')
+    return redirect(target)
+
+
+@login_required
+def reset_all_applications(request, meeting_id):
+    """
+    [기능] 회의의 모든 세션 지원자 목록 초기화
+    - 배정(assignee)은 유지하고 applicant M2M만 비운다.
+    """
+    target = _meeting_detail_target_with_state(request, meeting_id)
+    if request.method != 'POST':
+        return redirect(target)
+
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    membership = Membership.objects.filter(user=request.user, band=meeting.band).first()
+    if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
+        messages.error(request, '권한이 없습니다.')
+        return redirect(target)
+
+    through = Session.applicant.through
+    deleted, _ = through.objects.filter(session__song__meeting=meeting).delete()
+    if deleted > 0:
+        messages.success(request, '모든 지원이 초기화되었습니다.')
+    else:
+        messages.info(request, '초기화할 지원 데이터가 없습니다.')
     return redirect(target)
 
 
