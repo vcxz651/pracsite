@@ -25,18 +25,18 @@ from pracapp.models import (
 User = get_user_model()
 
 
-TOTAL_USERS = 15
+TOTAL_USERS = 60
 USERNAME_PREFIX = "test"
 PASSWORD = "0000"
 BAND_NAME = "헤게모니"
 
-# 요청값(합 17) 그대로 보관하고, 실제 15명에 맞춰 비례 보정
+# 60명 기준 악기 분포
 REQUESTED_INSTRUMENT_COUNTS = {
-    "Vocal": 3,
-    "Guitar": 5,
-    "Bass": 4,
-    "Drum": 3,
-    "Keyboard": 2,
+    "Vocal": 11,
+    "Guitar": 18,
+    "Bass": 14,
+    "Drum": 10,
+    "Keyboard": 7,
 }
 
 # 30분 슬롯 인덱스 기준
@@ -508,7 +508,7 @@ def create_requested_dummy_users(seed: int = 42) -> None:
     instrument_summary = Counter([u.instrument for u in created_users])
     print("✅ 더미 유저/스케줄 생성 완료")
     print(f"- 밴드: {band.name}")
-    print(f"- 유저: {TOTAL_USERS}명 (id: test1~test15, pw: {PASSWORD})")
+    print(f"- 유저: {TOTAL_USERS}명 (id: test1~test{TOTAL_USERS}, pw: {PASSWORD})")
     print(f"- 생성 기간: {start_date} ~ {end_date}")
     print(f"- 악기 분포(보정): {dict(instrument_summary)}")
     print(f"- 요청 분포(원본): {REQUESTED_INSTRUMENT_COUNTS}")

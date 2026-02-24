@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 <script>
     function closeMeetingModal() {
         if (window.parent && window.parent !== window) {
@@ -14,19 +16,15 @@
 <div class="container mt-5" style="max-width: 600px;">
     <div class="card shadow-sm p-4 border-0">
 
-        <h2 class="fw-bold mb-4">📅 공연 및 선곡회의 정보</h2>
+        <h2 class="fw-bold mb-4">📅 합주 정보</h2>
 
         <form method="post">
             {% csrf_token %}
 
             <div class="mb-3">
-                <label class="form-label fw-bold">공연 이름</label>
+                <label class="form-label fw-bold">합주 이름</label>
                 {{ form.title }}
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label fw-bold">공연 일시 (선택)</label>
-                {{ form.performance_datetime }}
+                <div class="form-text">{{ form.title.help_text }}</div>
             </div>
 
             <div class="mb-3">
@@ -37,6 +35,7 @@
             <div class="mb-3">
                 <label class="form-label fw-bold">선곡회의 장소</label>
                 {{ form.location }}
+                <div class="form-text">{{ form.location.help_text }}</div>
             </div>
 
             <div class="mb-4">
@@ -85,7 +84,6 @@
                 <button type="submit" class="btn btn-dark flex-grow-1 py-2 fw-bold">
                     완료
                 </button>
-
                 <a href="#" onclick="return closeMeetingModal();" class="btn btn-outline-secondary flex-grow-1 py-2">
                     취소
                 </a>
@@ -95,28 +93,44 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
 <script>
-    (function () {
-        const performanceInput = document.getElementById('id_performance_datetime');
-        const practiceEndInput = document.getElementById('id_practice_end_date');
-        if (!performanceInput || !practiceEndInput) return;
+(function () {
+    flatpickr.localize(flatpickr.l10ns.ko);
 
-        function toDateOnly(value) {
-            if (!value) return '';
-            return value.slice(0, 10);
-        }
+    const datetimeOpts = {
+        enableTime: true,
+        time_24hr: true,
+        dateFormat: 'Y-m-dTH:i',
+        altInput: true,
+        altFormat: 'Y년 n월 j일 (D) H:i',
+    };
 
-        function applyDefaultFromPerformanceDate() {
-            const performanceDate = toDateOnly(performanceInput.value);
-            if (!performanceDate) return;
-            if (!practiceEndInput.value) {
-                practiceEndInput.value = performanceDate;
-            }
-        }
+    const dateOpts = {
+        dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'Y년 n월 j일 (D)',
+    };
 
-        performanceInput.addEventListener('change', applyDefaultFromPerformanceDate);
-        applyDefaultFromPerformanceDate();
-    })();
+    // 합주 기간 — 시작/종료 연동
+    const fpStart = flatpickr('#id_practice_start_date', {
+        ...dateOpts,
+        onChange: function (dates) {
+            if (dates.length) fpEnd.set('minDate', dates[0]);
+        },
+    });
+
+    const fpEnd = flatpickr('#id_practice_end_date', {
+        ...dateOpts,
+        onChange: function (dates) {
+            if (dates.length) fpStart.set('maxDate', dates[0]);
+        },
+    });
+
+    // 선곡회의 일시
+    flatpickr('#id_schedule', datetimeOpts);
+})();
 </script>
 
 <style>
@@ -125,6 +139,14 @@
     }
     .equal-split .btn {
         flex: 1 1 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    /* altInput이 form-control처럼 보이도록 */
+    .flatpickr-input[readonly] {
+        background-color: #fff;
+        cursor: pointer;
     }
 </style>
 

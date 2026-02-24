@@ -204,7 +204,7 @@
                 <a href="#"
                    onclick="return openMeetingModal('{% url 'meeting_create' selected_band.id %}');"
                    class="btn btn-primary btn-sm">
-                    + 새 공연 생성
+                    + 새 합주 생성
                 </a>
             {% endif %}
         </div>
@@ -252,10 +252,10 @@
 
                         <div class="mt-2 text-muted small">
                             <p class="mb-1">
-                                선곡회의 일시: {{ m.schedule|date:"Y년 m월 d일 (D) H:i" }}
+                                선곡회의 일시: {{ m.schedule|date:"y-n-j H:i" }}
                             </p>
                             <p class="mb-0">
-                                선곡회의 장소: {{ m.location }}
+                                선곡회의 장소: {% if m.location|slice:":4" == "http" %}<a href="{{ m.location }}" target="_blank" rel="noopener noreferrer">바로가기 →</a>{% else %}{{ m.location }}{% endif %}
                             </p>
                         </div>
                     </div>

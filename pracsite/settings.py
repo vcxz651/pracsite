@@ -125,17 +125,39 @@ AUTH_USER_MODEL = 'pracapp.User'
 
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
+# 1. CSRF 신뢰 도메인 설정
+# 기본적으로 환경 변수에 등록된 호스트들을 추가합니다.
 CSRF_TRUSTED_ORIGINS = [
     f"https://{h.strip()}"
     for h in os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
     if h.strip() and h.strip() not in ('localhost', '127.0.0.1')
 ]
+
+# Railway 관련 도메인들 추가
 if RAILWAY_PUBLIC_DOMAIN:
     CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
 
-# 일단 모든 도메인에서 CSRF 허용 (테스트용)
-CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_PUBLIC_DOMAIN}"] if RAILWAY_PUBLIC_DOMAIN else []
+# Railway 서브도메인 전체 허용 (보험용)
 CSRF_TRUSTED_ORIGINS.append("https://*.up.railway.app")
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# 2. 로컬/배포 환경별 분기 설정
+if not DEBUG:
+    # [배포 환경] 강력한 보안 적용 (HTTPS 필수)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1년
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+else:
+    # [로컬 환경] 테스트 편의를 위해 보안 완화
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
+
+    # 로컬에서 로그인이 튕기지 않도록 http 주소 추가
+    CSRF_TRUSTED_ORIGINS += [
+        "http://127.0.0.1",
+        "http://localhost"
+    ]

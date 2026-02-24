@@ -586,18 +586,9 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
                 sort_option = 'default'
                 songs.sort(key=lambda s: ((s.created_at.timestamp() if getattr(s, 'created_at', None) else 0), s.title))
 
-            list_mode = (self.request.GET.get('list_mode') or 'paged').strip().lower()
-            if list_mode not in ['all', 'paged']:
-                list_mode = 'paged'
-
+            list_mode = 'all'
             song_page = None
-            if list_mode == 'paged':
-                page_number = self.request.GET.get('page') or 1
-                paginator = Paginator(songs, 30)
-                song_page = paginator.get_page(page_number)
-                visible_songs = list(song_page.object_list)
-            else:
-                visible_songs = songs
+            visible_songs = songs
 
             for s in visible_songs:
                 enrich_song(s, include_ordered=True)
@@ -607,9 +598,8 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
             unassigned_song_count = sum(1 for s in songs if not s.all_assigned)
             unassigned_song_titles = [s.title for s in songs if not s.all_assigned]
         elif can_participate:
-            list_mode = (self.request.GET.get('list_mode') or 'paged').strip().lower()
-            if list_mode not in ['all', 'paged']:
-                list_mode = 'paged'
+            list_mode = 'all'
+            song_page = None
             if quick_filter:
                 songs = list(songs_qs)
                 for s in songs:
@@ -618,29 +608,18 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
                     songs = [s for s in songs if s.my_assigned_count > 0]
                 elif quick_filter == 'applied':
                     songs = [s for s in songs if s.my_applied_count > 0]
-                if list_mode == 'paged':
-                    song_page = Paginator(songs, 30).get_page(self.request.GET.get('page') or 1)
-                    visible_songs = list(song_page.object_list)
-                else:
-                    song_page = None
-                    visible_songs = songs
+                visible_songs = songs
                 song_count = len(songs)
             else:
-                if list_mode == 'paged':
-                    song_page = Paginator(songs_qs, 30).get_page(self.request.GET.get('page') or 1)
-                    visible_songs = list(song_page.object_list)
-                    song_count = song_page.paginator.count
-                else:
-                    song_page = None
-                    visible_songs = list(songs_qs)
-                    song_count = len(visible_songs)
+                visible_songs = list(songs_qs)
+                song_count = len(visible_songs)
             for s in visible_songs:
                 enrich_song(s, include_ordered=True)
             assigned_song_count = 0
             unassigned_song_count = 0
             unassigned_song_titles = []
         else:
-            list_mode = 'paged'
+            list_mode = 'all'
             song_page = None
             visible_songs = []
             song_count = 0
@@ -665,7 +644,6 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
         context['sort_option'] = sort_option
         context['available_sort_options'] = allowed_sort_options
         context['quick_filter'] = quick_filter
-        context['show_list_mode_selector'] = is_manager
         context['can_view_final_schedule'] = bool(membership)
         context['final_schedule_available'] = final_schedule_available
         # 템플릿의 legacy 플래그명(is_leader)을 관리자 공통 권한 플래그로 사용

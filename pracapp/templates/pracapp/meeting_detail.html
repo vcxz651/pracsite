@@ -2421,14 +2421,14 @@
     });
 
     document.addEventListener('click', function (event) {
-        const participantManageBtn = event.target.closest('#openParticipantManageBtn');
+        const participantManageBtn = event.target.closest('.js-participant-manage-btn');
         if (participantManageBtn) {
             event.preventDefault();
             openParticipantManageModal('{% url "meeting_participant_manage" meeting.id %}');
             return;
         }
 
-        const meetingEditBtn = event.target.closest('#openMeetingEditBtn');
+        const meetingEditBtn = event.target.closest('.js-meeting-edit-btn');
         if (meetingEditBtn) {
             event.preventDefault();
             openMeetingModal('{% url "meeting_update" meeting.id %}');
@@ -2828,56 +2828,38 @@
 
 </script>
 
-<div class="container mt-4 {% if is_manager %}manager-page{% endif %}" style="max-width: 1280px;"> <div class="mb-4 d-flex justify-content-between align-items-start">
-        {% cache 300 meeting_detail_header meeting.id %}
-        <div>
-            <h2 class="fw-bold mb-4">{{ meeting.title }}</h2>
-            <p class="text-muted mb-2">📅 {{ meeting.schedule|date:"Y-m-d H:i" }} | 📍 {{ meeting.location }}</p>
-            {% if meeting.practice_start_date and meeting.practice_end_date %}
-            <p class="text-muted mb-0">🎸 합주 기간: {{ meeting.practice_start_date|date:"Y-m-d" }} ~ {{ meeting.practice_end_date|date:"Y-m-d" }}</p>
-            {% endif %}
+<div class="container mt-4 {% if is_manager %}manager-page{% endif %}" style="max-width: 1280px;">
+    <div class="mb-4">
+        <div class="d-flex align-items-center mb-2">
+            <h2 class="fw-bold mb-0">{{ meeting.title }}</h2>
+            <button class="d-md-none border-0 bg-transparent p-1"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#meetingInfoCollapse"
+                    aria-expanded="false"
+                    aria-controls="meetingInfoCollapse"
+                    style="color: #6c757d; line-height: 1;">
+                <span class="meeting-info-chevron" style="font-size: 1rem; display: inline-block; transition: transform 0.2s;">▼</span>
+            </button>
         </div>
-        {% endcache %}
-        {% if is_manager and not is_final_locked %}
-            <div class="d-flex gap-2">
-                <a href="#"
-                   id="openParticipantManageBtn"
-                   class="btn btn-outline-primary btn-sm">
-                    참가자 관리
-                </a>
-                <a href="#"
-                   id="openMeetingEditBtn"
-                   class="btn btn-outline-secondary btn-sm">
-                    선곡회의 정보 수정
-                </a>
+        <div class="collapse d-md-block" id="meetingInfoCollapse">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <p class="text-muted mb-1">📅 회의 일정 : {{ meeting.schedule|date:"y년 n월 j일 H:i" }}</p>
+                    <p class="text-muted mb-2">📍 회의 장소 : {% if meeting.location|slice:":4" == "http" %}<a href="{{ meeting.location }}" target="_blank" rel="noopener noreferrer">바로가기 →</a>{% else %}{{ meeting.location }}{% endif %}</p>
+                    {% if meeting.practice_start_date and meeting.practice_end_date %}
+                    <p class="text-muted mb-0">🎸 합주 기간: {{ meeting.practice_start_date|date:"y년 n월 j일" }} ~ {% if meeting.practice_start_date|date:"y" == meeting.practice_end_date|date:"y" %}{{ meeting.practice_end_date|date:"n월 j일" }}{% else %}{{ meeting.practice_end_date|date:"y년 n월 j일" }}{% endif %}</p>
+                    {% endif %}
+                </div>
             </div>
-        {% endif %}
+        </div>
     </div>
-    {% if is_manager %}
-    <div class="mb-3 p-3 border rounded bg-white">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="m-0 fw-bold">🏠 합주실</h6>
-            {% if not is_final_locked %}
-                <a href="{% url 'meeting_room_create' meeting.id %}" class="btn btn-sm btn-outline-primary">+ 합주실 생성</a>
-            {% endif %}
-        </div>
-        {% if rooms %}
-            <div class="d-flex flex-wrap gap-2">
-                {% for room in rooms %}
-                    <div class="badge text-bg-light border d-flex align-items-center gap-2">
-                        <span>{{ room.name }} / 정원 {{ room.capacity }}{% if room.location %} / {{ room.location }}{% endif %}</span>
-                        {% if not is_final_locked %}
-                            <a href="{% url 'meeting_room_edit' meeting.id room.id %}" class="text-decoration-none">수정</a>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="text-muted small">등록된 합주실이 없습니다.</div>
-        {% endif %}
+    {% if is_manager and not is_final_locked %}
+    <div class="d-flex d-md-none gap-2 flex-nowrap mb-3">
+        <a href="#" class="btn btn-outline-primary btn-sm flex-fill js-participant-manage-btn">참가자 관리</a>
+        <a href="#" class="btn btn-outline-secondary btn-sm flex-fill js-meeting-edit-btn">합주 정보 수정</a>
     </div>
     {% endif %}
-    <hr>
 
     <div id="liveMeetingRow" class="row g-0 g-lg-3 align-items-start">
 
@@ -2950,7 +2932,7 @@
         <button class="btn btn-outline-secondary btn-sm w-100 d-flex justify-content-between align-items-center"
                 type="button" data-bs-toggle="collapse" data-bs-target="#memberStatusMobile" aria-expanded="false">
             <span>🎛 지원 현황판</span>
-            <i class="bi bi-chevron-down"></i>
+            <span>▼</span>
         </button>
         <div class="text-center mt-1">
             <small class="text-muted" style="font-size: 0.7rem;">이름 클릭시 해당 인원 배정/지원한 곡 필터링</small>
@@ -3061,7 +3043,7 @@
                     </a>
                 {% endif %}
             {% else %}
-                <div class="border rounded bg-light text-secondary text-center fw-bold py-3">
+                <div class="border rounded mt-2 bg-light text-secondary text-center fw-bold py-3">
                     세션 지원 마감
                 </div>
             {% endif %}
@@ -3080,15 +3062,14 @@
                 </button>
             {% endif %}
         {% else %}
-            <div class="border rounded bg-light text-secondary text-center fw-bold py-3">
+            <div class="border rounded mt-2 bg-light text-secondary text-center fw-bold py-3">
                 세션 지원 마감
             </div>
         {% endif %}
     </div>
     {% endif %}
     {% if is_manager and not is_final_locked %}
-    <div class="d-flex justify-content-between align-items-start mb-2">
-        <div class="d-flex gap-2">
+    <div class="d-flex gap-2 mb-3">
         {% if total_song_count > 0 and rooms %}
         <button type="button"
                 id="openSimulationBtn"
@@ -3101,149 +3082,43 @@
               data-random-assign-form="1">
             {% csrf_token %}
             <input type="hidden" name="sort" value="{{ sort_option }}">
-            <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
             <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
-            {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
             <button type="submit" class="btn btn-sm btn-outline-warning">
                 🎲 모든 곡 임의 배정
             </button>
         </form>
         {% endif %}
-        </div>
-        <div class="text-end">
-            <form method="post" action="{% url 'toggle_meeting_session_application' meeting.id %}" class="m-0">
-                {% csrf_token %}
-                <input type="hidden" name="sort" value="{{ sort_option }}">
-                <button type="submit"
-                        class="btn btn-sm {% if meeting.is_session_application_closed %}btn-danger{% else %}btn-outline-danger{% endif %}">
-                    {% if meeting.is_session_application_closed %}세션 지원 마감 해제{% else %}세션 지원 마감{% endif %}
-                </button>
-            </form>
-            {% if not meeting.is_session_application_closed %}
-            <div class="text-muted small mt-1">
-                * 세션 지원 마감 이후에만 배정을 시작할 수 있습니다.
-            </div>
-            {% endif %}
-        </div>
     </div>
     {% endif %}
     <div id="setlistAjaxContainer">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <div class="d-flex align-items-center gap-2">
-            <a href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}{% if quick_filter == 'assigned' %}{% else %}&quick_filter=assigned{% endif %}"
-               data-filter="assigned"
-               class="btn btn-sm {% if quick_filter == 'assigned' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
-                배정됨
-            </a>
-            <a href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}{% if quick_filter == 'applied' %}{% else %}&quick_filter=applied{% endif %}"
-               data-filter="applied"
-               class="btn btn-sm {% if quick_filter == 'applied' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
-                지원함
-            </a>
-        </div>
+    {% if not is_manager %}
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <a href="?sort={{ sort_option|urlencode }}{% if quick_filter == 'assigned' %}{% else %}&quick_filter=assigned{% endif %}"
+           data-filter="assigned"
+           class="btn btn-sm {% if quick_filter == 'assigned' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
+            배정됨
+        </a>
+        <a href="?sort={{ sort_option|urlencode }}{% if quick_filter == 'applied' %}{% else %}&quick_filter=applied{% endif %}"
+           data-filter="applied"
+           class="btn btn-sm {% if quick_filter == 'applied' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            지원함
+        </a>
+    </div>
+    {% endif %}
+
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h3 class="fw-bold mb-0">🎵 Setlist ({{ song_count }})</h3>
         <div class="d-flex align-items-center gap-2 flex-nowrap">
             {% if is_manager %}
             <form method="get" class="d-flex align-items-center">
-                <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
                 <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
                 <select id="sortSelect" name="sort" class="form-select form-select-sm" onchange="return applySortWithoutReload(this);">
                     <option value="default" {% if sort_option == 'default' %}selected{% endif %}>등록순</option>
                     <option value="created_desc" {% if sort_option == 'created_desc' %}selected{% endif %}>등록역순</option>
-                    <option value="unassigned_desc" {% if sort_option == 'unassigned_desc' %}selected{% endif %}>미배정 세션 많은 순</option>
+                    <option value="unassigned_desc" {% if sort_option == 'unassigned_desc' %}selected{% endif %}>미배정 많은 순</option>
                 </select>
             </form>
             {% endif %}
-            {% if show_list_mode_selector %}
-            <form method="get" class="d-flex align-items-center">
-                <input type="hidden" name="sort" value="{{ sort_option }}">
-                <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
-                <select id="listModeSelect" name="list_mode" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="all" {% if list_mode == 'all' %}selected{% endif %}>전체보기</option>
-                    <option value="paged" {% if list_mode != 'all' %}selected{% endif %}>30곡씩 보기</option>
-                </select>
-            </form>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 position-relative">
-        <div class="d-flex align-items-center">
-            <h3 class="fw-bold mb-0">🎵 Setlist ({{ song_count }})</h3>
-        </div>
-
-        <div class="d-md-none w-100 d-flex justify-content-center order-3">
-            {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
-            <nav aria-label="Setlist pagination top">
-                <ul class="pagination pagination-sm mb-0">
-                    {% if song_page.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.previous_page_number }}">이전</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link">이전</span></li>
-                    {% endif %}
-
-                    {% for p in song_page.paginator.page_range %}
-                        {% if p >= song_page.number|add:-2 and p <= song_page.number|add:2 %}
-                            {% if p == song_page.number %}
-                            <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
-                            {% else %}
-                            <li class="page-item">
-                                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ p }}">{{ p }}</a>
-                            </li>
-                            {% endif %}
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if song_page.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.next_page_number }}">다음</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link">다음</span></li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-        </div>
-
-        <div class="d-none d-md-flex position-absolute start-50 translate-middle-x">
-            {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
-            <nav aria-label="Setlist pagination top">
-                <ul class="pagination pagination-sm mb-0">
-                    {% if song_page.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.previous_page_number }}">이전</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link">이전</span></li>
-                    {% endif %}
-
-                    {% for p in song_page.paginator.page_range %}
-                        {% if p >= song_page.number|add:-2 and p <= song_page.number|add:2 %}
-                            {% if p == song_page.number %}
-                            <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
-                            {% else %}
-                            <li class="page-item">
-                                <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ p }}">{{ p }}</a>
-                            </li>
-                            {% endif %}
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if song_page.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?sort={{ sort_option|urlencode }}&list_mode={{ list_mode|urlencode }}&quick_filter={{ quick_filter|urlencode }}&page={{ song_page.next_page_number }}">다음</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link">다음</span></li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-        </div>
-
-        <div class="d-flex align-items-center gap-2 flex-nowrap">
             {% if not is_final_locked %}
                 {% if is_manager or can_participate_meeting and not meeting.is_session_application_closed %}
                 <a href="{% url 'song_create' meeting.id %}" class="btn btn-dark btn-sm">+ 곡 추가</a>
@@ -3666,6 +3541,7 @@
         <li class="list-group-item text-center py-5 text-muted">등록된 곡이 없습니다.</li>
         {% endfor %}
     </ul>
+    {% comment %} 페이지네이션 비활성화
     {% if list_mode != 'all' and song_page and song_page.paginator.num_pages > 1 %}
     <nav class="mt-3" aria-label="Setlist pagination">
         <ul class="pagination pagination-sm justify-content-center mb-0">
@@ -3699,25 +3575,40 @@
         </ul>
     </nav>
     {% endif %}
+    {% endcomment %}
     </div>
 
-    <div class="my-5 d-flex justify-content-between align-items-center">
-
-        {% if is_leader and not is_final_locked %}
-            <form action="{% url 'reset_all_assignments' meeting.id %}" method="post"
-                  data-assignment-reset-title="모든 배정 초기화"
-                  data-assignment-reset-message="이 선곡회의의 모든 곡 세션 배정이 초기화됩니다. 지원자 정보는 유지됩니다. 정말 진행할까요?">
+    {% if is_manager and not is_final_locked %}
+    <div class="mt-4 d-flex flex-column align-items-end gap-2 mb-3">
+        <div class="d-flex align-items-center gap-3">
+            {% if not meeting.is_session_application_closed %}
+            <span class="text-muted small">* 세션 지원 마감 이후에만 배정을 시작할 수 있습니다.</span>
+            {% endif %}
+            <form method="post" action="{% url 'toggle_meeting_session_application' meeting.id %}" class="m-0">
                 {% csrf_token %}
                 <input type="hidden" name="sort" value="{{ sort_option }}">
-                <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
-                <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
-                {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
-                <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
-                    <i class="bi bi-trash3-fill"></i> 모든 배정 초기화
+                <button type="submit"
+                        class="btn btn-sm {% if meeting.is_session_application_closed %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                    {% if meeting.is_session_application_closed %}세션 지원 마감 해제{% else %}세션 지원 마감{% endif %}
                 </button>
             </form>
-        {% else %}
-            <div></div> {% endif %}
+        </div>
+        {% if meeting.is_session_application_closed and is_leader %}
+        <form action="{% url 'reset_all_assignments' meeting.id %}" method="post"
+              data-assignment-reset-title="전 배정 초기화"
+              data-assignment-reset-message="이 선곡회의의 모든 곡 세션 배정이 초기화됩니다. 지원자 정보는 유지됩니다. 정말 진행할까요?"
+              class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="sort" value="{{ sort_option }}">
+            <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
+                <i class="bi bi-trash3-fill"></i> 전 배정 초기화
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="mb-3 d-flex justify-content-end">
 
         <div class="text-end" id="matchActionPanel"
              data-room-count="{{ rooms|length }}"
@@ -3726,32 +3617,26 @@
             {% if is_leader and not is_final_locked %}
                 {% if not has_my_work_draft %}
                 {{ unassigned_song_titles|json_script:"unassignedSongTitlesData" }}
-                {% if not meeting.is_session_application_closed %}
-                    <div class="d-inline-block text-end">
-                        <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
-                            <i class="bi bi-lock-fill"></i> 매칭 준비 중
+                {% if meeting.is_session_application_closed %}
+                {% if rooms and assigned_song_count > 0 %}
+                    <div class="text-end">
+                        <button type="button"
+                           id="openMatchFromDetailBtn"
+                           class="btn {% if has_unassigned_songs %}btn-warning text-dark{% else %}btn-primary{% endif %} fw-bold shadow-sm px-4"
+                           data-match-settings-url="{% url 'schedule_match_settings' meeting.id %}"
+                           data-room-count="{{ rooms|length }}"
+                           data-room-create-url="{% url 'meeting_room_create' meeting.id %}"
+                           data-has-unassigned="{% if has_unassigned_songs %}1{% else %}0{% endif %}">
+                            <i class="bi bi-magic"></i> 합주 시간 자동 매칭
                         </button>
-                        <div class="text-danger small mt-1 fw-bold">
-                            * 먼저 세션 지원을 마감해주세요.
+                        {% if has_unassigned_songs %}
+                        <div class="text-warning small mt-1 fw-bold">
+                            * 아직 배정이 안된 노래가 있습니다.
                         </div>
+                        {% endif %}
                     </div>
-                {% elif rooms and assigned_song_count > 0 %}
-                    <button type="button"
-                       id="openMatchFromDetailBtn"
-                       class="btn {% if has_unassigned_songs %}btn-warning text-dark{% else %}btn-primary{% endif %} fw-bold shadow-sm px-4"
-                       data-match-settings-url="{% url 'schedule_match_settings' meeting.id %}"
-                       data-room-count="{{ rooms|length }}"
-                       data-room-create-url="{% url 'meeting_room_create' meeting.id %}"
-                       data-has-unassigned="{% if has_unassigned_songs %}1{% else %}0{% endif %}">
-                        <i class="bi bi-magic"></i> 합주 시간 자동 매칭
-                    </button>
-                    {% if has_unassigned_songs %}
-                    <div class="text-warning small mt-1 fw-bold">
-                        * 아직 배정이 안된 노래가 있습니다.
-                    </div>
-                    {% endif %}
                 {% elif not rooms %}
-                    <div class="d-inline-block text-end">
+                    <div class="text-end">
                         <button type="button"
                                 id="openMatchSettingsNoRoomBtn"
                                 class="btn btn-warning fw-bold shadow-sm px-4">
@@ -3762,7 +3647,7 @@
                         </div>
                     </div>
                 {% elif assigned_song_count == 0 %}
-                    <div class="d-inline-block text-end">
+                    <div class="text-end">
                         <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
                             <i class="bi bi-lock-fill"></i> 매칭 준비 중
                         </button>
@@ -3771,7 +3656,7 @@
                         </div>
                     </div>
                 {% else %}
-                    <div class="d-inline-block text-end">
+                    <div class="text-end">
                         <button class="btn btn-secondary fw-bold shadow-sm px-4" disabled style="cursor: not-allowed; opacity: 0.6;">
                             <i class="bi bi-lock-fill"></i> 매칭 준비 중
                         </button>
@@ -3780,6 +3665,7 @@
                         </div>
                     </div>
                 {% endif %}
+                {% endif %}{# is_session_application_closed #}
                 {% endif %}
             {% endif %}
             </div>
@@ -3803,7 +3689,31 @@
     </div>{% comment %}메인 콘텐츠 열 닫기{% endcomment %}
     </div>{% comment %}row 닫기{% endcomment %}
 {% if is_manager %}
-<div class="mt-4 pt-3 border-top d-flex justify-content-end">
+<div class="mt-4">
+    <div class="mb-3 p-3 border rounded bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="m-0 fw-bold">🏠 합주실</h6>
+            {% if not is_final_locked %}
+                <a href="{% url 'meeting_room_create' meeting.id %}" class="btn btn-sm btn-outline-primary">+ 합주실 생성</a>
+            {% endif %}
+        </div>
+        {% if rooms %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for room in rooms %}
+                    <div class="badge text-bg-light border d-flex align-items-center gap-2">
+                        <span>{{ room.name }} / 정원 {{ room.capacity }}{% if room.location %} / {{ room.location }}{% endif %}</span>
+                        {% if not is_final_locked %}
+                            <a href="{% url 'meeting_room_edit' meeting.id room.id %}" class="text-decoration-none">수정</a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-muted small">등록된 합주실이 없습니다.</div>
+        {% endif %}
+    </div>
+</div>
+<div class="d-flex justify-content-end">
     <form method="post"
           action="{% url 'meeting_delete' meeting.id %}"
           data-delete-confirm-message="선곡회의를 삭제하시겠습니까? 곡/세션/일정 데이터가 함께 삭제됩니다."
@@ -3926,5 +3836,20 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const collapseEl = document.getElementById('meetingInfoCollapse');
+    if (!collapseEl) return;
+    collapseEl.addEventListener('show.bs.collapse', function () {
+        const chevron = document.querySelector('.meeting-info-chevron');
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+    });
+    collapseEl.addEventListener('hide.bs.collapse', function () {
+        const chevron = document.querySelector('.meeting-info-chevron');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    });
+})();
+</script>
 
 {% endblock %}

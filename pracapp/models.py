@@ -159,8 +159,8 @@ class Meeting(models.Model):
     JOIN_POLICY_OPEN = 'OPEN'
     JOIN_POLICY_APPROVAL = 'APPROVAL'
     JOIN_POLICY_CHOICES = [
-        (JOIN_POLICY_OPEN, '신청 즉시 참여'),
-        (JOIN_POLICY_APPROVAL, '승인 후 참여'),
+        (JOIN_POLICY_OPEN, '바로 참가'),
+        (JOIN_POLICY_APPROVAL, '승인 필요'),
     ]
 
     id = models.UUIDField(

@@ -143,7 +143,8 @@ class MeetingCreateForm(forms.ModelForm):
         # [수정] 합주 시작일/종료일 필드 추가
         fields = [
             'title', 'performance_datetime', 'schedule', 'location', 'description',
-            'visibility', 'join_policy',
+            'visibility', 'jo'
+                          'in_policy',
             'practice_start_date', 'practice_end_date'
         ]
 
@@ -156,8 +157,9 @@ class MeetingCreateForm(forms.ModelForm):
         # 1. 제목
         self.fields['title'].widget.attrs.update({
             'class': 'form-control',
-            'placeholder': f'ex. {today.year}년도 {semester}학기 정기공연'
+            'placeholder': f'{str(today.year)[2:]}-{semester} 정기공연'
         })
+        self.fields['title'].help_text = '*시간표 가독성을 위해 최대한 간결하게 적는게 좋은 것 같아요!'
 
         # 2. 공연 일시 (datetime-local)
         self.fields['performance_datetime'].required = False
@@ -181,8 +183,9 @@ class MeetingCreateForm(forms.ModelForm):
         # 4. 장소
         self.fields['location'].widget.attrs.update({
             'class': 'form-control',
-            'placeholder': 'ex. 헤게관 50413, 줌(Zoom)'
+            'placeholder': '헤게관 51803, 구글 미트 링크 등'
         })
+        self.fields['location'].help_text = '*주소 입력 시 해당 링크로 바로 이동할 수 있습니다'
 
         # 5. 메모
         self.fields['description'].widget.attrs.update({
