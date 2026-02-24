@@ -1,0 +1,810 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+:root {
+  --slot-h: 32px;
+  --time-col-w: 52px;
+  --ep-primary: #5b4fcf;
+  --ep-primary-light: #ede9ff;
+}
+
+/* ── 레이아웃 ── */
+.ep-page { max-width: 1100px; margin: 0 auto; padding: 0 1rem 3rem; }
+
+/* ── 헤더 ── */
+.ep-header {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem 0 0.75rem;
+  border-bottom: 2px solid var(--ep-primary);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.ep-song-title { font-size: 1.15rem; font-weight: 700; color: var(--ep-primary); }
+.ep-song-artist { font-size: 0.85rem; color: #666; margin-left: 0.3rem; }
+.ep-back-btn { margin-left: auto; font-size: 0.85rem; }
+
+/* ── 주 네비게이션 ── */
+.ep-week-nav {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.ep-week-label { font-weight: 600; font-size: 0.95rem; min-width: 200px; text-align: center; }
+
+/* ── 합주실 탭 ── */
+.ep-room-tabs {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  margin-bottom: 0.75rem; align-items: center;
+}
+.ep-room-tab {
+  padding: 0.3rem 0.85rem; border-radius: 20px; border: 1.5px solid #ccc;
+  background: #fff; font-size: 0.82rem; cursor: pointer; transition: all .15s;
+}
+.ep-room-tab.active { border-color: var(--ep-primary); background: var(--ep-primary); color: #fff; font-weight: 600; }
+.ep-room-tab-add { border-style: dashed; color: var(--ep-primary); }
+
+/* ── 보드 래퍼 ── */
+.ep-board-wrapper { overflow-x: auto; }
+.ep-board {
+  display: grid;
+  grid-template-columns: var(--time-col-w) repeat(7, 1fr);
+  border: 1px solid #ddd; border-radius: 8px; overflow: hidden;
+  min-width: 640px;
+}
+
+/* ── 헤더 행 ── */
+.ep-board-head { background: #f4f4f8; font-weight: 600; font-size: 0.78rem; text-align: center; padding: 0.4rem 0.2rem; border-bottom: 1px solid #ddd; }
+.ep-board-head.today { background: #ede9ff; color: var(--ep-primary); }
+
+/* ── 시간 라벨 ── */
+.ep-time-col { display: flex; flex-direction: column; border-right: 1px solid #e0e0e0; }
+.ep-time-slot { height: var(--slot-h); font-size: 0.68rem; color: #999; padding: 2px 4px; border-bottom: 1px solid #f0f0f0; box-sizing: border-box; }
+.ep-time-slot.half { border-bottom-color: #f8f8f8; color: transparent; }
+
+/* ── 일자 열 ── */
+.ep-day-col { position: relative; border-right: 1px solid #e8e8e8; }
+.ep-day-col:last-child { border-right: none; }
+.ep-day-grid {
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* ── 슬롯 라인 ── */
+.ep-slot-line {
+  position: absolute; left: 0; right: 0;
+  border-bottom: 1px solid #f0f0f0;
+  pointer-events: none;
+}
+.ep-slot-line.half { border-bottom-color: #f8f8f8; }
+
+/* ── 오버레이: 합주실 불가능 ── */
+.ep-room-block {
+  position: absolute; left: 0; right: 0;
+  background: repeating-linear-gradient(45deg, rgba(245,160,50,.18) 0, rgba(245,160,50,.18) 4px, transparent 4px, transparent 10px);
+  border-left: 3px solid #f5a032;
+  pointer-events: none; z-index: 1;
+}
+
+/* ── 오버레이: 멤버 불가능 (match_result 색상 규칙 동일) ── */
+.ep-conflict-overlay {
+  position: absolute; left: 0; right: 0;
+  /* background는 JS에서 멤버 수에 따라 동적으로 설정 */
+  pointer-events: auto; cursor: help; z-index: 1;
+  border-radius: 2px;
+}
+
+/* ── 커스텀 플로팅 툴팁 (match_result.html의 .floating-popover 동일 스타일) ── */
+.floating-popover {
+  position: fixed; z-index: 7000; pointer-events: none;
+  min-width: 180px; max-width: 300px;
+  background: #fff; border: 1px solid rgba(0,0,0,.12);
+  border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.22);
+  padding: 8px 10px; font-size: 12px; line-height: 1.35;
+  color: #212529; display: none; text-align: left;
+}
+.floating-popover .fp-title { font-weight: 800; margin-bottom: 4px; }
+.floating-popover .fp-line { margin: 1px 0; white-space: normal; word-break: break-word; }
+.floating-popover .fp-line.unavail { color: #c92a2a; font-weight: 600; }
+.floating-popover .fp-line.rehearsal { color: #8b5e2f; }
+
+/* ── 압축 보기 ── */
+.ep-board.compact { --slot-h: 20px; }
+
+/* ── 배경 카드 (기존 합주) ── */
+.ep-bg-card {
+  position: absolute; left: 2px; right: 2px;
+  background: #e8e8ee; border: 1px solid #ccc; border-radius: 4px;
+  font-size: 0.68rem; color: #666; padding: 2px 4px;
+  overflow: hidden; z-index: 2; pointer-events: none;
+}
+.ep-bg-card.extra { background: #e4e0ff; border-color: #b0a0ff; }
+
+/* ── 내 추가 합주 카드 ── */
+.ep-my-card {
+  position: absolute; left: 2px; right: 2px;
+  background: var(--ep-primary-light); border: 2px solid var(--ep-primary);
+  border-radius: 5px; padding: 3px 6px;
+  font-size: 0.75rem; font-weight: 600; color: var(--ep-primary);
+  z-index: 3; cursor: default;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.ep-my-card .ep-card-del {
+  position: absolute; top: 2px; right: 3px;
+  font-size: 0.7rem; cursor: pointer; color: #999;
+  line-height: 1;
+}
+.ep-my-card .ep-card-del:hover { color: #c00; }
+
+/* ── 드래그 preview ── */
+.ep-drag-preview {
+  position: absolute; left: 2px; right: 2px;
+  background: rgba(91,79,207,.25); border: 2px dashed var(--ep-primary);
+  border-radius: 5px; z-index: 10; pointer-events: none; display: none;
+}
+.ep-drag-preview.invalid { background: rgba(200,40,40,.18); border-color: #c00; }
+
+/* ── 사이드 패널 ── */
+.ep-side-panel { margin-top: 1.25rem; }
+.ep-side-title { font-size: 0.82rem; font-weight: 700; color: #444; margin-bottom: 0.5rem; }
+.ep-placed-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.ep-placed-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--ep-primary-light); border: 1.5px solid var(--ep-primary);
+  border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.82rem;
+}
+.ep-placed-item .ep-del-btn { font-size: 0.75rem; color: #999; cursor: pointer; border: none; background: none; }
+.ep-placed-item .ep-del-btn:hover { color: #c00; }
+.ep-drag-source {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  background: var(--ep-primary); color: #fff;
+  border-radius: 8px; padding: 0.5rem 1rem;
+  font-size: 0.85rem; font-weight: 600; cursor: grab; user-select: none;
+}
+.ep-drag-source:active { cursor: grabbing; }
+
+/* ── 토스트 ── */
+#ep-toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  background: #333; color: #fff; padding: 0.6rem 1.1rem;
+  border-radius: 8px; font-size: 0.85rem; z-index: 9999;
+  opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+#ep-toast.show { opacity: 1; }
+#ep-toast.error { background: #c00; }
+
+/* ── 범례 ── */
+.ep-legend { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.75rem; color: #555; margin-bottom: 0.75rem; align-items: center; }
+.ep-legend-item { display: flex; align-items: center; gap: 0.3rem; }
+.ep-legend-box { width: 18px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+</style>
+
+<div class="ep-page">
+
+  <!-- 헤더 -->
+  <div class="ep-header">
+    <span>
+      <span class="ep-song-title">{{ song.title }}</span>
+      <span class="ep-song-artist">— {{ song.artist }}</span>
+    </span>
+    <span class="text-muted" style="font-size:.82rem;">추가 합주 잡기</span>
+    <a href="{{ back_url }}" class="btn btn-sm btn-outline-secondary ep-back-btn">← 최종 일정으로</a>
+  </div>
+
+  <!-- 주 네비게이션 -->
+  <div class="ep-week-nav">
+    <a href="?week_offset={{ week_offset|add:"-1" }}" class="btn btn-sm btn-outline-secondary">← 이전 주</a>
+    <span class="ep-week-label">
+      {{ week_start|date:"Y.m.d" }} ~ {{ week_end|date:"m.d" }}
+    </span>
+    <a href="?week_offset={{ week_offset|add:"1" }}" class="btn btn-sm btn-outline-secondary">다음 주 →</a>
+    <button type="button" id="ep-compact-btn" class="btn btn-sm btn-outline-secondary ms-auto" onclick="toggleCompact()">압축 보기</button>
+  </div>
+
+  <!-- 범례 -->
+  <div class="ep-legend">
+    <div class="ep-legend-item">
+      <div class="ep-legend-box" style="background:repeating-linear-gradient(45deg,rgba(245,160,50,.4) 0,rgba(245,160,50,.4) 4px,transparent 4px,transparent 10px);border-left:3px solid #f5a032;"></div>
+      합주실 불가능
+    </div>
+    <div class="ep-legend-item">
+      <div class="ep-legend-box" style="background:repeating-linear-gradient(135deg,rgba(220,50,50,.2) 0,rgba(220,50,50,.2) 4px,transparent 4px,transparent 10px);"></div>
+      멤버 불가능
+    </div>
+    <div class="ep-legend-item">
+      <div class="ep-legend-box" style="background:#e8e8ee;border:1px solid #ccc;"></div>
+      기존 합주
+    </div>
+    <div class="ep-legend-item">
+      <div class="ep-legend-box" style="background:#e4e0ff;border:1px solid #b0a0ff;"></div>
+      타 곡 추가합주
+    </div>
+    <div class="ep-legend-item">
+      <div class="ep-legend-box" style="background:var(--ep-primary-light);border:2px solid var(--ep-primary);"></div>
+      내 추가합주
+    </div>
+  </div>
+
+  <!-- 합주실 탭 -->
+  <div class="ep-room-tabs" id="ep-room-tabs">
+    <!-- JS로 렌더링 -->
+  </div>
+
+  <!-- 보드 -->
+  <div class="ep-board-wrapper">
+    <div class="ep-board" id="ep-board">
+      <!-- JS로 렌더링 -->
+    </div>
+  </div>
+
+  <!-- 사이드 패널: 소스 카드 + 배치 목록 -->
+  <div class="ep-side-panel">
+    <div id="ep-drag-source-wrap">
+      <div class="ep-side-title">보드에 드래그해서 배치하세요</div>
+      <div class="ep-drag-source" id="ep-drag-source"
+           draggable="true"
+           data-song-id="{{ song.id }}"
+           data-song-title="{{ song.title }}"
+           data-song-artist="{{ song.artist }}">
+        ⠿ {{ song.title }}
+      </div>
+    </div>
+    <div class="ep-side-title mt-3">배치된 추가 합주</div>
+    <ul class="ep-placed-list" id="ep-placed-list">
+      <!-- JS로 렌더링 -->
+    </ul>
+  </div>
+</div>
+
+<div id="ep-toast"></div>
+<div id="ep-conflict-tooltip" class="floating-popover"></div>
+
+<script>
+(function() {
+'use strict';
+
+// ── 데이터 ──
+const SONG_ID        = '{{ song.id }}';
+const SONG_TITLE     = '{{ song.title|escapejs }}';
+const MEETING_ID     = '{{ meeting.id }}';
+const WEEK_OFFSET    = {{ week_offset }};
+const SAVE_URL       = '{{ save_url }}';
+const DELETE_URL     = '{{ delete_url }}';
+const CSRF_TOKEN     = '{{ csrf_token }}';
+
+const ROOM_LIST          = JSON.parse('{{ room_list_json|escapejs }}');
+const ROOM_BLOCK_MAP     = JSON.parse('{{ room_block_map_json|escapejs }}');
+const ROOM_BLOCK_DETAIL  = JSON.parse('{{ room_block_detail_map_json|escapejs }}');
+const SONG_CONFLICT_MAP  = JSON.parse('{{ song_conflict_map_json|escapejs }}');
+const EXISTING_SCHEDULES = JSON.parse('{{ existing_schedules_json|escapejs }}');
+let   myExtraSchedules   = JSON.parse('{{ my_extra_schedules_json|escapejs }}');
+
+// 날짜 목록 (7일)
+const WEEK_DAYS = [
+{% for d in week_days %}'{{ d.date_str }}'{% if not forloop.last %},{% endif %}
+{% endfor %}
+];
+const SLOT_MIN = 18;  // 09:00
+const SLOT_MAX = 42;  // 21:00 (기본 표시 범위)
+const SLOT_COUNT = SLOT_MAX - SLOT_MIN;
+
+// ── 상태 ──
+let activeRoomId = ROOM_LIST.length > 0 ? ROOM_LIST[0].id : null;
+let tempRooms = [];  // 로컬 임시합주실 목록
+let dragState = null;
+
+// ── 유틸 ──
+function slotToTime(slot) {
+  const h = Math.floor(slot / 2);
+  const m = slot % 2 === 0 ? '00' : '30';
+  return `${String(h).padStart(2,'0')}:${m}`;
+}
+function dateLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['일','월','화','수','목','금','토'];
+  return `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
+}
+function isToday(dateStr) {
+  return dateStr === new Date().toISOString().slice(0,10);
+}
+function getRoomById(roomId) {
+  return ROOM_LIST.find(r => r.id === roomId)
+      || tempRooms.find(r => r.id === roomId)
+      || null;
+}
+function getAllRooms() { return [...ROOM_LIST, ...tempRooms]; }
+
+// ── 토스트 ──
+function showToast(msg, isError) {
+  const t = document.getElementById('ep-toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+// ── 합주실 탭 렌더링 ──
+function renderRoomTabs() {
+  const wrap = document.getElementById('ep-room-tabs');
+  wrap.innerHTML = '';
+  getAllRooms().forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'ep-room-tab' + (r.id === activeRoomId ? ' active' : '');
+    btn.textContent = r.name + (r.is_temporary ? ' (임시)' : '');
+    btn.dataset.roomId = r.id;
+    btn.addEventListener('click', () => {
+      activeRoomId = r.id;
+      renderRoomTabs();
+      renderBoard();
+    });
+    wrap.appendChild(btn);
+  });
+  // 임시합주실 추가 버튼
+  const addBtn = document.createElement('button');
+  addBtn.className = 'ep-room-tab ep-room-tab-add';
+  addBtn.textContent = '+ 임시합주실 추가';
+  addBtn.addEventListener('click', addTempRoom);
+  wrap.appendChild(addBtn);
+}
+
+function addTempRoom() {
+  const name = window.prompt('임시합주실 이름을 입력하세요.', `임시합주실 ${tempRooms.length + 1}`);
+  if (!name || !name.trim()) return;
+  const loc = window.prompt('위치 (선택)', '') || '';
+  const fakeId = 'temp-' + Date.now();
+  tempRooms.push({ id: fakeId, name: name.trim(), location: loc.trim(), is_temporary: true, capacity: 7 });
+  activeRoomId = fakeId;
+  renderRoomTabs();
+  renderBoard();
+}
+
+// ── 불가능 슬롯 조회 ──
+function getRoomBlockSlots(dateStr, roomId) {
+  return new Set((ROOM_BLOCK_MAP[dateStr] || {})[roomId] || []);
+}
+function getConflictSlots(dateStr) {
+  const songData = SONG_CONFLICT_MAP[SONG_ID];
+  if (!songData) return new Set();
+  const dateData = (songData.data || {})[dateStr] || {};
+  return new Set(Object.keys(dateData).map(Number));
+}
+function getRoomBlockDetail(dateStr, roomId, slot) {
+  return ((ROOM_BLOCK_DETAIL[dateStr] || {})[roomId] || {})[String(slot)] || [];
+}
+
+// ── 보드 렌더링 ──
+function renderBoard() {
+  const board = document.getElementById('ep-board');
+  board.innerHTML = '';
+
+  // 헤더: 빈 코너 + 7일 헤더
+  const corner = document.createElement('div');
+  corner.className = 'ep-board-head';
+  board.appendChild(corner);
+  WEEK_DAYS.forEach(dateStr => {
+    const h = document.createElement('div');
+    h.className = 'ep-board-head' + (isToday(dateStr) ? ' today' : '');
+    h.textContent = dateLabel(dateStr);
+    board.appendChild(h);
+  });
+
+  // 시간열 + 일자열
+  const timeCol = document.createElement('div');
+  timeCol.className = 'ep-time-col';
+  for (let slot = SLOT_MIN; slot <= SLOT_MAX; slot++) {
+    const s = document.createElement('div');
+    s.className = 'ep-time-slot' + (slot % 2 !== 0 ? ' half' : '');
+    s.textContent = slot % 2 === 0 ? slotToTime(slot) : '';
+    timeCol.appendChild(s);
+  }
+  board.appendChild(timeCol);
+
+  WEEK_DAYS.forEach(dateStr => {
+    const col = document.createElement('div');
+    col.className = 'ep-day-col';
+
+    const grid = document.createElement('div');
+    grid.className = 'ep-day-grid';
+    grid.dataset.date = dateStr;
+    grid.style.height = `calc(${SLOT_COUNT + 1} * var(--slot-h))`;
+
+    // 슬롯 라인
+    for (let slot = SLOT_MIN; slot <= SLOT_MAX; slot++) {
+      const line = document.createElement('div');
+      line.className = 'ep-slot-line' + (slot % 2 !== 0 ? ' half' : '');
+      line.style.top = `calc(${slot - SLOT_MIN} * var(--slot-h))`;
+      line.style.height = 'var(--slot-h)';
+      grid.appendChild(line);
+    }
+
+    // 합주실 불가능 오버레이 (현재 탭 합주실 기준)
+    if (activeRoomId && !activeRoomId.startsWith('temp-')) {
+      const blockedSlots = getRoomBlockSlots(dateStr, activeRoomId);
+      const ranges = slotsToRanges([...blockedSlots]);
+      ranges.forEach(([s, e]) => {
+        if (s > SLOT_MAX || e < SLOT_MIN) return;
+        const clampS = Math.max(s, SLOT_MIN);
+        const clampE = Math.min(e, SLOT_MAX + 1);
+        const overlay = document.createElement('div');
+        overlay.className = 'ep-room-block';
+        overlay.style.top = `calc(${clampS - SLOT_MIN} * var(--slot-h))`;
+        overlay.style.height = `calc(${clampE - clampS} * var(--slot-h))`;
+        const labels = [];
+        for (let sl = s; sl < e; sl++) {
+          getRoomBlockDetail(dateStr, activeRoomId, sl).forEach(l => labels.push(l));
+        }
+        if (labels.length) overlay.title = [...new Set(labels)].join('\n');
+        grid.appendChild(overlay);
+      });
+    }
+
+    // 멤버 불가능 오버레이 (사유별 그룹핑, hover 시 툴팁)
+    renderConflictOverlayForGrid(grid, dateStr);
+
+    // 배경 카드 (기존 합주 + 타 곡 추가합주) — 현재 합주실 기준
+    EXISTING_SCHEDULES.forEach(sc => {
+      if (sc.date !== dateStr) return;
+      if (activeRoomId && sc.room_id !== activeRoomId) return;
+      renderBgCard(grid, sc);
+    });
+
+    // 내 추가합주 카드 — 현재 합주실 기준
+    myExtraSchedules.forEach(sc => {
+      if (sc.date !== dateStr) return;
+      if (activeRoomId && sc.room_id !== activeRoomId) return;
+      renderMyCard(grid, sc, dateStr);
+    });
+
+    // drag preview
+    const preview = document.createElement('div');
+    preview.className = 'ep-drag-preview';
+    preview.id = `ep-preview-${dateStr}`;
+    grid.appendChild(preview);
+
+    grid.addEventListener('dragover', onGridDragOver);
+    grid.addEventListener('dragleave', onGridDragLeave);
+    grid.addEventListener('drop', onGridDrop);
+
+    col.appendChild(grid);
+    board.appendChild(col);
+  });
+}
+
+function slotsToRanges(slots) {
+  if (!slots.length) return [];
+  const sorted = [...slots].map(Number).sort((a,b) => a-b);
+  const ranges = [];
+  let s = sorted[0], p = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === p + 1) { p = sorted[i]; }
+    else { ranges.push([s, p+1]); s = sorted[i]; p = sorted[i]; }
+  }
+  ranges.push([s, p+1]);
+  return ranges;
+}
+
+// match_result의 hover-conf-cell 색상 규칙과 동일
+function conflictBgColor(count) {
+  if (count >= 3) return 'rgba(73,80,87,0.62)';
+  if (count === 2) return 'rgba(173,181,189,0.72)';
+  return 'rgba(222,226,230,0.80)';
+}
+
+// 멤버 불가능 오버레이: 동일 사유 범위별 그룹핑 + 커스텀 플로팅 툴팁
+function renderConflictOverlayForGrid(grid, dateStr) {
+  const songData = SONG_CONFLICT_MAP[SONG_ID];
+  if (!songData) return;
+  const dateData = (songData.data || {})[dateStr] || {};
+
+  const groups = [];
+  let cur = null;
+  for (let slot = SLOT_MIN; slot <= SLOT_MAX; slot++) {
+    const reasons = dateData[String(slot)];
+    if (reasons && reasons.length > 0) {
+      const key = reasons.join('\x00');
+      if (cur && cur.key === key) {
+        cur.end = slot + 1;
+      } else {
+        if (cur) groups.push(cur);
+        cur = { start: slot, end: slot + 1, key, reasons };
+      }
+    } else {
+      if (cur) { groups.push(cur); cur = null; }
+    }
+  }
+  if (cur) groups.push(cur);
+
+  groups.forEach(({ start, end, reasons }) => {
+    if (end <= SLOT_MIN || start > SLOT_MAX + 1) return;
+    const clampS = Math.max(start, SLOT_MIN);
+    const clampE = Math.min(end, SLOT_MAX + 1);
+    const overlay = document.createElement('div');
+    overlay.className = 'ep-conflict-overlay';
+    overlay.style.top = `calc(${clampS - SLOT_MIN} * var(--slot-h))`;
+    overlay.style.height = `calc(${clampE - clampS} * var(--slot-h))`;
+    overlay.style.background = conflictBgColor(reasons.length);
+    // 커스텀 플로팅 툴팁
+    overlay.addEventListener('mouseenter', (ev) => showEpConflictTooltip(reasons, ev.clientX, ev.clientY));
+    overlay.addEventListener('mousemove',  (ev) => moveEpConflictTooltip(ev.clientX, ev.clientY));
+    overlay.addEventListener('mouseleave', hideEpConflictTooltip);
+    grid.appendChild(overlay);
+  });
+}
+
+// ── 플로팅 툴팁 ──
+function showEpConflictTooltip(reasons, cx, cy) {
+  const tip = document.getElementById('ep-conflict-tooltip');
+  if (!tip) return;
+  const memberCount = reasons.length;
+  const lines = reasons.map(r => {
+    const sep = r.lastIndexOf(' - ');
+    const who  = sep >= 0 ? r.slice(0, sep) : r;
+    const why  = sep >= 0 ? r.slice(sep + 3) : '';
+    const isRehearsal = why.includes('합주');
+    const cls  = why && why !== '사유 없음'
+      ? (isRehearsal ? 'fp-line rehearsal' : 'fp-line unavail')
+      : 'fp-line';
+    return `<div class="${cls}"><b>${escapeHtml(who)}</b>${why ? ' — ' + escapeHtml(why) : ''}</div>`;
+  }).join('');
+  tip.innerHTML = `<div class="fp-title">멤버 불가능 (${memberCount}명)</div>${lines}`;
+  tip.style.display = 'block';
+  moveEpConflictTooltip(cx, cy);
+}
+function moveEpConflictTooltip(cx, cy) {
+  const tip = document.getElementById('ep-conflict-tooltip');
+  if (!tip || tip.style.display === 'none') return;
+  const pad = 12, vw = window.innerWidth, vh = window.innerHeight;
+  const w = tip.offsetWidth || 220, h = tip.offsetHeight || 80;
+  let left = cx + 14, top = cy + 14;
+  if (left + w + pad > vw) left = Math.max(pad, cx - w - 14);
+  if (top  + h + pad > vh) top  = Math.max(pad, cy - h - 14);
+  tip.style.left = `${Math.round(left)}px`;
+  tip.style.top  = `${Math.round(top)}px`;
+}
+function hideEpConflictTooltip() {
+  const tip = document.getElementById('ep-conflict-tooltip');
+  if (tip) tip.style.display = 'none';
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// 압축/확장 토글
+function toggleCompact() {
+  const board = document.getElementById('ep-board');
+  const btn = document.getElementById('ep-compact-btn');
+  const isCompact = board.classList.toggle('compact');
+  btn.textContent = isCompact ? '확장 보기' : '압축 보기';
+}
+
+function renderBgCard(grid, sc) {
+  const s = sc.start, e = sc.end;
+  if (e <= SLOT_MIN || s > SLOT_MAX) return;
+  const card = document.createElement('div');
+  card.className = 'ep-bg-card' + (sc.is_extra ? ' extra' : '');
+  card.style.top = `calc(${Math.max(s, SLOT_MIN) - SLOT_MIN} * var(--slot-h))`;
+  card.style.height = `calc(${Math.min(e, SLOT_MAX+1) - Math.max(s, SLOT_MIN)} * var(--slot-h) - 2px)`;
+  card.title = `${sc.song_title} (${slotToTime(s)}~${slotToTime(e)})`;
+  card.textContent = sc.song_title;
+  grid.appendChild(card);
+}
+
+function renderMyCard(grid, sc, dateStr) {
+  const s = sc.start, e = sc.end;
+  if (e <= SLOT_MIN || s > SLOT_MAX) return;
+  const card = document.createElement('div');
+  card.className = 'ep-my-card';
+  card.style.top = `calc(${Math.max(s, SLOT_MIN) - SLOT_MIN} * var(--slot-h))`;
+  card.style.height = `calc(${Math.min(e, SLOT_MAX+1) - Math.max(s, SLOT_MIN)} * var(--slot-h) - 3px)`;
+  card.innerHTML = `<span>${slotToTime(s)}~${slotToTime(e)}</span><span style="font-size:.7rem;font-weight:400;">${sc.room_name}</span>`;
+  if (sc.can_delete) {
+    const del = document.createElement('span');
+    del.className = 'ep-card-del';
+    del.textContent = '✕';
+    del.title = '삭제';
+    del.addEventListener('click', () => deleteSchedule(sc.id));
+    card.appendChild(del);
+  }
+  grid.appendChild(card);
+}
+
+// ── 배치 목록 렌더링 ──
+function renderPlacedList() {
+  const list = document.getElementById('ep-placed-list');
+  list.innerHTML = '';
+  if (!myExtraSchedules.length) {
+    const li = document.createElement('li');
+    li.style.cssText = 'color:#999;font-size:.82rem;';
+    li.textContent = '아직 배치된 추가 합주가 없습니다.';
+    list.appendChild(li);
+    return;
+  }
+  const sorted = [...myExtraSchedules].sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
+  sorted.forEach(sc => {
+    const li = document.createElement('li');
+    li.className = 'ep-placed-item';
+    const info = document.createElement('span');
+    info.textContent = `${dateLabel(sc.date)} ${slotToTime(sc.start)}~${slotToTime(sc.end)} · ${sc.room_name}`;
+    li.appendChild(info);
+    if (sc.can_delete) {
+      const btn = document.createElement('button');
+      btn.className = 'ep-del-btn';
+      btn.textContent = '삭제';
+      btn.addEventListener('click', () => deleteSchedule(sc.id));
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+}
+
+// ── 드래그앤드롭 ──
+document.getElementById('ep-drag-source').addEventListener('dragstart', (e) => {
+  dragState = { duration: 2 };  // 기본 1시간(슬롯 2개)
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', SONG_ID);
+});
+
+function getSlotFromY(grid, clientY) {
+  const rect = grid.getBoundingClientRect();
+  const slotH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--slot-h')) || 32;
+  const relY = clientY - rect.top;
+  return SLOT_MIN + Math.max(0, Math.min(Math.floor(relY / slotH), SLOT_COUNT));
+}
+
+function onGridDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  const grid = e.currentTarget;
+  const dateStr = grid.dataset.date;
+  const slotStart = getSlotFromY(grid, e.clientY);
+  const slotEnd = Math.min(slotStart + (dragState ? dragState.duration : 2), SLOT_MAX + 1);
+
+  // 미리보기 표시
+  const preview = document.getElementById(`ep-preview-${dateStr}`);
+  if (preview) {
+    const dur = slotEnd - slotStart;
+    preview.style.display = 'block';
+    preview.style.top = `calc(${slotStart - SLOT_MIN} * var(--slot-h))`;
+    preview.style.height = `calc(${dur} * var(--slot-h) - 2px)`;
+
+    // 유효성: 합주실 블록 or 이미 차있는 슬롯
+    const invalid = isConflicted(dateStr, slotStart, slotEnd);
+    preview.classList.toggle('invalid', invalid);
+  }
+}
+
+function onGridDragLeave(e) {
+  const grid = e.currentTarget;
+  if (!grid.contains(e.relatedTarget)) {
+    const dateStr = grid.dataset.date;
+    const preview = document.getElementById(`ep-preview-${dateStr}`);
+    if (preview) preview.style.display = 'none';
+  }
+}
+
+function onGridDrop(e) {
+  e.preventDefault();
+  const grid = e.currentTarget;
+  const dateStr = grid.dataset.date;
+  const preview = document.getElementById(`ep-preview-${dateStr}`);
+  if (preview) preview.style.display = 'none';
+
+  if (!activeRoomId) { showToast('합주실을 선택해주세요.', true); return; }
+
+  const slotStart = getSlotFromY(grid, e.clientY);
+  const slotEnd = Math.min(slotStart + (dragState ? dragState.duration : 2), SLOT_MAX + 1);
+
+  if (isConflicted(dateStr, slotStart, slotEnd)) {
+    showToast('해당 시간은 배치할 수 없습니다.', true);
+    return;
+  }
+
+  saveSchedule(dateStr, slotStart, slotEnd);
+}
+
+function isConflicted(dateStr, start, end) {
+  if (!activeRoomId || activeRoomId.startsWith('temp-')) return false;
+  const blocked = getRoomBlockSlots(dateStr, activeRoomId);
+  for (let s = start; s < end; s++) {
+    if (blocked.has(s)) return true;
+  }
+  // 기존 카드와 겹침 체크
+  const allCards = [
+    ...EXISTING_SCHEDULES.filter(sc => sc.date === dateStr && sc.room_id === activeRoomId),
+    ...myExtraSchedules.filter(sc => sc.date === dateStr && sc.room_id === activeRoomId),
+  ];
+  return allCards.some(sc => sc.start < end && sc.end > start);
+}
+
+// ── API 호출 ──
+async function saveSchedule(dateStr, start, end) {
+  const room = getRoomById(activeRoomId);
+  if (!room) { showToast('합주실 정보를 찾을 수 없습니다.', true); return; }
+
+  const body = {
+    date: dateStr,
+    start_index: start,
+    end_index: end,
+    room_id: activeRoomId.startsWith('temp-') ? null : activeRoomId,
+    is_temp_room: room.is_temporary || activeRoomId.startsWith('temp-'),
+    room_name: room.name,
+    room_location: room.location || '',
+  };
+
+  try {
+    const res = await fetch(SAVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      // 임시합주실이면 서버 발급 ID로 교체
+      if (activeRoomId.startsWith('temp-')) {
+        const idx = tempRooms.findIndex(r => r.id === activeRoomId);
+        if (idx !== -1) {
+          tempRooms[idx].id = data.room_id;
+          tempRooms[idx].name = data.room_name;
+          tempRooms[idx].location = data.room_location;
+          activeRoomId = data.room_id;
+        }
+        // ROOM_LIST에 추가
+        if (!ROOM_LIST.find(r => r.id === data.room_id)) {
+          ROOM_LIST.push({ id: data.room_id, name: data.room_name, location: data.room_location, is_temporary: true, capacity: 7 });
+        }
+        tempRooms = tempRooms.filter(r => !r.id.startsWith('temp-'));
+      }
+      myExtraSchedules.push({
+        id: data.schedule_id,
+        room_id: data.room_id,
+        room_name: data.room_name,
+        room_location: data.room_location || '',
+        date: dateStr,
+        start: start,
+        end: end,
+        can_delete: true,
+      });
+      showToast('추가 합주가 저장되었습니다.');
+      renderRoomTabs();
+      renderBoard();
+      renderPlacedList();
+    } else if (data.status === 'conflict') {
+      showToast(data.message || '시간 충돌이 있습니다.', true);
+    } else {
+      showToast(data.message || '저장 실패', true);
+    }
+  } catch {
+    showToast('서버 오류가 발생했습니다.', true);
+  }
+}
+
+async function deleteSchedule(scheduleId) {
+  if (!confirm('이 추가 합주를 삭제할까요?')) return;
+  try {
+    const res = await fetch(DELETE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ schedule_id: scheduleId }),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      myExtraSchedules = myExtraSchedules.filter(s => s.id !== scheduleId);
+      showToast('삭제되었습니다.');
+      renderBoard();
+      renderPlacedList();
+    } else {
+      showToast(data.message || '삭제 실패', true);
+    }
+  } catch {
+    showToast('서버 오류가 발생했습니다.', true);
+  }
+}
+
+// ── 초기화 ──
+renderRoomTabs();
+renderBoard();
+renderPlacedList();
+
+})();
+</script>
+{% endblock %}

@@ -16,7 +16,7 @@ from ..models import (
     Meeting, Membership, PracticeSchedule, MemberAvailability,
     MeetingFinalDraft, RoomBlock, Song, User, PracticeRoom, Session,
     MeetingParticipant,
-    MeetingScheduleConfirmation, MeetingWorkDraft
+    MeetingScheduleConfirmation, MeetingWorkDraft, ExtraPracticeSchedule,
 )
 from .. import utils
 from ..utils import (
@@ -2047,6 +2047,28 @@ def schedule_final(request, meeting_id):
             for b in booking_room_blocks
         ]),
         'booking_saved_completed_keys_json': json.dumps(booking_saved_completed_keys),
+        'song_participant_song_ids_json': json.dumps([
+            str(sid) for sid in Session.objects.filter(
+                song__meeting=meeting,
+                assignee=request.user,
+            ).values_list('song_id', flat=True).distinct()
+        ]),
+        'extra_practice_schedules_json': json.dumps([
+            {
+                'id': str(eps.id),
+                'song_id': str(eps.song_id),
+                'song_title': eps.song.title,
+                'song_artist': eps.song.artist,
+                'room_id': str(eps.room_id),
+                'room_name': eps.room.name,
+                'date': eps.date.strftime('%Y-%m-%d'),
+                'start': eps.start_index,
+                'end': eps.end_index,
+            }
+            for eps in ExtraPracticeSchedule.objects.filter(
+                meeting=meeting
+            ).select_related('song', 'room').order_by('date', 'start_index')
+        ], ensure_ascii=False),
     }
     return render(request, 'pracapp/match_result.html', context)
 

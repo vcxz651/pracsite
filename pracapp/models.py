@@ -673,3 +673,38 @@ class MeetingScheduleConfirmation(models.Model):
             models.Index(fields=['meeting', 'version'], name='msc_meeting_version_idx'),
             models.Index(fields=['meeting', 'version', 'user'], name='msc_meet_ver_user_idx'),
         ]
+
+
+class ExtraPracticeSchedule(models.Model):
+    """
+    최종 확정 이후 곡 참가자(Session.assignee)가 직접 잡는 추가 합주.
+    자동 매칭과 무관하며, 즉시 확정된다.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    meeting = models.ForeignKey(
+        Meeting, on_delete=models.CASCADE, related_name='extra_practice_schedules'
+    )
+    song = models.ForeignKey(
+        Song, on_delete=models.CASCADE, related_name='extra_practice_schedules'
+    )
+    room = models.ForeignKey(
+        PracticeRoom, on_delete=models.CASCADE, related_name='extra_practice_schedules'
+    )
+    date = models.DateField()
+    start_index = models.IntegerField()   # 18~47 (30분 슬롯, 09:00~24:00)
+    end_index = models.IntegerField()     # start_index < end_index
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_extra_practices',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('room', 'date', 'start_index')
+        indexes = [
+            models.Index(fields=['meeting', 'song'], name='eps_meeting_song_idx'),
+            models.Index(fields=['meeting', 'date'], name='eps_meeting_date_idx'),
+            models.Index(fields=['room', 'date', 'start_index'], name='eps_room_date_start_idx'),
+        ]

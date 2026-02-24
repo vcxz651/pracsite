@@ -66,6 +66,10 @@ urlpatterns = [
     path('meeting/<uuid:meeting_id>/random_assign/', views.random_assign_all, name='random_assign_all'),
     path('song/<uuid:song_id>/reset/', views.reset_song_assignments, name='reset_song_assignments'),
 
+    path('meeting/<uuid:meeting_id>/song/<uuid:song_id>/extra-practice/', views.extra_practice, name='extra_practice'),
+    path('meeting/<uuid:meeting_id>/song/<uuid:song_id>/extra-practice/save/', views.extra_practice_save, name='extra_practice_save'),
+    path('meeting/<uuid:meeting_id>/song/<uuid:song_id>/extra-practice/delete/', views.extra_practice_delete, name='extra_practice_delete'),
+
     path('meeting/<uuid:meeting_id>/song/create/', views.SongCreateView.as_view(), name='song_create'),
     path('song/<uuid:song_id>/applicants-data/', views.song_applicants_data, name='song_applicants_data'),
     path('song/update/<uuid:pk>/', views.SongUpdateView.as_view(), name='song_update'),

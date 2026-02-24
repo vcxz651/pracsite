@@ -136,10 +136,10 @@
 
     /* 7. 이벤트 카드 (여기가 핵심 수정됨) */
     .event-card {
-        font-size: 0.78rem;
+        font-size: 0.75rem;
         text-align: left;
-        padding: 5px 6px;
-        border-radius: 4px;
+        padding: 3px 6px;
+        border-radius: 5px;
         margin-bottom: 0;
         box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         cursor: pointer;
@@ -175,6 +175,43 @@
         pointer-events: none;
         z-index: 15;
     }
+    .btn-extra-practice {
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        font-size: 0.62rem;
+        padding: 1px 5px;
+        background: rgba(255,255,255,0.88);
+        border: 1px solid #5b4fcf;
+        color: #5b4fcf;
+        border-radius: 4px;
+        line-height: 1.4;
+        white-space: nowrap;
+        z-index: 5;
+        pointer-events: auto;
+        text-decoration: none;
+    }
+    .btn-extra-practice:hover { background: #5b4fcf; color: #fff; }
+
+    /* 최종 시간표에 표시되는 추가합주 카드 */
+    .board-extra-practice-card {
+        position: absolute;
+        left: 2px; right: 2px;
+        background: rgba(91,79,207,.10);
+        border: 1.5px dashed #5b4fcf;
+        border-radius: 4px;
+        font-size: 0.63rem;
+        color: #5b4fcf;
+        padding: 2px 4px;
+        overflow: hidden;
+        z-index: 4;
+        pointer-events: auto;
+        cursor: default;
+        line-height: 1.3;
+    }
+    .board-extra-practice-card .ep-card-label { font-weight: 700; }
+    .week-board.is-full-view .board-extra-practice-card { font-size: 9px; padding: 1px 2px; }
+
     .event-song-title {
         font-weight: 700;
         line-height: 1.15;
@@ -340,22 +377,32 @@
     .song-heat-unavailable { color: #212529; font-weight: 700; cursor: pointer; }
 
     .week-board {
-        --slot-h: 62px;
+        --slot-h: 32px;
+        --ep-primary: #5b4fcf;
         display: grid;
-        grid-template-columns: 80px repeat(7, minmax(130px, 1fr));
-        background: #dee2e6;
+        grid-template-columns: 52px repeat(7, minmax(130px, 1fr));
+        background: #ddd;
         gap: 1px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
     }
     .week-board.is-full-view {
-        --slot-h: 18px;
+        --slot-h: 20px;
     }
     .board-head-time, .board-head-day {
-        background: #f8f9fa;
-        padding: 8px 4px;
-        font-weight: 700;
+        background: #f4f4f8;
+        padding: 0.4rem 0.2rem;
+        font-weight: 600;
+        font-size: 0.78rem;
         text-align: center;
         position: relative;
         overflow: hidden;
+        border-bottom: 1px solid #ddd;
+    }
+    .board-head-day.is-today {
+        background: #ede9ff;
+        color: var(--ep-primary);
     }
     .board-head-day.weekend-sat .small {
         color: #1c7ed6 !important;
@@ -370,16 +417,16 @@
         color: #e03131 !important;
     }
     .board-time-col {
-        background: #f1f3f5;
+        background: #f4f4f8;
         transition: height 0.26s ease, transform 0.26s ease;
         overflow: hidden;
     }
     .board-time-row {
         height: var(--slot-h);
-        border-bottom: 1px solid #dee2e6;
-        color: #6c757d;
+        border-bottom: 1px solid #f0f0f0;
+        color: #999;
         font-weight: 600;
-        font-size: 12px;
+        font-size: 0.68rem;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -418,8 +465,10 @@
         z-index: 1650;
     }
     .week-board.is-weekday-focus .board-head-day.is-day-dimmed::after,
-    .week-board.is-weekday-focus .board-day-col.is-day-dimmed::after,
-    .week-board.is-weekday-focus .board-room-toggle-cell.is-day-dimmed::after {
+    .week-board.is-weekday-focus .board-day-col.is-day-dimmed::after {
+        opacity: 1;
+    }
+    .week-board-section:has(.week-board.is-weekday-focus) .board-room-toggle-cell.is-day-dimmed::after {
         opacity: 1;
     }
     .board-head-day.out-of-range {
@@ -440,46 +489,38 @@
         );
         filter: saturate(0.75);
     }
-    .board-room-toggle-row {
-        display: grid;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-        border-top: 1px solid #e9ecef;
-        border-bottom: 1px solid #e9ecef;
-        background: #f8fbff;
+    .week-board-section {
+        overflow-x: auto;
+        margin-top: 0.75rem;
     }
-    .board-room-toggle-cell {
-        min-height: 44px;
-        padding: 4px 6px;
-        border-right: 1px solid #edf2f8;
-        position: relative;
-    }
-    .board-room-toggle-cell:last-child {
-        border-right: none;
-    }
-    .board-room-toggle-list {
+    .week-room-filter {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 0.4rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        min-height: 28px;
     }
     .board-room-toggle-btn {
-        border: 1px solid #c8d8ee;
+        border: 1.5px solid #ccc;
         background: #ffffff;
-        color: #31557f;
+        color: #555;
         border-radius: 999px;
         font-size: 0.68rem;
         line-height: 1.1;
         padding: 2px 7px;
-        flex: 0 0 calc(50% - 2px);
-        max-width: calc(50% - 2px);
+        flex: none;
         text-align: center;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        transition: all .15s;
     }
     .board-room-toggle-btn.active {
-        background: #2b6cb0;
-        border-color: #1f4f86;
+        background: var(--ep-primary, #5b4fcf);
+        border-color: var(--ep-primary, #5b4fcf);
         color: #fff;
+        font-weight: 600;
     }
     .board-room-toggle-count {
         display: inline-block;
@@ -490,12 +531,12 @@
         font-size: 0.62rem;
         line-height: 1.25;
         text-align: center;
-        background: #dbe6f8;
-        color: #35547a;
+        background: #ede9ff;
+        color: #5b4fcf;
     }
     .board-room-toggle-btn.active .board-room-toggle-count {
-        background: rgba(10, 33, 63, 0.26);
-        color: #e8f1ff;
+        background: rgba(255,255,255,0.25);
+        color: #fff;
     }
     .board-room-toggle-btn.is-temp-room.active {
         background: #d69e00;
@@ -507,23 +548,22 @@
         color: #fff7df;
     }
     .board-room-toggle-add {
-        border: 1px dashed #7aa2db;
-        background: #f3f8ff;
-        color: #1f4f86;
+        border: 1.5px dashed var(--ep-primary, #5b4fcf);
+        background: #faf9ff;
+        color: var(--ep-primary, #5b4fcf);
         border-radius: 999px;
         font-size: 0.67rem;
         line-height: 1.1;
         padding: 2px 7px;
         font-weight: 700;
-        flex: 0 0 calc(50% - 2px);
-        max-width: calc(50% - 2px);
+        flex: none;
         text-align: center;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .board-room-toggle-add:hover {
-        background: #e5f0ff;
+        background: #ede9ff;
     }
     .board-room-toggle-muted {
         font-size: 0.7rem;
@@ -546,8 +586,13 @@
     }
     .booking-room-block-overlay {
         position: absolute;
-        border: 1px solid rgba(178, 24, 43, 0.45);
-        background: rgba(225, 29, 72, 0.24);
+        background: repeating-linear-gradient(
+            45deg,
+            rgba(245,160,50,.18) 0, rgba(245,160,50,.18) 4px,
+            transparent 4px, transparent 10px
+        );
+        border: none;
+        border-left: 3px solid #f5a032;
         pointer-events: auto;
         cursor: pointer;
     }
@@ -615,8 +660,8 @@
             to bottom,
             transparent 0,
             transparent calc(var(--slot-h) - 1px),
-            #edf0f2 calc(var(--slot-h) - 1px),
-            #edf0f2 var(--slot-h)
+            #f0f0f0 calc(var(--slot-h) - 1px),
+            #f0f0f0 var(--slot-h)
         );
         transition: height 0.26s ease, transform 0.26s ease;
     }
@@ -859,9 +904,12 @@
     .board-event.drag-preview {
         z-index: 1800 !important;
         pointer-events: none !important;
-        opacity: 0.45 !important;
+        opacity: 1 !important;
         transition: none !important;
-        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+        background: rgba(91,79,207,.25) !important;
+        border: 2px dashed #5b4fcf !important;
+        border-radius: 5px !important;
+        box-shadow: none !important;
     }
     .board-event.drag-ghost {
         position: fixed !important;
@@ -882,7 +930,9 @@
         display: none !important;
     }
     .board-event.drag-preview.drag-target-invalid {
-        box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.95), 0 8px 18px rgba(0, 0, 0, 0.22);
+        background: rgba(200,40,40,.18) !important;
+        border-color: #c00 !important;
+        box-shadow: none !important;
     }
     .floating-popover {
         position: fixed;
@@ -1632,9 +1682,11 @@
                            >
                             🔄 매칭 다시하기
                         </button>
+                        <!--
                         <button type="button" id="resetAllChangesTopBtn" class="btn btn-outline-danger">
                             전체 리셋
                         </button>
+                        -->
                         {% if not is_simulation %}
                         <button id="saveWorkDraftBtn" class="btn btn-outline-primary fw-bold px-4">
                             💾 현재 시간표 임시 저장
@@ -1679,9 +1731,11 @@
                         class="btn btn-outline-primary fw-bold px-3">
                     💾 예약 임시 저장
                 </button>
+            <!--
                 <button type="button" id="resetAllChangesBookingBtn" class="btn btn-outline-danger fw-bold px-3">
                     전체 리셋
                 </button>
+            -->
                 {% endif %}
                 {% if can_confirm_final %}
                 <button id="saveResultBtn" class="btn btn-success fw-bold px-4">
@@ -1898,7 +1952,11 @@
                 <span class="week-action-hint">타일을 클릭하면 불가능 사유를 고정할 수 있습니다</span>
             </div>
             {% endif %}
-            <div class="week-board mt-3"
+            <div class="week-board-section">
+            {% if not is_final_view or is_booking_confirm_view and is_manager_role %}
+            <div class="week-room-filter" data-week-room-filter></div>
+            {% endif %}
+            <div class="week-board"
                  data-week-id="{{ forloop.counter0 }}"
                  data-compact-start="{{ week.display_start_slot }}"
                  data-compact-end="{{ week.display_end_slot }}"
@@ -1909,7 +1967,8 @@
                 <div class="board-head-time" aria-label="시간"></div>
                 {% for day in week.days %}
                     <div class="board-head-day{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %} out-of-range{% endif %}{% if day.date|date:'w' == '6' %} weekend-sat{% elif day.date|date:'w' == '0' %} weekend-sun{% endif %}"
-                         data-day-index="{{ forloop.counter0 }}">
+                         data-day-index="{{ forloop.counter0 }}"
+                         data-date-str="{{ day.date|date:'Y-m-d' }}">
                         <div class="fw-bold">{{ day.date|date:"D" }}</div>
                         <div class="small text-muted">{{ day.date|date:"m/d" }}</div>
                         {% if is_booking_confirm_view and is_manager_role and day.date >= meeting.practice_start_date and day.date <= meeting.practice_end_date %}
@@ -1921,33 +1980,6 @@
                         {% endif %}
                     </div>
                 {% endfor %}
-                {% if not is_final_view %}
-                <div class="board-head-time"></div>
-                <div class="board-room-toggle-row" style="grid-column: 2 / span 7;">
-                    {% for day in week.days %}
-                    <div class="board-room-toggle-cell{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %} out-of-range{% endif %}"
-                         data-booking-room-toggle-cell
-                         data-day-index="{{ forloop.counter0 }}"
-                         data-date="{{ day.date|date:'Y-m-d' }}"
-                         data-in-range="{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %}0{% else %}1{% endif %}">
-                        <div class="board-room-toggle-list"></div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% elif is_booking_confirm_view and is_manager_role %}
-                <div class="board-head-time"></div>
-                <div class="board-room-toggle-row" style="grid-column: 2 / span 7;">
-                    {% for day in week.days %}
-                    <div class="board-room-toggle-cell{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %} out-of-range{% endif %}"
-                         data-booking-room-toggle-cell
-                         data-day-index="{{ forloop.counter0 }}"
-                         data-date="{{ day.date|date:'Y-m-d' }}"
-                         data-in-range="{% if day.date < meeting.practice_start_date or day.date > meeting.practice_end_date %}0{% else %}1{% endif %}">
-                        <div class="board-room-toggle-list"></div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
 
                 <div class="board-time-col">
                     {% for idx, label in week.time_range %}
@@ -2020,6 +2052,13 @@
                                             {% endif %}
                                         {% endfor %}
                                     </div>
+                                    {% if is_confirmed_final or is_manager_role %}
+                                    <a class="btn btn-xs btn-extra-practice js-extra-practice-btn d-none"
+                                       href="{% url 'extra_practice' meeting.id event.song.id %}"
+                                       data-song-id="{{ event.song.id }}"
+                                       title="추가 합주 잡기"
+                                       onclick="event.stopPropagation();">+ 추가합주</a>
+                                    {% endif %}
 
                                 </div>
                             {% endfor %}
@@ -2027,6 +2066,7 @@
                     </div>
                 {% endfor %}
             </div>
+            </div>{# /week-board-section #}
         </div>
     </div>
     {% endfor %}
@@ -2156,6 +2196,8 @@
     const showMyUnavailableOverlay = isTemporaryFinalView && !isManagerRole;
     const myUnavailableSlotsMap = JSON.parse('{{ my_unavailable_slots_json|default:"{}"|escapejs }}');
     const mySongIdSet = new Set(JSON.parse('{{ my_song_ids_json|default:"[]"|escapejs }}'));
+    const songParticipantSongIds = new Set(JSON.parse('{{ song_participant_song_ids_json|default:"[]"|escapejs }}'));
+    const extraPracticeSchedules = JSON.parse('{{ extra_practice_schedules_json|default:"[]"|escapejs }}');
     const unconfirmedUserLabels = [
         {% for u in unconfirmed_users %}
             "{{ u.realname|escapejs }}({{ u.username|escapejs }})"{% if not forloop.last %},{% endif %}
@@ -2354,12 +2396,16 @@
         });
     }
 
+    function getBoardSection(weekBoard) {
+        return weekBoard.closest('.week-board-section') || weekBoard.parentElement;
+    }
+
     function clearWeekdayFocusOverlay(targetWeekBoard = null) {
         const boards = targetWeekBoard ? [targetWeekBoard] : Array.from(document.querySelectorAll('.week-board'));
         boards.forEach((weekBoard) => {
             weekBoard.dataset.activeFocusDayIndex = '';
             weekBoard.classList.remove('is-weekday-focus');
-            weekBoard.querySelectorAll('.board-head-day.is-day-dimmed, .board-day-col.is-day-dimmed, .board-room-toggle-cell.is-day-dimmed').forEach((el) => {
+            getBoardSection(weekBoard).querySelectorAll('.board-head-day.is-day-dimmed, .board-day-col.is-day-dimmed, .board-room-toggle-cell.is-day-dimmed').forEach((el) => {
                 el.classList.remove('is-day-dimmed');
             });
         });
@@ -2373,7 +2419,7 @@
         if (String(weekBoard.dataset.activeFocusDayIndex || '') === activeIndex) return;
         weekBoard.dataset.activeFocusDayIndex = activeIndex;
         weekBoard.classList.add('is-weekday-focus');
-        weekBoard.querySelectorAll('.board-head-day[data-day-index], .board-day-col[data-day-index], .board-room-toggle-cell[data-day-index]').forEach((el) => {
+        getBoardSection(weekBoard).querySelectorAll('.board-head-day[data-day-index], .board-day-col[data-day-index], .board-room-toggle-cell[data-day-index]').forEach((el) => {
             const isDim = String(el.dataset.dayIndex || '') !== activeIndex;
             el.classList.toggle('is-day-dimmed', isDim);
         });
@@ -2823,7 +2869,125 @@
                 : '';
             cell.querySelector('.board-room-toggle-list').innerHTML = `${html}${addBtnHtml}`;
         });
+        // 주 단위 필터 바 동기화
+        document.querySelectorAll('.week-board').forEach((wb) => renderWeekRoomFilter(wb));
     }
+
+    // ── 주 단위 합주실 필터 ──────────────────────────────────────────────
+    function getWeekDates(weekBoard) {
+        if (!weekBoard) return [];
+        return Array.from(weekBoard.querySelectorAll('.board-day-grid[data-date]'))
+            .map((g) => g.dataset.date).filter(Boolean);
+    }
+
+    function renderWeekRoomFilter(weekBoard) {
+        if (!weekBoard) return;
+        const filterBar = getBoardSection(weekBoard)?.querySelector('[data-week-room-filter]');
+        if (!filterBar) return;
+        const roomslotEnabled = isRoomSlotLayoutEnabled();
+        filterBar.style.display = roomslotEnabled ? '' : 'none';
+        if (!roomslotEnabled) { filterBar.innerHTML = ''; return; }
+
+        const dates = getWeekDates(weekBoard);
+        if (!dates.length) { filterBar.innerHTML = ''; return; }
+
+        // 이 주에 등장하는 모든 고유 합주실 수집
+        const seen = new Set();
+        const allRooms = [];
+        dates.forEach((dateStr) => {
+            getRoomsForDate(dateStr, { includeTemporary: true }).forEach((room) => {
+                const rid = String(room.id || '');
+                if (!seen.has(rid)) { seen.add(rid); allRooms.push(room); }
+            });
+        });
+
+        // 첫 번째 범위 내 날짜의 활성 상태를 주 단위 기준으로 사용
+        const firstDate = dates.find((d) => {
+            const grid = weekBoard.querySelector(`.board-day-grid[data-date="${d}"]`);
+            return grid && String(grid.dataset.inRange || '1') === '1';
+        }) || dates[0];
+        const activeIds = new Set(getActiveSplitRoomIdsForDate(firstDate));
+
+        const roomslotMode = isRoomSlotLayoutEnabled();
+        const eventCounts = new Map();
+        weekBoard.querySelectorAll('.board-event').forEach((el) => {
+            const rid = String(el.dataset.roomId || '');
+            if (rid) eventCounts.set(rid, (eventCounts.get(rid) || 0) + 1);
+        });
+
+        const html = allRooms.map((room) => {
+            const isActive = activeIds.has(String(room.id));
+            const cnt = Number(eventCounts.get(room.id) || 0);
+            const countHtml = (!isActive && cnt > 0) ? `<span class="board-room-toggle-count">${cnt}</span>` : '';
+            const tempClass = room.temporary ? ' is-temp-room' : '';
+            const clickAttr = roomslotMode ? ` data-week-room-id="${escapeHtml(String(room.id))}"` : '';
+            const locText = String(room.location || '').trim();
+            const titleText = locText ? `${room.name} (${locText})` : room.name;
+            return `<button type="button" class="board-room-toggle-btn${tempClass}${isActive ? ' active' : ''}" data-room-id="${escapeHtml(String(room.id))}" title="${escapeHtml(titleText)}"${clickAttr}>${escapeHtml(room.name)}${countHtml}</button>`;
+        }).join('');
+        const addBtnHtml = roomslotMode
+            ? `<button type="button" class="board-room-toggle-add" data-week-room-add>임시합주실 추가</button>`
+            : '';
+        filterBar.innerHTML = html + addBtnHtml;
+    }
+
+    function toggleWeekRoom(weekBoard, roomId) {
+        if (!isRoomSlotLayoutEnabled()) return;
+        const dates = getWeekDates(weekBoard);
+        if (!dates.length || !roomId) return;
+        const firstDate = dates[0];
+        const active = new Set(getActiveSplitRoomIdsForDate(firstDate));
+        if (active.has(roomId)) {
+            if (active.size <= 1) return;
+            active.delete(roomId);
+        } else {
+            active.add(roomId);
+        }
+        // 주 전체 날짜에 동일 활성 상태 적용
+        dates.forEach((dateStr) => {
+            const allIds = getAllBookingRoomIds(dateStr);
+            bookingRoomSplitStateByDate[dateStr] = allIds.filter((id) => active.has(id));
+            applyBookingRoomVisibilityForDate(dateStr);
+        });
+        renderWeekRoomFilter(weekBoard);
+        weekBoard.querySelectorAll('.board-day-grid').forEach((grid) => {
+            renderBookingRoomSplitGuidesForGrid(grid);
+        });
+    }
+
+    function addBookingTempRoomForWeek(ev, weekBoard) {
+        if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+        if (!isRoomSlotLayoutEnabled() || !weekBoard) return;
+        const dates = getWeekDates(weekBoard);
+        if (!dates.length) return;
+        const firstDate = dates[0];
+        const existingList = getBookingTempRoomsForDate(firstDate);
+        const defaultName = `임시합주실 ${existingList.length + 1}`;
+        const nameRaw = window.prompt('임시합주실 이름을 입력하세요.', defaultName);
+        if (nameRaw === null) return;
+        const roomName = String(nameRaw || '').trim();
+        if (!roomName) { alert('합주실 이름을 입력해주세요.'); return; }
+        const locationRaw = window.prompt('임시합주실 위치를 입력하세요.', '');
+        if (locationRaw === null) return;
+        const roomLocation = String(locationRaw || '').trim();
+        const roomId = `temp-user-week-${firstDate}-${Date.now()}-${bookingTempRoomCounter}`;
+        bookingTempRoomCounter += 1;
+        // 주 전체 날짜에 임시합주실 추가 + 활성화
+        dates.forEach((dateStr) => {
+            const list = getBookingTempRoomsForDate(dateStr);
+            list.push({ id: roomId, name: roomName, location: roomLocation, capacity: 0, temporary: true, date: dateStr, confirmed: true });
+            bookingTempRoomIdentityConfirmed.add(roomId);
+            const active = new Set(getActiveSplitRoomIdsForDate(dateStr));
+            active.add(roomId);
+            bookingRoomSplitStateByDate[dateStr] = getAllBookingRoomIds(dateStr).filter((id) => active.has(id));
+            applyBookingRoomVisibilityForDate(dateStr);
+        });
+        renderWeekRoomFilter(weekBoard);
+        weekBoard.querySelectorAll('.board-day-grid').forEach((grid) => {
+            renderBookingRoomSplitGuidesForGrid(grid);
+        });
+    }
+    // ────────────────────────────────────────────────────────────────────
 
     function addBookingTempRoomForDate(ev, dateStr) {
         if (ev) {
@@ -3844,6 +4008,36 @@
         wrap.innerHTML = rows.join('');
     }
 
+    function bindWeekRoomToggleHandler() {
+        if (document.body.dataset.bookingRoomToggleClickBound === '1') return;
+        document.body.dataset.bookingRoomToggleClickBound = '1';
+        document.body.addEventListener('click', (ev) => {
+            // 주 단위 임시합주실 추가
+            const weekAddBtn = ev.target.closest('.board-room-toggle-add[data-week-room-add]');
+            if (weekAddBtn) {
+                const wb = weekAddBtn.closest('.week-board-section')?.querySelector('.week-board');
+                addBookingTempRoomForWeek(ev, wb);
+                return;
+            }
+            // 주 단위 합주실 토글
+            const weekToggleBtn = ev.target.closest('.board-room-toggle-btn[data-week-room-id]');
+            if (weekToggleBtn) {
+                const wb = weekToggleBtn.closest('.week-board-section')?.querySelector('.week-board');
+                if (wb) toggleWeekRoom(wb, weekToggleBtn.dataset.weekRoomId || '');
+                return;
+            }
+            // 기존 per-date 핸들러 (하위 호환)
+            const addBtn = ev.target.closest('.board-room-toggle-add[data-toggle-add-date]');
+            if (addBtn) {
+                addBookingTempRoomForDate(ev, addBtn.dataset.toggleAddDate || '');
+                return;
+            }
+            const toggleBtn = ev.target.closest('.board-room-toggle-btn[data-toggle-date][data-toggle-room-id]');
+            if (!toggleBtn) return;
+            toggleBookingRoomSplit(ev, toggleBtn.dataset.toggleDate || '', toggleBtn.dataset.toggleRoomId || '');
+        });
+    }
+
     function bindBookingListClickActions() {
         if (!bookingToolsEnabled()) return;
 
@@ -3877,16 +4071,7 @@
             jumpToFailedWeek(el.dataset.failedWeekNo || '');
         });
 
-        bindOnce(document.body, 'bookingRoomToggleClickBound', (ev) => {
-            const addBtn = ev.target.closest('.board-room-toggle-add[data-toggle-add-date]');
-            if (addBtn) {
-                addBookingTempRoomForDate(ev, addBtn.dataset.toggleAddDate || '');
-                return;
-            }
-            const toggleBtn = ev.target.closest('.board-room-toggle-btn[data-toggle-date][data-toggle-room-id]');
-            if (!toggleBtn) return;
-            toggleBookingRoomSplit(ev, toggleBtn.dataset.toggleDate || '', toggleBtn.dataset.toggleRoomId || '');
-        });
+        bindWeekRoomToggleHandler();
     }
 
     function bindStaticActionButtons() {
@@ -6410,9 +6595,6 @@
             if (reasonTotal > 0) lines.push(`<span class="hover-conf-reason">불가능 인원 ${reasonTotal}명</span>`);
         } else {
             reasonList.forEach((label) => lines.push(renderMissingPersonHtml(label)));
-            if (hasRoomShortage && Array.isArray(shortageReasons) && shortageReasons.length) {
-                shortageReasons.forEach((label) => lines.push(renderMissingPersonHtml(label)));
-            }
         }
 
         const hasBadgeRow = topBadges.length > 0;
@@ -6423,10 +6605,14 @@
         const hiddenCount = Math.max(0, lines.length - visibleDetails.length);
         if (hiddenCount > 0) {
             if (visibleDetails.length > 0) {
-                visibleDetails[visibleDetails.length - 1] = `<span class="hover-conf-more">+${hiddenCount}</span>`;
+                visibleDetails[visibleDetails.length - 1] = `<span class="hover-conf-more">+${hiddenCount + 1}</span>`;
             } else if (hasBadgeRow) {
                 topBadges.push(`<span class="hover-conf-more">+${hiddenCount}</span>`);
             }
+        }
+        // shortageReasons는 +N 계산에서 제외하고 항상 별도 표시
+        if (!summaryOnly && hasRoomShortage && Array.isArray(shortageReasons) && shortageReasons.length) {
+            shortageReasons.forEach((label) => visibleDetails.push(renderMissingPersonHtml(label)));
         }
 
         const renderedLines = [];
@@ -7313,7 +7499,7 @@
 
         let targetRoomId = '';
         let targetRoomName = '';
-        if (bookingToolsEnabled()) {
+        if (isRoomSlotLayoutEnabled()) {
             const activeRoomIds = getActiveSplitRoomIdsForDate(String(grid.dataset.date || ''));
             const roomCount = Math.max(1, activeRoomIds.length);
             const relX = clamp(clientX - gridRect.left, 0, Math.max(1, gridRect.width - 1));
@@ -8103,7 +8289,7 @@
         } else if (reasons.length >= 3) {
             dragState.preview.classList.add('drag-target-warn3');
         }
-        if (bookingToolsEnabled()) {
+        if (isRoomSlotLayoutEnabled()) {
             const activeRoomIds = getActiveSplitRoomIdsForDate(drop.date);
             const count = Math.max(1, activeRoomIds.length);
             const previewRoomId = String(roomPick?.roomId || drop.targetRoomId || '');
@@ -8200,7 +8386,7 @@
         const targetRoomId = String(state.drop?.targetRoomId || '');
         const sourceRoomId = String(state.sourceRoomId || '');
         const sameSlot = targetDate === state.sourceDate && targetStart === state.sourceStart;
-        const roomChangedInBooking = bookingToolsEnabled() && targetRoomId && sourceRoomId && targetRoomId !== sourceRoomId;
+        const roomChangedInBooking = isRoomSlotLayoutEnabled() && targetRoomId && sourceRoomId && targetRoomId !== sourceRoomId;
         if (sameSlot && !roomChangedInBooking) {
             cleanupDrag(state);
             collapseWeekBoardAfterDrag(state.weekBoard);
@@ -8740,6 +8926,29 @@
         el.addEventListener('mouseenter', () => startSongHover(songId, false, { weekId }));
         el.addEventListener('mouseleave', () => endSongHover(songId));
         el.addEventListener('mousedown', (ev) => onFailedCardMouseDown(ev, el));
+    }
+
+    // 추가합주 카드를 최종 시간표 보드에 렌더링
+    function renderExtraPracticeCards() {
+        document.querySelectorAll('.board-extra-practice-card').forEach(el => el.remove());
+        if (!extraPracticeSchedules || !extraPracticeSchedules.length) return;
+        extraPracticeSchedules.forEach((sc) => {
+            const grid = document.querySelector(`.board-day-grid[data-date="${sc.date}"]`);
+            if (!grid) return;
+            const slotStart = parseInt(grid.dataset.slotStart || '18', 10);
+            const slotCount = parseInt(grid.dataset.slotCount || '24', 10);
+            const slotEnd = slotStart + slotCount;
+            if (sc.end <= slotStart || sc.start >= slotEnd) return;
+            const clampS = Math.max(sc.start, slotStart);
+            const clampE = Math.min(sc.end, slotEnd);
+            const card = document.createElement('div');
+            card.className = 'board-extra-practice-card';
+            card.style.top = `calc(${clampS - slotStart} * var(--slot-h))`;
+            card.style.height = `calc(${clampE - clampS} * var(--slot-h) - 2px)`;
+            card.title = `[추가합주] ${sc.song_title} — ${sc.song_artist}\n합주실: ${sc.room_name}`;
+            card.innerHTML = `<span class="ep-card-label">+합주</span> ${sc.song_title}`;
+            grid.appendChild(card);
+        });
     }
 
     function bindInitialBoardAndFailedCardInteractions() {
@@ -9412,6 +9621,24 @@
 
     bindStaticActionButtons();
     bindInitialBoardAndFailedCardInteractions();
+
+    // 추가 합주 잡기 버튼: 관리자는 항상, 참가자는 isConfirmedFinal 시에만 노출
+    if (isConfirmedFinal || isManagerRole) {
+        document.querySelectorAll('.js-extra-practice-btn').forEach((btn) => {
+            const songId = String(btn.dataset.songId || '');
+            if (isManagerRole || songParticipantSongIds.has(songId)) {
+                btn.classList.remove('d-none');
+            }
+            // 카드의 click → openEventInfo 버블링 차단
+            btn.addEventListener('click', (ev) => ev.stopPropagation());
+        });
+    }
+    renderExtraPracticeCards();
+    // 오늘 날짜 헤더에 is-today 클래스 추가
+    const todayStr = new Date().toISOString().slice(0, 10);
+    document.querySelectorAll('.board-head-day[data-date-str]').forEach((el) => {
+        if (el.dataset.dateStr === todayStr) el.classList.add('is-today');
+    });
     updateBoardLayoutToggleUI();
     document.querySelectorAll('.board-day-grid').forEach((grid) => {
         relayoutDayGrid(grid);
@@ -9452,6 +9679,7 @@
         renderBookingRoomToggleCells();
         applyBookingRoomVisibilityForDate();
         markBookingRoomBlockedEvents();
+        bindWeekRoomToggleHandler();
     }
     setupLeaveGuardForUnsavedDraft();
     captureInitialWorkDraftSignatureIfNeeded();
