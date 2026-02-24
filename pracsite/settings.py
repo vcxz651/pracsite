@@ -150,6 +150,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 else:
     # [로컬 환경] 테스트 편의를 위해 보안 완화
     SESSION_COOKIE_SECURE = False
