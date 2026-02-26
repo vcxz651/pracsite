@@ -739,3 +739,133 @@ class TestMatchResultFlow(TestCase):
             start_index=22,
             end_index=23,
         ).exists())
+
+
+class TestDemoFlowExtreme(TestCase):
+    def _post(self, path, data=None):
+        return self.client.post(path, data=data or {}, HTTP_HOST='localhost')
+
+    def _get(self, path):
+        return self.client.get(path, HTTP_HOST='localhost')
+
+    def test_demo_start_switch_scenarios_and_exit_cleanup(self):
+        start_resp = self._post(reverse('demo_start'), {'scenario': '1'})
+        self.assertEqual(start_resp.status_code, 302)
+        self.assertEqual(start_resp['Location'], reverse('demo_scenario', args=[1]))
+
+        session = self.client.session
+        self.assertTrue(session.get('demo_mode'))
+        self.assertEqual(session.get('demo_role'), 'manager')
+        meeting_id = session.get('demo_meeting_id')
+        self.assertTrue(meeting_id)
+
+        meeting = Meeting.objects.get(id=meeting_id)
+        self.assertTrue(meeting.is_schedule_coordinating)
+        self.assertFalse(meeting.is_booking_in_progress)
+        self.assertFalse(meeting.is_final_schedule_confirmed)
+        self.assertEqual(meeting.participants.count(), 40)
+        self.assertEqual(meeting.songs.count(), 80)
+
+        s2_resp = self._get(reverse('demo_scenario', args=[2]))
+        self.assertEqual(s2_resp.status_code, 302)
+        self.assertEqual(s2_resp['Location'], reverse('demo_dashboard'))
+
+        meeting.refresh_from_db()
+        self.assertTrue(meeting.is_schedule_coordinating)
+        self.assertFalse(meeting.is_final_schedule_released)
+        self.assertFalse(meeting.is_booking_in_progress)
+        self.assertFalse(meeting.is_final_schedule_confirmed)
+        self.assertEqual(meeting.participants.count(), 40)
+        self.assertEqual(meeting.songs.count(), 80)
+        self.assertTrue(MeetingWorkDraft.objects.filter(meeting=meeting).exists())
+
+        s3_resp = self._get(reverse('demo_scenario', args=[3]))
+        self.assertEqual(s3_resp.status_code, 302)
+        self.assertEqual(s3_resp['Location'], reverse('schedule_final', args=[meeting.id]))
+
+        meeting.refresh_from_db()
+        self.assertTrue(meeting.is_final_schedule_confirmed)
+        self.assertGreaterEqual(
+            MeetingScheduleConfirmation.objects.filter(meeting=meeting, version=meeting.schedule_version).count(),
+            1,
+        )
+
+        exit_resp = self._post(reverse('demo_exit'))
+        self.assertEqual(exit_resp.status_code, 302)
+        self.assertEqual(exit_resp['Location'], reverse('home'))
+
+        self.assertTrue(Band.objects.filter(id=meeting.band_id).exists())
+        self.assertGreaterEqual(User.objects.filter(username__startswith='demo_cache_').count(), 2)
+        self.assertIsNone(self.client.session.get('demo_mode'))
+
+    def test_demo_switch_role_repeated_keeps_session_and_swaps_user(self):
+        self._post(reverse('demo_start'), {'scenario': '2'})
+        meeting_id = self.client.session.get('demo_meeting_id')
+        manager_id = self.client.session.get('demo_user_manager_id')
+        member_id = self.client.session.get('demo_user_member_id')
+        meeting = Meeting.objects.get(id=meeting_id)
+
+        self.assertEqual(meeting.participants.count(), 6)
+        self.assertEqual(meeting.songs.count(), 20)
+
+        self.assertEqual(self.client.session.get('demo_role'), 'manager')
+        self.assertEqual(self.client.session.get('_auth_user_id'), manager_id)
+
+        for i in range(8):
+            resp = self._post(reverse('demo_switch_role'), {'next': reverse('demo_scenario', args=[2])})
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp['Location'], reverse('demo_scenario', args=[2]))
+            self.assertTrue(self.client.session.get('demo_mode'))
+            self.assertEqual(self.client.session.get('demo_meeting_id'), meeting_id)
+            if i % 2 == 0:
+                self.assertEqual(self.client.session.get('demo_role'), 'member')
+                self.assertEqual(self.client.session.get('_auth_user_id'), member_id)
+            else:
+                self.assertEqual(self.client.session.get('demo_role'), 'manager')
+                self.assertEqual(self.client.session.get('_auth_user_id'), manager_id)
+
+    def test_demo_restart_replaces_previous_demo_dataset(self):
+        self._post(reverse('demo_start'), {'scenario': '1'})
+        first_band_id = self.client.session.get('demo_band_id')
+        first_meeting_id = self.client.session.get('demo_meeting_id')
+        self.assertTrue(Band.objects.filter(id=first_band_id).exists())
+        self.assertTrue(Meeting.objects.filter(id=first_meeting_id).exists())
+
+        self._post(reverse('demo_start'), {'scenario': '3'})
+        second_band_id = self.client.session.get('demo_band_id')
+        second_meeting_id = self.client.session.get('demo_meeting_id')
+
+        self.assertNotEqual(first_band_id, second_band_id)
+        self.assertNotEqual(first_meeting_id, second_meeting_id)
+        self.assertTrue(Band.objects.filter(id=first_band_id).exists())
+        self.assertTrue(Meeting.objects.filter(id=first_meeting_id).exists())
+        self.assertTrue(Band.objects.filter(id=second_band_id).exists())
+        self.assertTrue(Meeting.objects.filter(id=second_meeting_id).exists())
+
+        # 캐시 밴드는 시나리오별로 유지될 수 있다.
+        self.assertGreaterEqual(Band.objects.filter(name__startswith='[데모CACHE]').count(), 2)
+
+    def test_demo_member_scenario_one_redirects_to_meeting_detail(self):
+        self._post(reverse('demo_start'), {'scenario': '1'})
+        meeting_id = self.client.session.get('demo_meeting_id')
+
+        self._post(reverse('demo_switch_role'), {'next': reverse('demo_scenario', args=[1])})
+        self.assertEqual(self.client.session.get('demo_role'), 'member')
+
+        resp = self._get(reverse('demo_scenario', args=[1]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], reverse('meeting_detail', kwargs={'pk': meeting_id}))
+
+    def test_demo_data_cleans_up_immediately_when_leaving_demo_scope(self):
+        self._post(reverse('demo_start'), {'scenario': '2'})
+        band_id = self.client.session.get('demo_band_id')
+        self.assertTrue(Band.objects.filter(id=band_id).exists())
+        self.assertTrue(self.client.session.get('demo_mode'))
+
+        # 비데모 경로로 이동하면 미들웨어가 즉시 정리해야 한다.
+        resp = self._get(reverse('home'))
+        self.assertEqual(resp.status_code, 200)
+
+        self.assertTrue(Band.objects.filter(id=band_id).exists())
+        self.assertIsNone(self.client.session.get('demo_mode'))
+        self.assertFalse('_auth_user_id' in self.client.session)

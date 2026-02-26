@@ -47,6 +47,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'pracapp.middleware.DemoSessionCleanupMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -63,6 +64,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'pracapp.context_processors.demo_context',
             ],
         },
     },
@@ -123,12 +125,30 @@ AUTH_USER_MODEL = 'pracapp.User'
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # 1. CSRF 신뢰 도메인 설정
-# 기본적으로 환경 변수에 등록된 호스트들을 추가합니다.
-CSRF_TRUSTED_ORIGINS = [
-    f"https://{h.strip()}"
-    for h in os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
-    if h.strip() and h.strip() not in ('localhost', '127.0.0.1')
-]
+def _normalized_hosts(hosts):
+    out = []
+    for h in hosts:
+        host = (h or '').strip()
+        if not host:
+            continue
+        if host.startswith('http://') or host.startswith('https://'):
+            host = host.split('://', 1)[1]
+        host = host.rstrip('/')
+        if host and host not in out:
+            out.append(host)
+    return out
+
+
+_env_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
+_host_candidates = list(ALLOWED_HOSTS)
+if _env_allowed_hosts:
+    _host_candidates.extend([h.strip() for h in _env_allowed_hosts.split(',') if h.strip()])
+
+CSRF_TRUSTED_ORIGINS = []
+for host in _normalized_hosts(_host_candidates):
+    if host in ('localhost', '127.0.0.1'):
+        continue
+    CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
 
 # Railway 관련 도메인들 추가
 if RAILWAY_PUBLIC_DOMAIN:
@@ -157,5 +177,7 @@ else:
     # 로컬에서 로그인이 튕기지 않도록 http 주소 추가
     CSRF_TRUSTED_ORIGINS += [
         "http://127.0.0.1",
-        "http://localhost"
+        "http://localhost",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
     ]

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="py-4">
+  <div class="p-4 rounded-4 bg-white border shadow-sm mb-4">
+    <h2 class="fw-bold mb-2">밴드 합주 일정 자동 조율 데모</h2>
+    <p class="text-muted mb-1">회원가입 없이 바로 체험할 수 있습니다. 시나리오를 선택하면 데모 데이터가 자동 생성됩니다.</p>
+    <p class="text-muted mb-0 small">데모 곡은 <strong>demo_songs_rock_80.csv</strong>(없으면 기존 템플릿 CSV fallback)로 생성되며, 합주기간은 <strong>4월 마지막 주 월요일 ~ 6월 첫째 주 금요일</strong>로 고정됩니다.</p>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <h5 class="fw-bold">시나리오 A: 혼자서 40명 25곡 합주 잡기</h5>
+          <p class="text-muted small flex-grow-1 mb-3">선곡시트(80곡/25곡 배정)에서 시작해 매칭 설정과 결과 보드 조율을 체험합니다.</p>
+          <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
+            {% csrf_token %}
+            <input type="hidden" name="scenario" value="1">
+            <button type="submit" class="btn btn-primary w-100 js-demo-start-btn">시작하기</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <h5 class="fw-bold">시나리오 B: 60명 중 팀 A 합주 잡기</h5>
+          <p class="text-muted small flex-grow-1 mb-3">대시보드에서 팀 B~F 예약 현황을 확인하고, 우리 팀 A 선곡시트(20곡/4곡 배정)로 이동합니다.</p>
+          <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
+            {% csrf_token %}
+            <input type="hidden" name="scenario" value="2">
+            <button type="submit" class="btn btn-primary w-100 js-demo-start-btn">시작하기</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <h5 class="fw-bold">시나리오 C: 추가합주 잡기</h5>
+          <p class="text-muted small flex-grow-1 mb-3">최종 확정 시간표에서 +합주 버튼으로 추가합주 보드를 열어 기존 일정 회피 배치를 체험합니다.</p>
+          <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
+            {% csrf_token %}
+            <input type="hidden" name="scenario" value="3">
+            <button type="submit" class="btn btn-primary w-100 js-demo-start-btn">시작하기</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4">
+    <a href="/tutorial/" class="btn btn-outline-secondary">전체 튜토리얼(6단계) 보기</a>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const forms = document.querySelectorAll('.js-demo-start-form');
+    forms.forEach((form) => {
+      form.addEventListener('submit', function () {
+        const btn = form.querySelector('.js-demo-start-btn');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>준비 중...';
+      });
+    });
+  })();
+</script>
+{% endblock %}

@@ -723,6 +723,57 @@
         justify-self: end;
         width: auto;
     }
+    .song-comments-panel {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border: 1px solid #dbe3ea;
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+    .song-comments-list {
+        display: grid;
+        gap: 6px;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+    .song-comment-item {
+        background: #fff;
+        border: 1px solid #e7edf3;
+        border-radius: 7px;
+        padding: 6px 8px;
+    }
+    .song-comment-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 2px;
+    }
+    .song-comment-author {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #2f3a45;
+    }
+    .song-comment-time {
+        font-size: 0.72rem;
+        color: #8693a0;
+    }
+    .song-comment-content {
+        font-size: 0.82rem;
+        line-height: 1.35;
+        color: #2f3a45;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .song-comment-empty {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-align: center;
+        padding: 6px;
+        border: 1px dashed #d4dce4;
+        border-radius: 6px;
+        background: #fff;
+    }
     .js-song-card {
         position: relative;
         padding-top: 0.6rem !important;
@@ -868,6 +919,9 @@
         row-gap: 6px;
     }
     @media (max-width: 991.98px) {
+        :root {
+            --session-btn-font: 0.82rem;
+        }
         .song-main-row {
             flex-direction: column;
             gap: 8px;
@@ -916,6 +970,30 @@
         .manager-page .song-footer-row > div:last-child > .d-flex {
             width: 100%;
             justify-content: flex-start;
+        }
+        .song-footer-row .btn {
+            min-height: 40px;
+            padding-top: 0.42rem;
+            padding-bottom: 0.42rem;
+        }
+        .song-title-text {
+            font-size: 1.05rem !important;
+        }
+        .song-artist-text {
+            font-size: 0.86rem !important;
+        }
+    }
+    @media (max-width: 576px) {
+        .song-footer-row {
+            grid-template-columns: 1fr !important;
+            row-gap: 6px;
+        }
+        .song-footer-row > div:last-child {
+            justify-content: flex-start;
+        }
+        .song-footer-row .btn {
+            width: auto;
+            max-width: 100%;
         }
     }
     #matchActionPanel .js-match-run-btn {
@@ -2357,6 +2435,60 @@
         refreshMemberSongSortIfActive();
     }
 
+    function applySessionApplicantUi(sessionId, userId, isApplicant, applicantCount = null) {
+        const sid = String(sessionId || '');
+        const uid = String(userId || '');
+        if (!sid || !uid) return;
+        const parsedApplicantCount = Number(applicantCount);
+        const hasApplicantCount = Number.isFinite(parsedApplicantCount);
+        let songIdForSession = '';
+
+        document.querySelectorAll(`.js-session-slot-btn[data-session-slot-id="${sid}"]`).forEach((btn) => {
+            const currentIds = new Set(parseApplicantIdsFromSlot(btn));
+            if (isApplicant) currentIds.add(uid);
+            else currentIds.delete(uid);
+            btn.dataset.applicantIds = Array.from(currentIds).join(',');
+            if (hasApplicantCount) {
+                const normalizedCount = Math.max(0, parsedApplicantCount);
+                btn.dataset.applicantCount = String(normalizedCount);
+                const badge = btn.querySelector('.badge.session-applicant-count-badge');
+                if (normalizedCount > 0) {
+                    if (badge) {
+                        badge.textContent = String(normalizedCount);
+                    } else {
+                        btn.insertAdjacentHTML('beforeend', ` <span class="badge session-applicant-count-badge ms-1">${normalizedCount}</span>`);
+                    }
+                } else if (badge) {
+                    badge.remove();
+                }
+            }
+            const card = btn.closest('.js-song-card');
+            if (card) {
+                updateSongCardVisual(card);
+                if (!songIdForSession && card.dataset.songId) songIdForSession = String(card.dataset.songId || '');
+            }
+        });
+
+        document.querySelectorAll(`.js-modal-applicant-badge[data-session-id="${sid}"][data-user-id="${uid}"]`).forEach((el) => {
+            el.classList.toggle('d-none', !isApplicant);
+        });
+        document.querySelectorAll(`.js-modal-applicant-toggle[data-session-id="${sid}"][data-user-id="${uid}"]`).forEach((btn) => {
+            btn.classList.remove('btn-primary', 'btn-outline-secondary', 'btn-outline-primary');
+            btn.classList.add(isApplicant ? 'btn-primary' : 'btn-outline-secondary');
+            btn.textContent = isApplicant ? '지원 해제' : '지원자 추가';
+        });
+
+        if (hasApplicantCount && songIdForSession) {
+            document.querySelectorAll(`.song-applicants-${songIdForSession}[data-session-id="${sid}"]`).forEach((el) => {
+                el.dataset.applicantCount = String(Math.max(0, parsedApplicantCount));
+            });
+            syncSongApplicantsToggleButton(songIdForSession);
+        }
+        syncGlobalApplicantsToggleButton();
+        syncHoverMemberHighlights();
+        refreshMemberSongSortIfActive();
+    }
+
     async function assignSessionViaAjax(assignUrl) {
         const res = await fetch(assignUrl, {
             method: 'GET',
@@ -2368,6 +2500,27 @@
         const data = await res.json();
         if (!res.ok || data.status !== 'success') {
             throw new Error((data && data.message) || '세션 배정 처리에 실패했습니다.');
+        }
+        return data;
+    }
+
+    async function manageSessionApplicantViaAjax(formEl) {
+        const csrfInput = formEl.querySelector('input[name="csrfmiddlewaretoken"]');
+        const csrf = csrfInput ? csrfInput.value : '';
+        const body = new URLSearchParams(new FormData(formEl));
+        const res = await fetch(formEl.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrf,
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            },
+            body: body.toString(),
+            credentials: 'same-origin',
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') {
+            throw new Error((data && data.message) || '지원자 변경에 실패했습니다.');
         }
         return data;
     }
@@ -2559,6 +2712,91 @@
         });
     }
 
+    function setSongCommentToggleLabel(songId, count) {
+        const n = Number(count || 0);
+        document.querySelectorAll(`.js-song-comments-toggle[data-song-id="${songId}"]`).forEach((btn) => {
+            btn.textContent = Number.isFinite(n) && n > 0 ? `댓글 ${n}` : '댓글';
+        });
+    }
+
+    function renderSongComments(panelEl, comments) {
+        if (!panelEl) return;
+        const listEl = panelEl.querySelector('.js-song-comments-list');
+        if (!listEl) return;
+        const rows = Array.isArray(comments) ? comments : [];
+        if (!rows.length) {
+            listEl.innerHTML = '<div class="song-comment-empty">아직 댓글이 없습니다.</div>';
+            return;
+        }
+        listEl.innerHTML = rows.map((row) => {
+            const deleteBtn = row && row.can_delete
+                ? `<button type="button" class="btn btn-sm btn-link text-danger p-0 js-song-comment-delete" data-delete-url="${escapeHtml(row.delete_url || '')}">삭제</button>`
+                : '';
+            return `
+                <div class="song-comment-item" data-comment-id="${escapeHtml(row.id || '')}">
+                    <div class="song-comment-head">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="song-comment-author">${escapeHtml(row.author_name || '')}</span>
+                            <span class="song-comment-time">${escapeHtml(row.created_text || '')}</span>
+                        </div>
+                        ${deleteBtn}
+                    </div>
+                    <div class="song-comment-content">${escapeHtml(row.content || '')}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function ensureSongCommentsLoaded(panelEl, options = {}) {
+        if (!panelEl) return;
+        const force = !!options.force;
+        if (!force && panelEl.dataset.loaded === '1') return;
+        const loadUrl = String(panelEl.dataset.loadUrl || '').trim();
+        if (!loadUrl) return;
+        const listEl = panelEl.querySelector('.js-song-comments-list');
+        if (listEl) {
+            listEl.innerHTML = '<div class="song-comment-empty">댓글 불러오는 중...</div>';
+        }
+        try {
+            const res = await fetch(loadUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const data = await res.json();
+            if (!res.ok || data.status !== 'success') {
+                throw new Error((data && data.message) || '댓글을 불러오지 못했습니다.');
+            }
+            renderSongComments(panelEl, data.comments || []);
+            panelEl.dataset.loaded = '1';
+            panelEl.dataset.commentCount = String(data.comment_count || 0);
+            setSongCommentToggleLabel(String(panelEl.dataset.songId || ''), Number(data.comment_count || 0));
+        } catch (err) {
+            if (listEl) {
+                listEl.innerHTML = `<div class="song-comment-empty text-danger">${escapeHtml((err && err.message) || '댓글을 불러오지 못했습니다.')}</div>`;
+            }
+        }
+    }
+
+    function toggleSongComments(toggleBtn) {
+        if (!toggleBtn) return;
+        const targetSel = String(toggleBtn.dataset.target || '').trim();
+        if (!targetSel) return;
+        const panelEl = document.querySelector(targetSel);
+        if (!panelEl) return;
+        const expanded = String(toggleBtn.dataset.expanded || '0') === '1';
+        const nextExpanded = !expanded;
+        document.querySelectorAll(`.js-song-comments-toggle[data-song-id="${toggleBtn.dataset.songId || ''}"]`).forEach((btn) => {
+            btn.dataset.expanded = nextExpanded ? '1' : '0';
+            btn.classList.toggle('btn-dark', nextExpanded);
+            btn.classList.toggle('btn-outline-secondary', !nextExpanded);
+        });
+        panelEl.hidden = !nextExpanded;
+        if (nextExpanded) {
+            ensureSongCommentsLoaded(panelEl);
+        }
+    }
+
     async function applySortWithoutReload(selectEl) {
         if (!selectEl) return false;
         const form = selectEl.closest('form');
@@ -2657,6 +2895,51 @@
     document.addEventListener('submit', async function (event) {
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) return;
+        if (form.classList.contains('js-song-comment-form')) {
+            event.preventDefault();
+            const panelEl = form.closest('.song-comments-panel');
+            if (!panelEl) return;
+            const inputEl = form.querySelector('.js-song-comment-input');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+            const csrf = csrfInput ? csrfInput.value : '';
+            const createUrl = String(panelEl.dataset.createUrl || '').trim();
+            const content = String(inputEl ? inputEl.value : '').trim();
+            if (!content) {
+                alert('댓글 내용을 입력해주세요.');
+                if (inputEl) inputEl.focus();
+                return;
+            }
+            if (!createUrl) return;
+            if (submitBtn) submitBtn.disabled = true;
+            try {
+                const body = new URLSearchParams();
+                body.set('content', content);
+                const res = await fetch(createUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrf,
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    },
+                    body: body.toString(),
+                    credentials: 'same-origin',
+                });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    alert((data && data.message) || '댓글 등록에 실패했습니다.');
+                    return;
+                }
+                if (inputEl) inputEl.value = '';
+                panelEl.dataset.loaded = '0';
+                await ensureSongCommentsLoaded(panelEl, { force: true });
+            } catch (_) {
+                alert('댓글 등록 중 네트워크 오류가 발생했습니다.');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+            return;
+        }
         if (form.classList.contains('js-session-apply')) {
             if (!confirmApply(form)) {
                 event.preventDefault();
@@ -2687,6 +2970,21 @@
                 updateSessionApplyUiFromAjax(form, data);
             } catch (_) {
                 alert('네트워크 오류가 발생했습니다.');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+        if (form.classList.contains('js-modal-applicant-form')) {
+            event.preventDefault();
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+            try {
+                const data = await manageSessionApplicantViaAjax(form);
+                applySessionApplicantUi(data.session_id, data.user_id, !!data.is_applicant, data.applicant_count);
+                refreshMatchActionPanel();
+                if (isManagerPage) loadSessionStatsForManager();
+            } catch (err) {
+                alert((err && err.message) || '지원자 변경에 실패했습니다.');
             } finally {
                 if (submitBtn) submitBtn.disabled = false;
             }
@@ -2733,6 +3031,46 @@
     }
 
     document.addEventListener('click', function (event) {
+        const commentsToggleBtn = event.target.closest('.js-song-comments-toggle');
+        if (commentsToggleBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleSongComments(commentsToggleBtn);
+            return;
+        }
+        const commentDeleteBtn = event.target.closest('.js-song-comment-delete');
+        if (commentDeleteBtn) {
+            event.preventDefault();
+            const panelEl = commentDeleteBtn.closest('.song-comments-panel');
+            if (!panelEl) return;
+            const deleteUrl = String(commentDeleteBtn.dataset.deleteUrl || '').trim();
+            if (!deleteUrl) return;
+            const csrfInput = panelEl.querySelector('input[name="csrfmiddlewaretoken"]');
+            const csrf = csrfInput ? csrfInput.value : '';
+            if (!window.confirm('댓글을 삭제할까요?')) return;
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrf,
+                },
+                credentials: 'same-origin',
+            })
+            .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+            .then(async ({ ok, data }) => {
+                if (!ok || data.status !== 'success') {
+                    alert((data && data.message) || '댓글 삭제에 실패했습니다.');
+                    return;
+                }
+                panelEl.dataset.loaded = '0';
+                await ensureSongCommentsLoaded(panelEl, { force: true });
+            })
+            .catch(() => {
+                alert('댓글 삭제 중 네트워크 오류가 발생했습니다.');
+            });
+            return;
+        }
+
         const mainRow = event.target.closest('.js-song-main-toggle');
         if (!mainRow) return;
         const blocked = event.target.closest('a, button, input, select, textarea, label, form, .js-session-slot-btn, .applicant-hover-btn, .applicant-chip');
@@ -3060,7 +3398,7 @@
                 const assignBtnLabel = m.is_assignee ? '배정 해제' : '배정하기';
                 return `
                     <div class="d-flex gap-1">
-                        <form method="post" action="${escapeHtml(m.manage_url)}">
+                        <form method="post" action="${escapeHtml(m.manage_url)}" class="js-modal-applicant-form">
                             <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                             <input type="hidden" name="sort" value="${escapeHtml(data.sort || '')}">
                             <button type="submit"
@@ -3234,6 +3572,7 @@
             <div class="card border shadow-sm session-stats-card">
                 {% if is_manager %}
                     <div class="card-header py-3 px-3 bg-white session-stats-panel-head">
+                        <div class="fw-bold text-center mb-2">선곡 확정 : {{ fully_assigned_song_count }}</div>
                         {% if show_session_details and song_count > 0 %}
                         <div class="mb-2">
                             <input type="search"
@@ -3295,6 +3634,7 @@
     {% if is_manager %}
     {# 모바일 토글 현황판 #}
     <div class="d-lg-none mb-3">
+        <div class="fw-bold text-center mb-2">선곡 확정 : {{ fully_assigned_song_count }}</div>
         <button class="btn btn-outline-secondary btn-sm w-100 d-flex justify-content-between align-items-center"
                 type="button" data-bs-toggle="collapse" data-bs-target="#memberStatusMobile" aria-expanded="false">
             <span>🎛 현황판</span>
@@ -3482,7 +3822,14 @@
     {% endif %}
 
     <div class="d-flex align-items-center justify-content-between gap-2 mb-3 setlist-toolbar">
-        <h3 class="fw-bold mb-0">🎵 Setlist ({{ song_count }})</h3>
+        <h3 class="fw-bold mb-0">
+            🎵 Setlist
+            {% if meeting.is_session_application_closed %}
+                ({{ fully_assigned_song_count }} / {{ total_song_count }})
+            {% else %}
+                ({{ song_count }})
+            {% endif %}
+        </h3>
         <div class="d-flex align-items-center gap-2 flex-nowrap setlist-toolbar-actions">
             {% if is_manager %}
             <form method="get" class="d-flex align-items-center">
@@ -3791,6 +4138,15 @@
                         ▶ 유튜브
                     </button>
                     {% endif %}
+                    {% if show_session_details %}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary ms-1 js-song-comments-toggle"
+                            data-song-id="{{ s.id }}"
+                            data-target="#songCommentsPanel{{ s.id }}"
+                            data-expanded="0">
+                        댓글
+                    </button>
+                    {% endif %}
                 </div>
 
                 <div class="d-flex gap-2 align-items-center flex-wrap justify-content-end">
@@ -3806,7 +4162,7 @@
                             <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
                             <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
                             {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
-                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-arrow-counterclockwise"></i> 배정 초기화
                             </button>
                         </form>
@@ -3866,6 +4222,15 @@
                             data-active="0">
                         악보 있냐?
                     </button>
+                    {% if show_session_details %}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary ms-1 js-song-comments-toggle"
+                            data-song-id="{{ s.id }}"
+                            data-target="#songCommentsPanel{{ s.id }}"
+                            data-expanded="0">
+                        댓글
+                    </button>
+                    {% endif %}
                 </div>
                 <div class="d-flex gap-2 align-items-center flex-wrap justify-content-end">
                     <div class="d-flex gap-2">
@@ -3878,7 +4243,7 @@
                             <input type="hidden" name="list_mode" value="{{ list_mode|default:'paged' }}">
                             <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
                             {% if song_page %}<input type="hidden" name="page" value="{{ song_page.number }}">{% endif %}
-                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-arrow-counterclockwise"></i> 배정 초기화
                             </button>
                         </form>
@@ -3914,12 +4279,23 @@
             {% endif %}
             {% if is_final_locked %}
             <div class="song-footer-row d-flex justify-content-between align-items-center {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}">
-                <button type="button"
-                        class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
-                        data-song-id="{{ s.id }}"
-                        data-active="0">
-                    악보 있냐?
-                </button>
+                <div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
+                            data-song-id="{{ s.id }}"
+                            data-active="0">
+                        악보 있냐?
+                    </button>
+                    {% if show_session_details %}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary ms-1 js-song-comments-toggle"
+                            data-song-id="{{ s.id }}"
+                            data-target="#songCommentsPanel{{ s.id }}"
+                            data-expanded="0">
+                        댓글
+                    </button>
+                    {% endif %}
+                </div>
                 {% if show_session_details %}
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
@@ -3935,12 +4311,23 @@
             {% endif %}
             {% if not is_leader and s.author != request.user %}
             <div class="song-footer-row d-flex justify-content-between align-items-center {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}">
-                <button type="button"
-                        class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
-                        data-song-id="{{ s.id }}"
-                        data-active="0">
-                    악보 있냐?
-                </button>
+                <div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary js-sheet-toggle-btn"
+                            data-song-id="{{ s.id }}"
+                            data-active="0">
+                        악보 있냐?
+                    </button>
+                    {% if show_session_details %}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary ms-1 js-song-comments-toggle"
+                            data-song-id="{{ s.id }}"
+                            data-target="#songCommentsPanel{{ s.id }}"
+                            data-expanded="0">
+                        댓글
+                    </button>
+                    {% endif %}
+                </div>
                 {% if show_session_details %}
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
@@ -3953,6 +4340,30 @@
                 {% endif %}
             </div>
             {% endif %}
+            {% endif %}
+
+            {% if show_session_details %}
+            <div id="songCommentsPanel{{ s.id }}"
+                 class="song-comments-panel {% if not is_manager %}js-song-footer-actions song-footer-collapsible{% endif %}"
+                 data-song-id="{{ s.id }}"
+                 data-load-url="{% url 'song_comments_data' s.id %}"
+                 data-create-url="{% url 'song_comment_create' s.id %}"
+                 data-loaded="0"
+                 data-comment-count="0"
+                 hidden>
+                <form class="js-song-comment-form" data-song-id="{{ s.id }}">
+                    {% csrf_token %}
+                    <div class="input-group input-group-sm">
+                        <input type="text"
+                               class="form-control js-song-comment-input"
+                               name="content"
+                               maxlength="500"
+                               placeholder="댓글 입력 (최대 500자)">
+                        <button type="submit" class="btn btn-dark">등록</button>
+                    </div>
+                </form>
+                <div class="song-comments-list mt-2 js-song-comments-list"></div>
+            </div>
             {% endif %}
 
         </li>
@@ -4006,7 +4417,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="sort" value="{{ sort_option }}">
                 <input type="hidden" name="quick_filter" value="{{ quick_filter }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
+                <button type="submit" class="btn btn-outline-secondary btn-sm fw-bold">
                     <i class="bi bi-trash3-fill"></i> 전 배정 초기화
                 </button>
             </form>
@@ -4015,6 +4426,7 @@
             <span class="text-muted small">* 세션 지원 마감 이후에만 배정을 시작할 수 있습니다.</span>
             {% endif %}
         </div>
+        {% if not meeting.is_session_application_closed or not has_match_records %}
         <form method="post" action="{% url 'toggle_meeting_session_application' meeting.id %}" class="m-0">
             {% csrf_token %}
             <input type="hidden" name="sort" value="{{ sort_option }}">
@@ -4023,6 +4435,7 @@
                 {% if meeting.is_session_application_closed %}세션 지원 마감 해제{% else %}세션 지원 마감{% endif %}
             </button>
         </form>
+        {% endif %}
     </div>
     {% endif %}
     <div class="mb-3 d-flex justify-content-end">

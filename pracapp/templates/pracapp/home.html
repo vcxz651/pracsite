@@ -4,6 +4,45 @@
 {% if user.is_authenticated %}
 
 <div class="container mt-4 home-wrap">
+    {% if today_override %}
+        <div class="alert alert-warning py-2 mb-3 small" role="alert">
+            테스트 날짜 기준으로 표시 중: <strong>{{ today_override }}</strong>
+        </div>
+    {% endif %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold m-0">이번 주 내 합주곡</h4>
+        <div class="d-flex align-items-center gap-2">
+            {% if my_week_board %}
+                <span class="text-muted small">{{ my_week_board.week_start|date:"n/j" }} ~ {{ my_week_board.week_end|date:"n/j" }}</span>
+            {% endif %}
+            {% if my_week_board and my_week_board.has_events and my_week_board_event_only and my_week_board_event_only.has_events %}
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="togglePersonalScheduleBtn" aria-pressed="false">
+                    개인 일정 가리기
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    {% if my_week_board and my_week_board.has_events %}
+        <div class="card shadow-sm border-0 mb-4 home-card week-board-card">
+            <div class="card-body p-2 p-md-3">
+                <div id="homeWeekBoardSwitcher" class="home-week-board-switcher">
+                    <div id="homeWeekBoardFull" class="home-week-board-wrap">
+                        {% include 'pracapp/_home_week_board.html' with board=my_week_board %}
+                    </div>
+                    {% if my_week_board_event_only and my_week_board_event_only.has_events %}
+                        <div id="homeWeekBoardEventOnly" class="home-week-board-wrap is-hidden">
+                            {% include 'pracapp/_home_week_board.html' with board=my_week_board_event_only %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card shadow-sm border-0 mb-4 home-card week-rehearsal-empty">
+            <div class="card-body p-3 text-muted small">이번 주에 참여한 합주곡이 없습니다.</div>
+        </div>
+    {% endif %}
+
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold m-0">내 밴드</h4>
     </div>
@@ -98,6 +137,8 @@
     {% endif %}
 </div>
 
+<div id="homeEventPopover" class="floating-popover"></div>
+
 <div class="modal fade" id="deleteScheduleModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -154,6 +195,192 @@
     .band-summary-card {
         min-height: 124px;
     }
+    .week-rehearsal-card {
+        min-height: 108px;
+        background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+    }
+    .week-rehearsal-empty {
+        background: #fff;
+        border: 1px dashed #d0d7de !important;
+    }
+    .week-board-card {
+        background: #fff;
+    }
+    .home-week-board {
+        --home-slot-h: 18px;
+        display: grid;
+        grid-template-columns: 48px repeat(7, minmax(92px, 1fr));
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .home-week-board-wrap.is-hidden {
+        display: none;
+    }
+    .home-week-board-switcher {
+        position: relative;
+    }
+    .home-week-board-wrap {
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .home-week-board-wrap.is-fading-out {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    .home-week-board-wrap.is-fading-in {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .home-week-board-wrap {
+            transition: none;
+        }
+    }
+    .home-week-head {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #495057;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        text-align: center;
+        padding: 6px 2px;
+    }
+    .home-week-head.today {
+        background: #e7f5ff;
+        color: #1971c2;
+    }
+    .home-week-head.time-head {
+        background: #f1f3f5;
+    }
+    .home-week-time-col {
+        border-right: 1px solid #e9ecef;
+    }
+    .home-week-time-row {
+        height: var(--home-slot-h);
+        font-size: 0.68rem;
+        color: #868e96;
+        padding: 2px 3px;
+        border-bottom: 1px solid #f1f3f5;
+        box-sizing: border-box;
+        text-align: right;
+    }
+    .home-week-time-row.half {
+        color: transparent;
+        border-bottom-color: #f8f9fa;
+    }
+    .home-week-day-col {
+        position: relative;
+        border-right: 1px solid #f1f3f5;
+    }
+    .home-week-day-col:last-child {
+        border-right: none;
+    }
+    .home-week-day-grid {
+        position: relative;
+    }
+    .home-week-slot-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-bottom: 1px solid #f1f3f5;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .home-week-slot-line.half {
+        border-bottom-color: #f8f9fa;
+    }
+    .home-week-personal-block {
+        position: absolute;
+        left: 2px;
+        right: 2px;
+        background: rgba(108, 117, 125, 0.22);
+        border: 1px solid rgba(73, 80, 87, 0.35);
+        border-radius: 4px;
+        z-index: 1;
+        pointer-events: auto;
+        cursor: default;
+    }
+    .home-week-personal-block .personal-reason {
+        font-size: 0.62rem;
+        line-height: 1.2;
+        color: #495057;
+        font-weight: 700;
+        padding: 2px 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .home-week-board.hide-personal .home-week-personal-block {
+        display: none;
+    }
+    .home-week-event {
+        position: absolute;
+        background: rgba(25, 113, 194, 0.11);
+        border: 1px solid rgba(25, 113, 194, 0.35);
+        border-left: 3px solid #1971c2;
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-size: 0.68rem;
+        line-height: 1.2;
+        color: #1f2d3d;
+        overflow: hidden;
+        z-index: 2;
+    }
+    .home-week-event.extra {
+        background: rgba(91, 79, 207, 0.11);
+        border-color: rgba(91, 79, 207, 0.35);
+        border-left-color: #5b4fcf;
+    }
+    .home-week-event .event-main {
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .home-week-event .event-sub {
+        font-size: 0.64rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .floating-popover {
+        position: fixed;
+        z-index: 7000;
+        pointer-events: none;
+        min-width: 220px;
+        max-width: 320px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        border-radius: 10px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.35;
+        color: #212529;
+        display: none;
+        text-align: left;
+    }
+    .floating-popover .title {
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .floating-popover .line {
+        margin: 1px 0;
+        white-space: normal;
+        word-break: break-word;
+        text-align: left;
+    }
+    .floating-popover .label {
+        font-weight: 700;
+        color: #495057;
+        margin-right: 4px;
+    }
+    .floating-popover .tag-extra {
+        color: #c92a2a;
+        font-weight: 800;
+        margin-bottom: 2px;
+    }
     .section-subtitle {
         font-size: 1rem;
         line-height: 1.35;
@@ -173,12 +400,215 @@
         transform: translateY(-2px);
         box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important;
     }
+    @media (max-width: 576px) {
+        .home-wrap > .d-flex.justify-content-between.align-items-center.mb-3 {
+            align-items: flex-start !important;
+            gap: 8px;
+            flex-direction: column;
+        }
+        .home-wrap .schedule-card .card-body > .d-flex.gap-2 {
+            flex-wrap: wrap;
+        }
+        .home-wrap .schedule-card .card-body > .d-flex.gap-2 .btn {
+            min-height: 40px;
+        }
+    }
 </style>
 
 <script>
     let deleteScheduleModal = null;
     let deleteTargetStart = '';
     let deleteTargetEnd = '';
+    function escapeHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function moveFloatingPopover(el, clientX, clientY) {
+        if (!el) return;
+        const pad = 12;
+        const vw = window.innerWidth || document.documentElement.clientWidth;
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        const rect = el.getBoundingClientRect();
+        let left = clientX + 14;
+        let top = clientY + 14;
+        if (left + rect.width + pad > vw) left = Math.max(pad, clientX - rect.width - 14);
+        if (top + rect.height + pad > vh) top = Math.max(pad, clientY - rect.height - 14);
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+    }
+
+    function showHomeEventPopover(targetEl, clientX, clientY) {
+        const pop = document.getElementById('homeEventPopover');
+        if (!pop || !targetEl) return;
+        const bandName = String(targetEl.dataset.bandName || '').trim();
+        const meetingTitle = String(targetEl.dataset.meetingTitle || '').trim();
+        const kind = String(targetEl.dataset.kind || '').trim();
+        const songTitle = String(targetEl.dataset.songTitle || '').trim();
+        const songArtist = String(targetEl.dataset.songArtist || '').trim();
+        const timeText = String(targetEl.dataset.timeText || '').trim();
+        const roomName = String(targetEl.dataset.roomName || '').trim();
+        const title = `${bandName} · ${meetingTitle}`;
+        const songLine = songArtist ? `${songTitle} (${songArtist})` : songTitle;
+        pop.innerHTML = [
+            kind === '추가' ? '<div class="line tag-extra">추가합주</div>' : '',
+            `<div class="title">${escapeHtml(title)}</div>`,
+            `<div class="line">${escapeHtml(songLine)}</div>`,
+            `<div class="line">${escapeHtml(timeText)}</div>`,
+            `<div class="line">${escapeHtml(roomName)}</div>`,
+        ].join('');
+        pop.style.display = 'block';
+        moveFloatingPopover(pop, clientX, clientY);
+    }
+
+    function showHomePersonalPopover(targetEl, clientX, clientY) {
+        const pop = document.getElementById('homeEventPopover');
+        if (!pop || !targetEl) return;
+        const reasonText = String(targetEl.dataset.reasonText || '').trim() || '개인 일정';
+        pop.innerHTML = [
+            '<div class="title">개인 일정</div>',
+            `<div class="line">${escapeHtml(reasonText)}</div>`,
+        ].join('');
+        pop.style.display = 'block';
+        moveFloatingPopover(pop, clientX, clientY);
+    }
+
+    function hideHomeEventPopover() {
+        const pop = document.getElementById('homeEventPopover');
+        if (!pop) return;
+        pop.style.display = 'none';
+    }
+
+    function setPersonalScheduleHidden(hidden, animate = false) {
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const fullWrap = document.getElementById('homeWeekBoardFull');
+        const eventOnlyWrap = document.getElementById('homeWeekBoardEventOnly');
+        if (fullWrap && eventOnlyWrap) {
+            const showWrap = hidden ? eventOnlyWrap : fullWrap;
+            const hideWrap = hidden ? fullWrap : eventOnlyWrap;
+            if (showWrap.classList.contains('is-hidden')) {
+                if (animate && !reduceMotion) {
+                    const switcher = document.getElementById('homeWeekBoardSwitcher');
+                    if (switcher) {
+                        const fromHeight = hideWrap.getBoundingClientRect().height;
+                        switcher.style.height = `${fromHeight}px`;
+                        switcher.style.overflow = 'hidden';
+                        switcher.style.transition = 'height 0.22s ease';
+
+                        showWrap.classList.remove('is-hidden');
+                        showWrap.classList.add('is-fading-in');
+
+                        requestAnimationFrame(() => {
+                            const toHeight = showWrap.getBoundingClientRect().height;
+                            switcher.style.height = `${toHeight}px`;
+                            hideWrap.classList.add('is-fading-out');
+                            showWrap.classList.remove('is-fading-in');
+                        });
+
+                        window.setTimeout(() => {
+                            hideWrap.classList.add('is-hidden');
+                            hideWrap.classList.remove('is-fading-out');
+                            showWrap.classList.remove('is-fading-in');
+                            switcher.style.height = '';
+                            switcher.style.overflow = '';
+                            switcher.style.transition = '';
+                        }, 240);
+                    } else {
+                        showWrap.classList.remove('is-hidden');
+                        hideWrap.classList.add('is-hidden');
+                    }
+                } else {
+                    showWrap.classList.remove('is-hidden');
+                    hideWrap.classList.add('is-hidden');
+                }
+            }
+        } else {
+            const boardEls = document.querySelectorAll('.home-week-board');
+            boardEls.forEach((el) => {
+                el.classList.toggle('hide-personal', hidden);
+            });
+        }
+
+        const btn = document.getElementById('togglePersonalScheduleBtn');
+        if (btn) {
+            btn.textContent = hidden ? '개인 일정 보이기' : '개인 일정 가리기';
+            btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+        }
+
+        hideHomeEventPopover();
+    }
+
+    function initHomePersonalScheduleToggle() {
+        const btn = document.getElementById('togglePersonalScheduleBtn');
+        if (!btn) return;
+        const storageKey = 'home_week_hide_personal_schedule';
+        let hidden = false;
+        try {
+            hidden = window.localStorage.getItem(storageKey) === '1';
+        } catch (e) {
+            hidden = false;
+        }
+        setPersonalScheduleHidden(hidden, false);
+        btn.addEventListener('click', () => {
+            hidden = !hidden;
+            setPersonalScheduleHidden(hidden, true);
+            try {
+                window.localStorage.setItem(storageKey, hidden ? '1' : '0');
+            } catch (e) {
+                // ignore storage access failures
+            }
+        });
+    }
+
+    function initHomeEventTooltips() {
+        const eventItems = document.querySelectorAll('.js-home-event-tooltip');
+        eventItems.forEach((el) => {
+            el.addEventListener('mouseenter', (ev) => showHomeEventPopover(el, ev.clientX, ev.clientY));
+            el.addEventListener('mousemove', (ev) => moveFloatingPopover(document.getElementById('homeEventPopover'), ev.clientX, ev.clientY));
+            el.addEventListener('mouseleave', hideHomeEventPopover);
+            el.addEventListener('focus', () => {
+                const rect = el.getBoundingClientRect();
+                showHomeEventPopover(el, rect.left + (rect.width / 2), rect.top + 6);
+            });
+            el.addEventListener('blur', hideHomeEventPopover);
+            el.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                showHomeEventPopover(el, ev.clientX || 0, ev.clientY || 0);
+            });
+            el.addEventListener('touchstart', (ev) => {
+                const touch = (ev.touches && ev.touches[0]) ? ev.touches[0] : null;
+                if (!touch) return;
+                showHomeEventPopover(el, touch.clientX, touch.clientY);
+            }, { passive: true });
+        });
+
+        const personalItems = document.querySelectorAll('.js-home-personal-tooltip');
+        personalItems.forEach((el) => {
+            el.addEventListener('mouseenter', (ev) => showHomePersonalPopover(el, ev.clientX, ev.clientY));
+            el.addEventListener('mousemove', (ev) => moveFloatingPopover(document.getElementById('homeEventPopover'), ev.clientX, ev.clientY));
+            el.addEventListener('mouseleave', hideHomeEventPopover);
+            el.addEventListener('focus', () => {
+                const rect = el.getBoundingClientRect();
+                showHomePersonalPopover(el, rect.left + (rect.width / 2), rect.top + 6);
+            });
+            el.addEventListener('blur', hideHomeEventPopover);
+            el.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                showHomePersonalPopover(el, ev.clientX || 0, ev.clientY || 0);
+            });
+            el.addEventListener('touchstart', (ev) => {
+                const touch = (ev.touches && ev.touches[0]) ? ev.touches[0] : null;
+                if (!touch) return;
+                showHomePersonalPopover(el, touch.clientX, touch.clientY);
+            }, { passive: true });
+        });
+
+        document.addEventListener('click', hideHomeEventPopover);
+    }
 
     function openDeleteScheduleModal(startStr, endStr, label) {
         deleteTargetStart = startStr;
@@ -227,14 +657,155 @@
             btnEl.disabled = false;
         });
     }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            initHomeEventTooltips();
+            initHomePersonalScheduleToggle();
+        }, { once: true });
+    } else {
+        initHomeEventTooltips();
+        initHomePersonalScheduleToggle();
+    }
 </script>
 
 {% else %}
 <div class="text-center mt-5 pt-5">
-    <h1 class="fw-bold display-4 mb-3">Band Matcher</h1>
-    <p class="lead text-muted mb-4">합주 시간 조율, 이제 스트레스 받지 마세요.</p>
+    <h1 class="fw-bold display-4 mb-3">앗! 합주짜기너무편리하다! 머신</h1>
+    <p class="lead text-muted mb-4">Oh! It's FXXXING EASY!</p>
     <a href="{% url 'login' %}" class="btn btn-dark btn-lg px-5 rounded-pill shadow">시작하기</a>
 </div>
+
+<div class="modal fade" id="introModal" tabindex="-1" aria-labelledby="introModalLabel" aria-hidden="true" data-bs-backdrop="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="introModalLabel">앗! 합주짜기너무편리하다! 머신</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body px-4 py-4">
+                <div class="intro-video-placeholder rounded mb-3 d-flex align-items-center justify-content-center">
+                    <span class="text-muted">영상 준비 중</span>
+                </div>
+                <div class="small text-muted mb-2">
+                    <span id="introStepLabel">1 / 4</span>
+                </div>
+                <div class="intro-feature-card rounded p-3">
+                    <div class="d-flex align-items-center gap-2 mb-2 intro-step-heading">
+                        <span id="introStepIcon" class="intro-step-head-item">🎯</span>
+                        <span id="introStepTitle" class="intro-step-head-item fw-bold">1. 자동 매칭</span>
+                    </div>
+                    <p class="text-muted small mb-0" id="introStepDesc">모든 개인 일정과 합주, 사용 가능한 합주실을 자동으로 계산해 최적 합주 시간을 배치해줘요.</p>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button type="button" class="btn btn-outline-secondary px-4" id="introPrevBtn">이전</button>
+                <button type="button" class="btn btn-outline-secondary px-4" id="introNextBtn">다음</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .intro-video-placeholder {
+        background: #e9ecef;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+    }
+    .intro-feature-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    .intro-step-heading {
+        font-family: "Space Grotesk", "Noto Sans KR", sans-serif;
+    }
+    .intro-step-head-item {
+        font-size: 1.1rem;
+        line-height: 1.2;
+    }
+</style>
+
+<script>
+    (function() {
+        const INTRO_STEPS = [
+            {
+                icon: '🎯',
+                title: '1. 자동 매칭',
+                desc: '모든 개인 일정과 합주, 사용 가능한 합주실을 자동으로 계산해 최적 합주 시간을 배치해줘요.',
+            },
+            {
+                icon: '📅',
+                title: '2. 불가능 오버레이',
+                desc: '방 예약 충돌, 개인 일정, 타 팀 합주 일정을 한 화면에서 확인하고, 필요하면 강제 배치도 가능해요.',
+            },
+            {
+                icon: '📌',
+                title: '3. 배정된 일정 확인',
+                desc: '매니저가 일정을 공유하면 멤버들은 본인에게 할당된 합주 시간표를 확인할 수 있어요',
+            },
+            {
+                icon: '🏢',
+                title: '4. 추가합주',
+                desc: '예약 이후에도 일반 멤버가 직접 추가 합주를 잡을 수 있습니다.',
+            },
+        ];
+
+        function bindIntroStepNavigation() {
+            const labelEl = document.getElementById('introStepLabel');
+            const iconEl = document.getElementById('introStepIcon');
+            const titleEl = document.getElementById('introStepTitle');
+            const descEl = document.getElementById('introStepDesc');
+            const prevBtn = document.getElementById('introPrevBtn');
+            const nextBtn = document.getElementById('introNextBtn');
+            if (!labelEl || !iconEl || !titleEl || !descEl || !prevBtn || !nextBtn) return;
+
+            let idx = 0;
+
+            function renderStep() {
+                const step = INTRO_STEPS[idx];
+                if (!step) return;
+                labelEl.textContent = `${idx + 1} / ${INTRO_STEPS.length}`;
+                iconEl.textContent = step.icon;
+                titleEl.textContent = step.title;
+                descEl.textContent = step.desc;
+                prevBtn.disabled = idx <= 0;
+                nextBtn.textContent = idx >= INTRO_STEPS.length - 1 ? '로그인하러 가기' : '다음';
+            }
+
+            prevBtn.addEventListener('click', function() {
+                if (idx <= 0) return;
+                idx -= 1;
+                renderStep();
+            });
+            nextBtn.addEventListener('click', function() {
+                if (idx >= INTRO_STEPS.length - 1) {
+                    window.location.href = "{% url 'login' %}";
+                    return;
+                }
+                idx += 1;
+                renderStep();
+            });
+            renderStep();
+        }
+
+        function showIntroModalSafely() {
+            const modalEl = document.getElementById('introModal');
+            if (!modalEl) return;
+            if (!window.bootstrap || !window.bootstrap.Modal) {
+                window.setTimeout(showIntroModalSafely, 50);
+                return;
+            }
+            bindIntroStepNavigation();
+            window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showIntroModalSafely, { once: true });
+        } else {
+            showIntroModalSafely();
+        }
+    })();
+</script>
 {% endif %}
 
 {% endblock %}

@@ -1156,6 +1156,12 @@
         padding: 1px 4px;
         display: inline-block;
     }
+    .move-confirm-reasons .reason-line.section-forced {
+        color: #e67700;
+    }
+    .move-confirm-reasons .reason-line.section-temp-room {
+        color: #0b7285;
+    }
     .move-confirm-actions {
         margin-top: 14px;
         display: flex;
@@ -1606,6 +1612,9 @@
             max-height: none;
             box-shadow: none;
         }
+        .match-quick-remote {
+            display: none;
+        }
     }
     @media (min-width: 1024px) and (max-width: 1919.98px) {
         .booking-split-shell {
@@ -1684,24 +1693,42 @@
         }
         .board-head-time, .board-head-day {
             padding: 6px 2px;
-            font-size: 0.7rem;
+            font-size: 0.78rem;
         }
         .board-head-day .small {
-            font-size: 0.62rem !important;
+            font-size: 0.7rem !important;
         }
         .board-time-row {
-            font-size: 0.64rem;
+            font-size: 0.72rem;
         }
         .event-card {
             padding: 4px 4px;
             gap: 1px;
         }
         .event-song-title {
-            font-size: 0.66rem;
+            font-size: 0.74rem;
             min-height: 2.0em;
         }
         .event-room-name {
-            font-size: 0.6rem;
+            font-size: 0.68rem;
+        }
+        .result-header .btn,
+        .booking-tools-panel .btn {
+            min-height: 40px;
+        }
+    }
+    @media (max-width: 420px) {
+        .week-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .week-controls-left,
+        .week-controls-right {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        .week-controls .btn {
+            min-height: 40px;
         }
     }
     @media (max-width: 1500px) {
@@ -2374,6 +2401,7 @@
     const prepareFinalUrl = "{% url 'schedule_final_prepare' meeting.id %}";
     const exitMatchUrl = "{% url 'schedule_match_exit' meeting.id %}";
     const acknowledgeFinalUrl = "{% url 'schedule_final_acknowledge' meeting.id %}";
+    const currentMeetingTitle = String('{{ meeting.title|default:""|escapejs }}').trim();
     const csrfToken = '{{ csrf_token }}';
     let shareWarningNeeded = {{ share_warning_needed|default:False|yesno:"true,false" }};
     let shareActionInProgress = false;
@@ -2621,6 +2649,35 @@
         const day = parseInt(parts[2], 10);
         if (!Number.isFinite(month) || !Number.isFinite(day)) return `${parts[1]}/${parts[2]}`;
         return `${month}/${day}`;
+    }
+
+    function parseLocalDateYMD(dateStr) {
+        const s = String(dateStr || '').trim();
+        const parts = s.split('-');
+        if (parts.length < 3) return null;
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+        return new Date(y, m - 1, d);
+    }
+
+    function toWeekOffsetFromToday(dateStr) {
+        const target = parseLocalDateYMD(dateStr);
+        if (!target) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const mondayToday = new Date(today);
+        const todayWeekdayMon0 = (today.getDay() + 6) % 7;
+        mondayToday.setDate(today.getDate() - todayWeekdayMon0);
+
+        target.setHours(0, 0, 0, 0);
+        const mondayTarget = new Date(target);
+        const targetWeekdayMon0 = (target.getDay() + 6) % 7;
+        mondayTarget.setDate(target.getDate() - targetWeekdayMon0);
+
+        const diffMs = mondayTarget.getTime() - mondayToday.getTime();
+        return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
     }
 
     function getSongWeekKey(weekId, songId) {
@@ -4172,17 +4229,23 @@
 
     function bindStaticActionButtons() {
         const bindClickById = (id, handler) => {
-            const el = document.getElementById(id);
-            if (!el || el.dataset.clickBound === '1') return;
-            el.dataset.clickBound = '1';
-            el.addEventListener('click', handler);
+            const nodes = Array.from(document.querySelectorAll(`[id="${id}"]`));
+            if (!nodes.length) return;
+            nodes.forEach((el) => {
+                if (!el || el.dataset.clickBound === '1') return;
+                el.dataset.clickBound = '1';
+                el.addEventListener('click', handler);
+            });
         };
         const bindHoverPreviewById = (id, onEnter, onLeave) => {
-            const el = document.getElementById(id);
-            if (!el || el.dataset.hoverPreviewBound === '1') return;
-            el.dataset.hoverPreviewBound = '1';
-            el.addEventListener('mouseenter', onEnter);
-            el.addEventListener('mouseleave', onLeave);
+            const nodes = Array.from(document.querySelectorAll(`[id="${id}"]`));
+            if (!nodes.length) return;
+            nodes.forEach((el) => {
+                if (!el || el.dataset.hoverPreviewBound === '1') return;
+                el.dataset.hoverPreviewBound = '1';
+                el.addEventListener('mouseenter', onEnter);
+                el.addEventListener('mouseleave', onLeave);
+            });
         };
 
         bindClickById('boardLayoutGeneralBtn', () => setBoardLayoutMode('general'));
@@ -4215,8 +4278,8 @@
         bindClickById('quickTempRoomOnlyBtn', () => toggleQuickTempRoomOnly());
         bindClickById('quickSharedDiffOnlyBtn', () => toggleQuickSharedDiffOnly());
         if (isManagerRole) {
-            bindHoverPreviewById('quickForcedOnlyBtn', () => {
-                const btn = document.getElementById('quickForcedOnlyBtn');
+            bindHoverPreviewById('quickForcedOnlyBtn', (ev) => {
+                const btn = ev?.currentTarget;
                 if (!btn || btn.disabled) return;
                 quickForcedOnlyPreview = true;
                 applyQuickBoardFilters();
@@ -4226,8 +4289,8 @@
                 applyQuickBoardFilters();
                 syncQuickRemoteButtons();
             });
-            bindHoverPreviewById('quickTempRoomOnlyBtn', () => {
-                const btn = document.getElementById('quickTempRoomOnlyBtn');
+            bindHoverPreviewById('quickTempRoomOnlyBtn', (ev) => {
+                const btn = ev?.currentTarget;
                 if (!btn || btn.disabled) return;
                 quickTempRoomOnlyPreview = true;
                 applyQuickBoardFilters();
@@ -4237,8 +4300,8 @@
                 applyQuickBoardFilters();
                 syncQuickRemoteButtons();
             });
-            bindHoverPreviewById('quickSharedDiffOnlyBtn', () => {
-                const btn = document.getElementById('quickSharedDiffOnlyBtn');
+            bindHoverPreviewById('quickSharedDiffOnlyBtn', (ev) => {
+                const btn = ev?.currentTarget;
                 if (!btn || btn.disabled || btn.style.display === 'none') return;
                 quickSharedDiffOnlyPreview = true;
                 applyQuickBoardFilters();
@@ -4248,8 +4311,8 @@
                 applyQuickBoardFilters();
                 syncQuickRemoteButtons();
             });
-            bindHoverPreviewById('quickLayoutToggleBtn', () => {
-                const btn = document.getElementById('quickLayoutToggleBtn');
+            bindHoverPreviewById('quickLayoutToggleBtn', (ev) => {
+                const btn = ev?.currentTarget;
                 if (!btn || btn.disabled || isFinalView) return;
                 const previewMode = (boardLayoutMode === 'roomslot') ? 'general' : 'roomslot';
                 applyQuickLayoutPreviewMode(previewMode);
@@ -4588,7 +4651,7 @@
 
         const perMemberReasons = new Map(); // key: "username(session)|username|session" lower-cased, value: Set(reason)
         const perMemberOverlap = new Map(); // key: "username(session)|username|session" lower-cased, value: bool
-        const perMemberOverlapReasons = new Map(); // key: same, value: Set("곡제목" | "[미팅명] - 곡제목")
+        const perMemberOverlapReasons = new Map(); // key: same, value: Set("[곡명]" | "{미팅명} - [곡명]")
         const memberReasonRe = /^(.+?)\s*-\s*(.+)$/;
         const userWithSessionRe = /^(.+?)\s*\(([^)]+)\)\s*$/;
         const normalizeMemberKey = (who) => String(who || '').trim().toLowerCase();
@@ -4659,12 +4722,15 @@
                 || node.querySelector('.event-song-title')?.textContent?.trim()
                 || '곡'
             ).trim();
+            const otherSongArtist = String(node.dataset.songArtist || '').trim();
             const otherMeetingName = String(
                 node.dataset.meetingName || node.dataset.meetingTitle || node.dataset.meeting || ''
             ).trim();
-            const overlapReasonLabel = otherMeetingName
-                ? `[${otherMeetingName}] - ${otherSongTitle}`
-                : otherSongTitle;
+            const sameMeeting = !otherMeetingName || otherMeetingName === currentMeetingTitle;
+            const songLabel = formatOverlapSongLabel(otherSongTitle, otherSongArtist);
+            const overlapReasonLabel = sameMeeting
+                ? songLabel
+                : `{${otherMeetingName}} - ${songLabel}`;
             const otherSongMembers = songMemberMap[otherSongId] || [];
             otherSongMembers.forEach((member) => {
                 const uname = String(member?.username || '').trim();
@@ -5327,12 +5393,15 @@
             tempRoomRows.forEach((line) => reasons.push(`- ${line}`));
         }
 
-        const message = [
+        const messageReasonRows = [
             unplacedRows.length ? '아직 배치가 끝나지 않은 합주가 있습니다.' : '',
             forcedRows.length ? '아래 합주가 강제 배치 상태입니다.' : '',
             tempRoomRows.length ? '아래 합주가 임시합주실에 배치되어 있습니다.' : '',
-            `${actionLabel}을(를) 진행하시겠습니까?`,
-        ].filter(Boolean).join('\n');
+        ].filter(Boolean);
+        const message = [
+            ...messageReasonRows.map((line) => `• ${line}`),
+            `${actionLabel}를 진행하시겠습니까?`,
+        ].join('\n');
 
         return await openMoveConfirmModal({
             title: modalTitle,
@@ -6532,6 +6601,12 @@
             .replace(/'/g, '&#39;');
     }
 
+    function formatOverlapSongLabel(songTitle, songArtist) {
+        const title = String(songTitle || '').trim() || '곡';
+        const artist = String(songArtist || '').trim();
+        return artist ? `[${title} - ${artist}]` : `[${title}]`;
+    }
+
     function isDrumSessionLabel(label) {
         const text = String(label || '');
         const m = text.match(/\(([^)]+)\)/);
@@ -7259,7 +7334,7 @@
     }
 
     function getOverlappingEvents(dateStr, startIdx, endIdx, excludeEl = null, options = {}) {
-        const includeHidden = !!options.includeHidden;
+        const includeHidden = !!options.includeHidden || (isFinalView && (myRehearsalOnly || myRehearsalPreview));
         const selector = includeHidden
             ? '.board-event:not(.drag-preview):not(.drag-ghost)'
             : '.board-event:not(.drag-preview):not(.drag-ghost):not(.is-my-filter-hidden):not(.is-quick-filter-hidden)';
@@ -7637,6 +7712,15 @@
                 || el.querySelector('.event-song-title')?.textContent?.trim()
                 || '곡'
             ).trim();
+            const otherSongArtist = String(el.dataset.songArtist || '').trim();
+            const otherMeetingName = String(
+                el.dataset.meetingName || el.dataset.meetingTitle || el.dataset.meeting || ''
+            ).trim();
+            const sameMeeting = !otherMeetingName || otherMeetingName === currentMeetingTitle;
+            const songLabel = formatOverlapSongLabel(otherSongTitle, otherSongArtist);
+            const overlapReasonLabel = sameMeeting
+                ? songLabel
+                : `{${otherMeetingName}} - ${songLabel}`;
             const otherSongMembers = songMemberMap[otherSongId] || [];
             otherSongMembers.forEach((member) => {
                 const uname = String(member?.username || '').trim();
@@ -7645,7 +7729,7 @@
                 const sess = String(info.session || '').trim();
                 const displayName = String(info.displayName || uname).trim();
                 const who = sess ? `${displayName}(${sess})` : displayName;
-                lines.add(`${who} - ${otherSongTitle}`);
+                lines.add(`${who} - ${overlapReasonLabel}`);
             });
         });
         return Array.from(lines).sort((a, b) => a.localeCompare(b, 'ko'));
@@ -9050,25 +9134,85 @@
     }
 
     // 추가합주 카드를 최종 시간표 보드에 렌더링
-    function renderExtraPracticeCards() {
-        document.querySelectorAll('.board-extra-practice-card').forEach(el => el.remove());
+    function renderExtraPracticeCards(targetDate = '') {
+        const target = String(targetDate || '').trim();
+        document.querySelectorAll('.board-extra-practice-card').forEach((el) => {
+            if (!target || String(el.dataset.date || '') === target) el.remove();
+        });
         if (!extraPracticeSchedules || !extraPracticeSchedules.length) return;
+        const byDate = new Map();
         extraPracticeSchedules.forEach((sc) => {
-            const grid = document.querySelector(`.board-day-grid[data-date="${sc.date}"]`);
+            const key = String(sc.date || '');
+            if (target && key !== target) return;
+            if (!key) return;
+            if (!byDate.has(key)) byDate.set(key, []);
+            byDate.get(key).push(sc);
+        });
+
+        byDate.forEach((rows, dateKey) => {
+            const grid = document.querySelector(`.board-day-grid[data-date="${dateKey}"]`);
             if (!grid) return;
             const slotStart = parseInt(grid.dataset.slotStart || '18', 10);
             const slotCount = parseInt(grid.dataset.slotCount || '24', 10);
             const slotEnd = slotStart + slotCount;
-            if (sc.end <= slotStart || sc.start >= slotEnd) return;
-            const clampS = Math.max(sc.start, slotStart);
-            const clampE = Math.min(sc.end, slotEnd);
-            const card = document.createElement('div');
-            card.className = 'board-extra-practice-card';
-            card.style.top = `calc(${clampS - slotStart} * var(--slot-h))`;
-            card.style.height = `calc(${clampE - clampS} * var(--slot-h) - 2px)`;
-            card.title = `[추가합주] ${sc.song_title} — ${sc.song_artist}\n합주실: ${sc.room_name}`;
-            card.innerHTML = `<span class="ep-card-label">+합주</span> ${sc.song_title}`;
-            grid.appendChild(card);
+            const visibleRows = rows
+                .filter((sc) => !(sc.end <= slotStart || sc.start >= slotEnd))
+                .sort((a, b) => (a.start - b.start) || (a.end - b.end));
+            if (!visibleRows.length) return;
+
+            const eventRows = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden):not(.is-room-filter-hidden)'))
+                .map((el) => {
+                    const s = parseInt(el.dataset.start || '0', 10);
+                    const e = parseInt(el.dataset.end || String(s + 1), 10);
+                    const laneCount = Math.max(1, parseInt(el.dataset.displayLaneCount || '1', 10));
+                    const laneIndex = Math.max(0, parseInt(el.dataset.displayLaneIndex || '0', 10));
+                    return { start: s, end: e, laneCount, laneIndex };
+                });
+
+            const placedExtras = [];
+            visibleRows.forEach((sc) => {
+                const s = parseInt(sc.start || '0', 10);
+                const e = parseInt(sc.end || String(s + 1), 10);
+                const clampS = Math.max(s, slotStart);
+                const clampE = Math.min(e, slotEnd);
+                if (clampE <= clampS) return;
+
+                const occupied = new Set();
+                let laneCount = 1;
+                eventRows.forEach((ev) => {
+                    if (ev.start < e && ev.end > s) {
+                        laneCount = Math.max(laneCount, ev.laneCount);
+                        occupied.add(ev.laneIndex);
+                    }
+                });
+                placedExtras.forEach((ev) => {
+                    if (ev.start < e && ev.end > s) {
+                        laneCount = Math.max(laneCount, ev.laneCount);
+                        occupied.add(ev.laneIndex);
+                    }
+                });
+
+                let laneIndex = 0;
+                while (occupied.has(laneIndex)) laneIndex += 1;
+                laneCount = Math.max(laneCount, laneIndex + 1);
+                const leftPct = (laneIndex * 100) / laneCount;
+                const widthPct = 100 / laneCount;
+
+                const card = document.createElement('div');
+                card.className = 'board-extra-practice-card';
+                card.dataset.date = dateKey;
+                card.dataset.start = String(s);
+                card.dataset.end = String(e);
+                card.style.top = `calc(${clampS - slotStart} * var(--slot-h))`;
+                card.style.height = `calc(${clampE - clampS} * var(--slot-h) - 2px)`;
+                card.style.left = `calc(${leftPct}% + 0px)`;
+                card.style.width = `calc(${widthPct}% - 4px)`;
+                card.style.right = 'auto';
+                card.title = `[추가합주] ${sc.song_title} — ${sc.song_artist}\n합주실: ${sc.room_name}`;
+                card.innerHTML = `<span class="ep-card-label">+합주</span> ${sc.song_title}`;
+                grid.appendChild(card);
+                placedExtras.push({ start: s, end: e, laneIndex, laneCount });
+            });
         });
     }
 
@@ -9278,9 +9422,28 @@
 
             if (reasons && reasons.length) {
                 reasonsEl.style.display = 'block';
-                reasonsEl.innerHTML = reasons.map((line) => (
-                    `<div class="reason-line${isRehearsalReasonLine(line) ? ' rehearsal' : ''}">${escapeHtml(line)}</div>`
-                )).join('');
+                let activeSection = '';
+                reasonsEl.innerHTML = reasons.map((line) => {
+                    const raw = String(line || '').trim();
+                    const classes = ['reason-line'];
+                    const isForcedSection = /^강제 배치 합주\s*\(/.test(raw);
+                    const isTempRoomSection = /^임시 합주실 배치 합주\s*\(/.test(raw);
+                    if (isForcedSection) {
+                        activeSection = 'forced';
+                    } else if (isTempRoomSection) {
+                        activeSection = 'temp-room';
+                    } else if (/^미배치 합주\s*\(/.test(raw)) {
+                        activeSection = 'unplaced';
+                    }
+                    if (isRehearsalReasonLine(raw)) classes.push('rehearsal');
+                    if (isForcedSection || (activeSection === 'forced' && raw.startsWith('- '))) {
+                        classes.push('section-forced');
+                    }
+                    if (isTempRoomSection || (activeSection === 'temp-room' && raw.startsWith('- '))) {
+                        classes.push('section-temp-room');
+                    }
+                    return `<div class="${classes.join(' ')}">${escapeHtml(raw)}</div>`;
+                }).join('');
             } else {
                 reasonsEl.style.display = 'none';
                 reasonsEl.innerHTML = '';
@@ -9350,7 +9513,10 @@
         if (!grid) return;
         const slotStart = parseInt(grid.dataset.slotStart || '18', 10);
         const events = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden):not(.is-room-filter-hidden)'));
-        if (!events.length) return;
+        if (!events.length) {
+            renderExtraPracticeCards(String(grid.dataset.date || ''));
+            return;
+        }
 
         const normalizeContinuousLaneWidth = (rows, countProp, indexProp, extraKeyParts = [], options = {}) => {
             const includeRoom = options.includeRoom !== false;
@@ -9460,7 +9626,10 @@
         });
 
         const mergedEvents = Array.from(grid.querySelectorAll('.board-event:not(.drag-preview):not(.is-my-filter-hidden):not(.is-quick-filter-hidden):not(.is-room-filter-hidden)'));
-        if (!mergedEvents.length) return;
+        if (!mergedEvents.length) {
+            renderExtraPracticeCards(String(grid.dataset.date || ''));
+            return;
+        }
 
         const rows = mergedEvents.map(el => {
             const start = parseInt(el.dataset.start || '0', 10);
@@ -9535,7 +9704,10 @@
                 r.el.style.left = `calc(${leftPct}% + 0px)`;
                 r.el.style.width = `calc(${localWidth}% - 4px)`;
                 r.el.dataset.duration = String(Math.max(1, r.end - r.start));
+                r.el.dataset.displayLaneCount = String(localCount);
+                r.el.dataset.displayLaneIndex = String(localIndex);
             });
+            renderExtraPracticeCards(dateStr);
 
             const chains = new Map();
             rows.forEach((r) => {
@@ -9692,7 +9864,10 @@
             r.el.style.left = `calc(${displayLaneIndex} * (100% / ${displayLaneCount}))`;
             r.el.style.width = `calc((100% / ${displayLaneCount}) - 4px)`;
             r.el.dataset.duration = String(Math.max(1, r.end - r.start));
+            r.el.dataset.displayLaneCount = String(displayLaneCount);
+            r.el.dataset.displayLaneIndex = String(displayLaneIndex);
         });
+        renderExtraPracticeCards(String(grid.dataset.date || ''));
 
         const chains = new Map();
         rows.forEach(r => {
@@ -9740,7 +9915,20 @@
                 btn.classList.remove('d-none');
             }
             // 카드의 click → openEventInfo 버블링 차단
-            btn.addEventListener('click', (ev) => ev.stopPropagation());
+            btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                const card = btn.closest('.board-event');
+                const dateStr = String(card?.dataset?.date || '').trim();
+                const weekOffset = toWeekOffsetFromToday(dateStr);
+                const rawHref = String(btn.getAttribute('href') || '').trim();
+                if (!rawHref) return;
+                const url = new URL(rawHref, window.location.origin);
+                if (weekOffset !== null) {
+                    url.searchParams.set('week_offset', String(weekOffset));
+                }
+                window.location.href = url.toString();
+            });
         });
     }
     renderExtraPracticeCards();

@@ -10,3 +10,4 @@ from .matching_views import *
 from .home_views import *
 from .admin_views import *
 from .extra_practice_views import extra_practice, extra_practice_save, extra_practice_delete
+from .demo_views import *

@@ -49,6 +49,16 @@ PART_TIME_START_CANDIDATES = [32, 24]  # 16:00, 12:00
 PART_TIME_START_WEIGHTS = [0.75, 0.25]
 PART_TIME_SLOTS = 8  # 4시간
 
+# 동아리활동 규칙
+# - 전체 멤버의 70%가 동아리활동 보유
+# - 동아리활동 멤버의 70%는 주 2회, 나머지는 주 1회
+# - 시간: 18:00~24:00 (slot 36~48)
+CLUB_ACTIVITY_REASON = "동아리활동"
+CLUB_ACTIVITY_USER_RATIO = 0.70
+CLUB_ACTIVITY_TWICE_RATIO = 0.70
+CLUB_ACTIVITY_START_INDEX = 36
+CLUB_ACTIVITY_END_INDEX = 48
+
 # 가용시간 계산 범위(약 8주)
 AVAIL_DAYS = 56
 
@@ -304,6 +314,48 @@ def _sync_member_availability_from_blocks(user: User, start_date: datetime.date,
         curr += datetime.timedelta(days=1)
 
 
+def _apply_weekly_club_activity_rules(users: list[User], start_date: datetime.date, end_date: datetime.date) -> None:
+    if not users or start_date > end_date:
+        return
+
+    # 기존 동아리활동 recurring 블록은 기간 범위 내에서 정리 후 재생성
+    RecurringBlock.objects.filter(
+        user__in=users,
+        start_date__lte=end_date,
+        end_date__gte=start_date,
+        reason=CLUB_ACTIVITY_REASON,
+        start_index=CLUB_ACTIVITY_START_INDEX,
+        end_index=CLUB_ACTIVITY_END_INDEX,
+    ).delete()
+
+    user_count = len(users)
+    selected_count = max(1, int(round(user_count * CLUB_ACTIVITY_USER_RATIO)))
+    selected_users = random.sample(users, k=min(user_count, selected_count))
+    random.shuffle(selected_users)
+
+    twice_count = int(round(len(selected_users) * CLUB_ACTIVITY_TWICE_RATIO))
+    twice_user_ids = {u.id for u in selected_users[:twice_count]}
+
+    rows = []
+    for user in selected_users:
+        weekly_count = 2 if user.id in twice_user_ids else 1
+        weekly_count = min(weekly_count, 7)
+        days = random.sample(range(7), k=weekly_count)
+        for day in days:
+            rows.append(RecurringBlock(
+                user=user,
+                day_of_week=day,
+                start_index=CLUB_ACTIVITY_START_INDEX,
+                end_index=CLUB_ACTIVITY_END_INDEX,
+                reason=CLUB_ACTIVITY_REASON,
+                start_date=start_date,
+                end_date=end_date,
+            ))
+
+    if rows:
+        RecurringBlock.objects.bulk_create(rows)
+
+
 def _apply_weekly_random_oneoff_rules(users: list[User], start_date: datetime.date, end_date: datetime.date) -> None:
     if not users or start_date > end_date:
         return
@@ -499,6 +551,7 @@ def create_requested_dummy_users(seed: int = 42) -> None:
 
     for user in created_users:
         _create_weekly_schedule_for_user(user, start_date, end_date)
+    _apply_weekly_club_activity_rules(created_users, start_date, end_date)
     _apply_weekly_random_oneoff_rules(created_users, start_date, end_date)
     for user in created_users:
         _sync_member_availability_from_blocks(user, start_date, end_date)
@@ -553,6 +606,8 @@ def apply_member_schedule_rules(
     for user in users:
         if _apply_class_buffer_to_existing_recurring(user):
             changed_users += 1
+
+    _apply_weekly_club_activity_rules(users, start_date, end_date)
 
     OneOffBlock.objects.filter(
         user__in=users,

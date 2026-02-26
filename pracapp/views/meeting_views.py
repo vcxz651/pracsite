@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse, reverse_lazy
@@ -23,7 +23,8 @@ from django.utils import timezone
 from ..forms import MeetingCreateForm, PracticeRoomForm, RoomCreateForm
 from ..models import (
     Song, Session, Band, Membership, Meeting, User,
-    PracticeRoom, RoomBlock, MeetingParticipant, MeetingWorkDraft
+    PracticeRoom, RoomBlock, MeetingParticipant, MeetingWorkDraft, MemberAvailability,
+    MeetingFinalDraft, PracticeSchedule, MeetingScheduleConfirmation,
 )
 from ._meeting_common import (
     is_final_locked as common_is_final_locked,
@@ -176,36 +177,107 @@ def _meeting_participation_state(meeting, user):
     }
 
 
-def _build_participant_manage_context(meeting):
+def _build_participant_manage_context(meeting, participant_sort='default'):
+    participant_sort = str(participant_sort or 'default').strip()
+    if participant_sort not in (
+        'default',
+        'name_asc', 'name_desc',
+        'role_asc', 'role_desc',
+        'session_asc', 'session_desc',
+        'availability_desc', 'availability_asc',
+    ):
+        participant_sort = 'default'
+
+    memberships = Membership.objects.filter(
+        band=meeting.band,
+        is_approved=True,
+    ).select_related('user')
+    memberships = memberships.order_by('user__realname', 'user__username')
+
+    required_days = 0
+    availability_count_by_user = {}
+    if meeting.practice_start_date and meeting.practice_end_date and meeting.practice_start_date <= meeting.practice_end_date:
+        required_days = (meeting.practice_end_date - meeting.practice_start_date).days + 1
+        member_user_ids = [m.user_id for m in memberships]
+        availability_count_rows = (
+            MemberAvailability.objects.filter(
+                user_id__in=member_user_ids,
+                date__range=[meeting.practice_start_date, meeting.practice_end_date],
+            )
+            .values('user_id')
+            .annotate(day_count=Count('date', distinct=True))
+        )
+        availability_count_by_user = {str(row['user_id']): int(row['day_count'] or 0) for row in availability_count_rows}
+
     participant_map = {
         str(p.user_id): p
         for p in meeting.participants.select_related('user', 'approved_by').all()
     }
     member_rows = []
-    for m in Membership.objects.filter(band=meeting.band, is_approved=True).select_related('user').order_by('user__realname', 'user__username'):
+    for m in memberships:
         p = participant_map.get(str(m.user_id))
         status = p.status if p else None
         meeting_role = p.role if p else MeetingParticipant.ROLE_MEMBER
         if m.role in ['LEADER', 'MANAGER']:
             status = MeetingParticipant.STATUS_APPROVED
             meeting_role = MeetingParticipant.ROLE_MEMBER
+        day_count = int(availability_count_by_user.get(str(m.user_id), 0))
+        has_availability_in_range = bool(day_count >= required_days) if required_days > 0 else bool(day_count > 0)
         member_rows.append({
             'user': m.user,
             'role': m.role,
             'meeting_role': meeting_role,
             'participant': p,
             'status': status,
+            'has_availability_in_range': has_availability_in_range,
         })
+
+    def _role_sort_rank(row):
+        role = str(row.get('role') or '')
+        meeting_role = str(row.get('meeting_role') or '')
+        if role == 'LEADER':
+            return 0
+        if role == 'MANAGER':
+            return 1
+        if meeting_role == MeetingParticipant.ROLE_MANAGER:
+            return 2
+        return 3
+
+    if participant_sort == 'name_asc':
+        member_rows.sort(key=lambda r: ((r['user'].realname or ''), (r['user'].username or '')))
+    elif participant_sort == 'name_desc':
+        member_rows.sort(key=lambda r: ((r['user'].realname or ''), (r['user'].username or '')), reverse=True)
+    elif participant_sort == 'role_asc':
+        member_rows.sort(key=lambda r: (_role_sort_rank(r), (r['user'].realname or ''), (r['user'].username or '')))
+    elif participant_sort == 'role_desc':
+        member_rows.sort(key=lambda r: (_role_sort_rank(r), (r['user'].realname or ''), (r['user'].username or '')), reverse=True)
+    elif participant_sort == 'session_asc':
+        member_rows.sort(key=lambda r: ((r['user'].instrument or ''), (r['user'].realname or ''), (r['user'].username or '')))
+    elif participant_sort == 'session_desc':
+        member_rows.sort(key=lambda r: ((r['user'].instrument or ''), (r['user'].realname or ''), (r['user'].username or '')), reverse=True)
+    elif participant_sort == 'availability_desc':
+        member_rows.sort(
+            key=lambda r: (0 if r.get('has_availability_in_range') else 1, (r['user'].realname or ''), (r['user'].username or ''))
+        )
+    elif participant_sort == 'availability_asc':
+        member_rows.sort(
+            key=lambda r: (1 if r.get('has_availability_in_range') else 0, (r['user'].realname or ''), (r['user'].username or ''))
+        )
 
     pending_rows = [r for r in member_rows if r['status'] == MeetingParticipant.STATUS_PENDING]
     participant_rows = [r for r in member_rows if r['status'] == MeetingParticipant.STATUS_APPROVED]
     non_participant_rows = [r for r in member_rows if r['status'] != MeetingParticipant.STATUS_APPROVED]
+    availability_registered_count = sum(1 for r in member_rows if r.get('has_availability_in_range'))
+    availability_member_count = len(member_rows)
     return {
         'meeting': meeting,
         'member_rows': member_rows,
         'pending_rows': pending_rows,
         'participant_rows': participant_rows,
         'non_participant_rows': non_participant_rows,
+        'availability_registered_count': availability_registered_count,
+        'availability_member_count': availability_member_count,
+        'participant_sort': participant_sort,
     }
 
 
@@ -543,6 +615,33 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
         meeting = self.object
         band = meeting.band
         total_song_count = self.object.songs.count()
+        global_unassigned_song_qs = (
+            self.object.songs.annotate(
+                total_sessions=Count('sessions', distinct=True),
+                assigned_sessions=Count(
+                    'sessions',
+                    filter=Q(sessions__assignee__isnull=False),
+                    distinct=True,
+                ),
+            )
+            .filter(Q(total_sessions=0) | Q(assigned_sessions__lt=F('total_sessions')))
+            .order_by('created_at', 'title')
+        )
+        global_unassigned_song_titles = list(global_unassigned_song_qs.values_list('title', flat=True))
+        global_unassigned_song_count = len(global_unassigned_song_titles)
+        global_fully_assigned_song_count = max(0, int(total_song_count) - int(global_unassigned_song_count))
+        fully_assigned_song_count = (
+            self.object.songs.annotate(
+                total_sessions=Count('sessions', distinct=True),
+                assigned_sessions=Count(
+                    'sessions',
+                    filter=Q(sessions__assignee__isnull=False),
+                    distinct=True,
+                ),
+            )
+            .filter(total_sessions__gt=0, total_sessions=F('assigned_sessions'))
+            .count()
+        )
         state = _meeting_participation_state(meeting, self.request.user)
         membership = state['membership']
         is_manager = state['is_manager']
@@ -685,10 +784,11 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
         context['list_mode'] = list_mode
         context['song_count'] = song_count
         context['total_song_count'] = total_song_count
-        context['assigned_song_count'] = assigned_song_count
-        context['unassigned_song_count'] = unassigned_song_count
-        context['has_unassigned_songs'] = context['unassigned_song_count'] > 0
-        context['unassigned_song_titles'] = unassigned_song_titles
+        context['fully_assigned_song_count'] = fully_assigned_song_count
+        context['assigned_song_count'] = global_fully_assigned_song_count
+        context['unassigned_song_count'] = global_unassigned_song_count
+        context['has_unassigned_songs'] = global_unassigned_song_count > 0
+        context['unassigned_song_titles'] = global_unassigned_song_titles
         context['sort_option'] = sort_option
         context['available_sort_options'] = allowed_sort_options
         context['quick_filter'] = quick_filter
@@ -710,6 +810,13 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
         context['rooms'] = band.rooms.filter(is_temporary=False).order_by('name')
         context['meeting_has_applicants'] = _meeting_has_any_applicants(meeting)
         context['can_delete_meeting'] = bool(is_manager and not context['meeting_has_applicants'])
+        context['has_match_records'] = bool(
+            MeetingWorkDraft.objects.filter(meeting=meeting).exists()
+            or MeetingFinalDraft.objects.filter(meeting=meeting).exists()
+            or PracticeSchedule.objects.filter(meeting=meeting).exists()
+            or MeetingScheduleConfirmation.objects.filter(meeting=meeting).exists()
+            or RoomBlock.objects.filter(source_meeting=meeting).exists()
+        )
         if is_manager:
             context['has_my_work_draft'] = MeetingWorkDraft.objects.filter(
                 meeting=meeting,
@@ -768,7 +875,18 @@ def meeting_match_status_data(request, meeting_id):
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
 
-    assigned_song_count = meeting.songs.exclude(sessions__assignee__isnull=True).filter(sessions__isnull=False).distinct().count()
+    assigned_song_count = (
+        meeting.songs.annotate(
+            total_sessions=Count('sessions', distinct=True),
+            assigned_sessions=Count(
+                'sessions',
+                filter=Q(sessions__assignee__isnull=False),
+                distinct=True,
+            ),
+        )
+        .filter(total_sessions__gt=0, total_sessions=F('assigned_sessions'))
+        .count()
+    )
     total_song_count = meeting.songs.count()
     return JsonResponse({
         'status': 'success',
@@ -970,7 +1088,8 @@ def meeting_participant_manage(request, meeting_id):
             return JsonResponse({'status': 'success'})
         return redirect(f"{reverse('meeting_participant_manage', kwargs={'meeting_id': meeting.id})}?modal=1")
 
-    context = _build_participant_manage_context(meeting)
+    participant_sort = (request.GET.get('sort') or 'default').strip()
+    context = _build_participant_manage_context(meeting, participant_sort=participant_sort)
     context['is_modal'] = request.GET.get('modal') == '1'
     if request.GET.get('fragment') == '1':
         return render(request, 'pracapp/meeting_participant_manage_tables.html', context)
@@ -1369,7 +1488,7 @@ def meeting_room_create(request, meeting_id):
         return redirect('meeting_detail', pk=meeting_id)
 
     if not meeting.practice_start_date or not meeting.practice_end_date:
-        messages.error(request, '먼저 회의의 합주 시작일/종료일을 설정해주세요.')
+        messages.error(request, '합주 기간을 설정하세요')
         return redirect('meeting_detail', pk=meeting_id)
 
     if request.method == 'POST':
@@ -1455,6 +1574,9 @@ def meeting_room_edit(request, meeting_id, room_id):
     ).first()
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
         messages.error(request, '권한이 없습니다.')
+        return redirect('meeting_detail', pk=meeting_id)
+    if not meeting.practice_start_date or not meeting.practice_end_date:
+        messages.error(request, '합주 기간을 설정하세요')
         return redirect('meeting_detail', pk=meeting_id)
 
     if request.method == 'POST':

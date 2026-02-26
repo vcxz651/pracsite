@@ -32,17 +32,12 @@
 }
 .ep-week-label { font-weight: 600; font-size: 0.95rem; min-width: 200px; text-align: center; }
 
-/* ── 합주실 탭 ── */
-.ep-room-tabs {
-  display: flex; flex-wrap: wrap; gap: 0.4rem;
-  margin-bottom: 0.75rem; align-items: center;
+/* ── 상단 액션 ── */
+.ep-room-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
 }
-.ep-room-tab {
-  padding: 0.3rem 0.85rem; border-radius: 20px; border: 1.5px solid #ccc;
-  background: #fff; font-size: 0.82rem; cursor: pointer; transition: all .15s;
-}
-.ep-room-tab.active { border-color: var(--ep-primary); background: var(--ep-primary); color: #fff; font-weight: 600; }
-.ep-room-tab-add { border-style: dashed; color: var(--ep-primary); }
 
 /* ── 보드 래퍼 ── */
 .ep-board-wrapper { overflow-x: auto; }
@@ -69,6 +64,35 @@
   position: relative;
   box-sizing: border-box;
 }
+.ep-room-guide-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.ep-room-guide-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.ep-room-guide-label {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  right: 4px;
+  font-size: 0.64rem;
+  color: #868e96;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ep-room-guide-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.12);
+}
 
 /* ── 슬롯 라인 ── */
 .ep-slot-line {
@@ -80,8 +104,9 @@
 
 /* ── 오버레이: 합주실 불가능 ── */
 .ep-room-block {
-  position: absolute; left: 0; right: 0;
-  background: repeating-linear-gradient(45deg, rgba(245,160,50,.18) 0, rgba(245,160,50,.18) 4px, transparent 4px, transparent 10px);
+  position: absolute;
+  background: repeating-linear-gradient(135deg, rgba(245,160,50,.22) 0, rgba(245,160,50,.22) 6px, transparent 6px, transparent 12px);
+  border: 1px solid rgba(245,160,50,.5);
   border-left: 3px solid #f5a032;
   pointer-events: none; z-index: 1;
 }
@@ -91,7 +116,8 @@
   position: absolute; left: 0; right: 0;
   /* background는 JS에서 멤버 수에 따라 동적으로 설정 */
   pointer-events: auto; cursor: help; z-index: 1;
-  border-radius: 2px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
 }
 
 /* ── 커스텀 플로팅 툴팁 (match_result.html의 .floating-popover 동일 스타일) ── */
@@ -119,6 +145,7 @@
   overflow: hidden; z-index: 2; pointer-events: none;
 }
 .ep-bg-card.extra { background: #e4e0ff; border-color: #b0a0ff; }
+.ep-bg-card.mine { background: #d3f9d8; border-color: #69db7c; color: #2b8a3e; font-weight: 700; }
 
 /* ── 내 추가 합주 카드 ── */
 .ep-my-card {
@@ -129,12 +156,28 @@
   z-index: 3; cursor: default;
   display: flex; flex-direction: column; gap: 1px;
 }
+.ep-my-card.is-resize-invalid {
+  border-color: #c92a2a;
+  background: #ffe3e3;
+  color: #a61e4d;
+}
 .ep-my-card .ep-card-del {
   position: absolute; top: 2px; right: 3px;
   font-size: 0.7rem; cursor: pointer; color: #999;
   line-height: 1;
 }
 .ep-my-card .ep-card-del:hover { color: #c00; }
+.ep-my-card .ep-resize-handle {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(91, 79, 207, 0.18);
+  cursor: ns-resize;
+}
+.ep-my-card .ep-resize-handle.top { top: 0; transform: translateY(-50%); }
+.ep-my-card .ep-resize-handle.bottom { bottom: 0; transform: translateY(50%); }
 
 /* ── 드래그 preview ── */
 .ep-drag-preview {
@@ -225,9 +268,9 @@
     </div>
   </div>
 
-  <!-- 합주실 탭 -->
-  <div class="ep-room-tabs" id="ep-room-tabs">
-    <!-- JS로 렌더링 -->
+  <!-- 상단 액션 -->
+  <div class="ep-room-actions">
+    <button type="button" id="ep-add-temp-room-btn" class="btn btn-sm btn-outline-secondary">+ 임시합주실 추가</button>
   </div>
 
   <!-- 보드 -->
@@ -278,6 +321,7 @@ const ROOM_BLOCK_DETAIL  = JSON.parse('{{ room_block_detail_map_json|escapejs }}
 const SONG_CONFLICT_MAP  = JSON.parse('{{ song_conflict_map_json|escapejs }}');
 const EXISTING_SCHEDULES = JSON.parse('{{ existing_schedules_json|escapejs }}');
 let   myExtraSchedules   = JSON.parse('{{ my_extra_schedules_json|escapejs }}');
+const BASE_ROOM_LIST     = ROOM_LIST.filter(r => !r.is_temporary);
 
 // 날짜 목록 (7일)
 const WEEK_DAYS = [
@@ -289,9 +333,10 @@ const SLOT_MAX = 42;  // 21:00 (기본 표시 범위)
 const SLOT_COUNT = SLOT_MAX - SLOT_MIN;
 
 // ── 상태 ──
-let activeRoomId = ROOM_LIST.length > 0 ? ROOM_LIST[0].id : null;
+let activeRoomId = BASE_ROOM_LIST.length > 0 ? BASE_ROOM_LIST[0].id : null;
 let tempRooms = [];  // 로컬 임시합주실 목록
 let dragState = null;
+let resizeState = null;
 
 // ── 유틸 ──
 function slotToTime(slot) {
@@ -308,11 +353,59 @@ function isToday(dateStr) {
   return dateStr === new Date().toISOString().slice(0,10);
 }
 function getRoomById(roomId) {
-  return ROOM_LIST.find(r => r.id === roomId)
-      || tempRooms.find(r => r.id === roomId)
+  return tempRooms.find(r => r.id === roomId)
+      || BASE_ROOM_LIST.find(r => r.id === roomId)
       || null;
 }
-function getAllRooms() { return [...ROOM_LIST, ...tempRooms]; }
+function getAllRooms() { return [...BASE_ROOM_LIST, ...tempRooms]; }
+function getVisibleRooms() { return getAllRooms(); }
+function getRoomIndexMap() {
+  const map = new Map();
+  getVisibleRooms().forEach((r, idx) => map.set(String(r.id), idx));
+  return map;
+}
+function getGridRoomCount() {
+  return Math.max(1, getVisibleRooms().length);
+}
+function getDropRoomId(grid, clientX) {
+  const rooms = getVisibleRooms();
+  if (!rooms.length) return '';
+  const rect = grid.getBoundingClientRect();
+  const roomCount = Math.max(1, rooms.length);
+  const relX = Math.max(0, Math.min(rect.width - 1, clientX - rect.left));
+  const idx = Math.max(0, Math.min(roomCount - 1, Math.floor((relX / Math.max(1, rect.width)) * roomCount)));
+  return String(rooms[idx].id || '');
+}
+function applyRoomPosition(el, roomIndex, roomCount) {
+  const idx = Math.max(0, Number(roomIndex || 0));
+  const count = Math.max(1, Number(roomCount || 1));
+  el.style.left = `${(idx * 100) / count}%`;
+  el.style.width = `${100 / count}%`;
+}
+function renderRoomGuidesForGrid(grid) {
+  const rooms = getVisibleRooms();
+  const roomCount = Math.max(1, rooms.length);
+  const layer = document.createElement('div');
+  layer.className = 'ep-room-guide-layer';
+  for (let i = 0; i < roomCount; i += 1) {
+    const col = document.createElement('div');
+    col.className = 'ep-room-guide-col';
+    col.style.left = `${(i * 100) / roomCount}%`;
+    col.style.width = `${100 / roomCount}%`;
+    const label = document.createElement('div');
+    label.className = 'ep-room-guide-label';
+    label.textContent = String(rooms[i]?.name || '');
+    col.appendChild(label);
+    layer.appendChild(col);
+  }
+  for (let i = 1; i < roomCount; i += 1) {
+    const line = document.createElement('div');
+    line.className = 'ep-room-guide-line';
+    line.style.left = `${(i * 100) / roomCount}%`;
+    layer.appendChild(line);
+  }
+  grid.appendChild(layer);
+}
 
 // ── 토스트 ──
 function showToast(msg, isError) {
@@ -323,30 +416,6 @@ function showToast(msg, isError) {
   t._timer = setTimeout(() => { t.className = ''; }, 2800);
 }
 
-// ── 합주실 탭 렌더링 ──
-function renderRoomTabs() {
-  const wrap = document.getElementById('ep-room-tabs');
-  wrap.innerHTML = '';
-  getAllRooms().forEach(r => {
-    const btn = document.createElement('button');
-    btn.className = 'ep-room-tab' + (r.id === activeRoomId ? ' active' : '');
-    btn.textContent = r.name + (r.is_temporary ? ' (임시)' : '');
-    btn.dataset.roomId = r.id;
-    btn.addEventListener('click', () => {
-      activeRoomId = r.id;
-      renderRoomTabs();
-      renderBoard();
-    });
-    wrap.appendChild(btn);
-  });
-  // 임시합주실 추가 버튼
-  const addBtn = document.createElement('button');
-  addBtn.className = 'ep-room-tab ep-room-tab-add';
-  addBtn.textContent = '+ 임시합주실 추가';
-  addBtn.addEventListener('click', addTempRoom);
-  wrap.appendChild(addBtn);
-}
-
 function addTempRoom() {
   const name = window.prompt('임시합주실 이름을 입력하세요.', `임시합주실 ${tempRooms.length + 1}`);
   if (!name || !name.trim()) return;
@@ -354,7 +423,6 @@ function addTempRoom() {
   const fakeId = 'temp-' + Date.now();
   tempRooms.push({ id: fakeId, name: name.trim(), location: loc.trim(), is_temporary: true, capacity: 7 });
   activeRoomId = fakeId;
-  renderRoomTabs();
   renderBoard();
 }
 
@@ -407,6 +475,8 @@ function renderBoard() {
     grid.className = 'ep-day-grid';
     grid.dataset.date = dateStr;
     grid.style.height = `calc(${SLOT_COUNT + 1} * var(--slot-h))`;
+    const roomIndexMap = getRoomIndexMap();
+    const roomCount = getGridRoomCount();
 
     // 슬롯 라인
     for (let slot = SLOT_MIN; slot <= SLOT_MAX; slot++) {
@@ -417,9 +487,15 @@ function renderBoard() {
       grid.appendChild(line);
     }
 
+    renderRoomGuidesForGrid(grid);
+
     // 합주실 불가능 오버레이 (현재 탭 합주실 기준)
-    if (activeRoomId && !activeRoomId.startsWith('temp-')) {
-      const blockedSlots = getRoomBlockSlots(dateStr, activeRoomId);
+    getVisibleRooms().forEach((room) => {
+      const roomId = String(room.id || '');
+      if (!roomId || roomId.startsWith('temp-')) return;
+      const roomIndex = roomIndexMap.get(roomId);
+      if (roomIndex === undefined) return;
+      const blockedSlots = getRoomBlockSlots(dateStr, roomId);
       const ranges = slotsToRanges([...blockedSlots]);
       ranges.forEach(([s, e]) => {
         if (s > SLOT_MAX || e < SLOT_MIN) return;
@@ -427,16 +503,17 @@ function renderBoard() {
         const clampE = Math.min(e, SLOT_MAX + 1);
         const overlay = document.createElement('div');
         overlay.className = 'ep-room-block';
+        applyRoomPosition(overlay, roomIndex, roomCount);
         overlay.style.top = `calc(${clampS - SLOT_MIN} * var(--slot-h))`;
         overlay.style.height = `calc(${clampE - clampS} * var(--slot-h))`;
         const labels = [];
         for (let sl = s; sl < e; sl++) {
-          getRoomBlockDetail(dateStr, activeRoomId, sl).forEach(l => labels.push(l));
+          getRoomBlockDetail(dateStr, roomId, sl).forEach(l => labels.push(l));
         }
         if (labels.length) overlay.title = [...new Set(labels)].join('\n');
         grid.appendChild(overlay);
       });
-    }
+    });
 
     // 멤버 불가능 오버레이 (사유별 그룹핑, hover 시 툴팁)
     renderConflictOverlayForGrid(grid, dateStr);
@@ -444,15 +521,17 @@ function renderBoard() {
     // 배경 카드 (기존 합주 + 타 곡 추가합주) — 현재 합주실 기준
     EXISTING_SCHEDULES.forEach(sc => {
       if (sc.date !== dateStr) return;
-      if (activeRoomId && sc.room_id !== activeRoomId) return;
-      renderBgCard(grid, sc);
+      const roomIndex = roomIndexMap.get(String(sc.room_id || ''));
+      if (roomIndex === undefined) return;
+      renderBgCard(grid, sc, roomIndex, roomCount);
     });
 
     // 내 추가합주 카드 — 현재 합주실 기준
     myExtraSchedules.forEach(sc => {
       if (sc.date !== dateStr) return;
-      if (activeRoomId && sc.room_id !== activeRoomId) return;
-      renderMyCard(grid, sc, dateStr);
+      const roomIndex = roomIndexMap.get(String(sc.room_id || ''));
+      if (roomIndex === undefined) return;
+      renderMyCard(grid, sc, dateStr, roomIndex, roomCount);
     });
 
     // drag preview
@@ -481,6 +560,14 @@ function slotsToRanges(slots) {
   }
   ranges.push([s, p+1]);
   return ranges;
+}
+
+function applyMyCardPosition(card, start, end) {
+  if (!card) return;
+  card.style.top = `calc(${Math.max(start, SLOT_MIN) - SLOT_MIN} * var(--slot-h))`;
+  card.style.height = `calc(${Math.min(end, SLOT_MAX+1) - Math.max(start, SLOT_MIN)} * var(--slot-h) - 3px)`;
+  const timeLine = card.querySelector('.ep-my-card-time');
+  if (timeLine) timeLine.textContent = `${slotToTime(start)}~${slotToTime(end)}`;
 }
 
 // match_result의 hover-conf-cell 색상 규칙과 동일
@@ -577,11 +664,14 @@ function toggleCompact() {
   btn.textContent = isCompact ? '확장 보기' : '압축 보기';
 }
 
-function renderBgCard(grid, sc) {
+function renderBgCard(grid, sc, roomIndex, roomCount) {
   const s = sc.start, e = sc.end;
   if (e <= SLOT_MIN || s > SLOT_MAX) return;
   const card = document.createElement('div');
-  card.className = 'ep-bg-card' + (sc.is_extra ? ' extra' : '');
+  card.className = 'ep-bg-card'
+    + (sc.is_extra ? ' extra' : '')
+    + (sc.is_mine ? ' mine' : '');
+  applyRoomPosition(card, roomIndex, roomCount);
   card.style.top = `calc(${Math.max(s, SLOT_MIN) - SLOT_MIN} * var(--slot-h))`;
   card.style.height = `calc(${Math.min(e, SLOT_MAX+1) - Math.max(s, SLOT_MIN)} * var(--slot-h) - 2px)`;
   card.title = `${sc.song_title} (${slotToTime(s)}~${slotToTime(e)})`;
@@ -589,14 +679,31 @@ function renderBgCard(grid, sc) {
   grid.appendChild(card);
 }
 
-function renderMyCard(grid, sc, dateStr) {
+function renderMyCard(grid, sc, dateStr, roomIndex, roomCount) {
   const s = sc.start, e = sc.end;
   if (e <= SLOT_MIN || s > SLOT_MAX) return;
   const card = document.createElement('div');
   card.className = 'ep-my-card';
-  card.style.top = `calc(${Math.max(s, SLOT_MIN) - SLOT_MIN} * var(--slot-h))`;
-  card.style.height = `calc(${Math.min(e, SLOT_MAX+1) - Math.max(s, SLOT_MIN)} * var(--slot-h) - 3px)`;
-  card.innerHTML = `<span>${slotToTime(s)}~${slotToTime(e)}</span><span style="font-size:.7rem;font-weight:400;">${sc.room_name}</span>`;
+  card.dataset.scheduleId = String(sc.id || '');
+  card.dataset.date = String(dateStr || sc.date || '');
+  card.dataset.roomId = String(sc.room_id || '');
+  card.dataset.start = String(s);
+  card.dataset.end = String(e);
+  applyRoomPosition(card, roomIndex, roomCount);
+  card.innerHTML = `<span class="ep-my-card-time">${slotToTime(s)}~${slotToTime(e)}</span><span style="font-size:.7rem;font-weight:400;">${sc.room_name}</span>`;
+  applyMyCardPosition(card, s, e);
+  if (sc.can_delete) {
+    const topHandle = document.createElement('span');
+    topHandle.className = 'ep-resize-handle top';
+    topHandle.title = '시작 시간 조정';
+    topHandle.addEventListener('mousedown', (ev) => startMyCardResize(ev, card, sc, 'start'));
+    const bottomHandle = document.createElement('span');
+    bottomHandle.className = 'ep-resize-handle bottom';
+    bottomHandle.title = '종료 시간 조정';
+    bottomHandle.addEventListener('mousedown', (ev) => startMyCardResize(ev, card, sc, 'end'));
+    card.appendChild(topHandle);
+    card.appendChild(bottomHandle);
+  }
   if (sc.can_delete) {
     const del = document.createElement('span');
     del.className = 'ep-card-del';
@@ -606,6 +713,61 @@ function renderMyCard(grid, sc, dateStr) {
     card.appendChild(del);
   }
   grid.appendChild(card);
+}
+
+function startMyCardResize(ev, card, sc, edge) {
+  if (!card || !sc || !sc.can_delete) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const grid = card.closest('.ep-day-grid');
+  if (!grid) return;
+  const start = Math.max(SLOT_MIN, Number(sc.start || 0));
+  const end = Math.min(SLOT_MAX + 1, Number(sc.end || start + 1));
+  resizeState = {
+    edge: edge === 'start' ? 'start' : 'end',
+    card,
+    grid,
+    scheduleId: String(sc.id || ''),
+    roomId: String(sc.room_id || ''),
+    dateStr: String(sc.date || card.dataset.date || ''),
+    start,
+    end,
+    invalid: false,
+  };
+  card.classList.remove('is-resize-invalid');
+}
+
+function onResizeMouseMove(ev) {
+  if (!resizeState) return;
+  const slot = getSlotFromY(resizeState.grid, ev.clientY);
+  if (resizeState.edge === 'start') {
+    resizeState.start = Math.max(SLOT_MIN, Math.min(slot, resizeState.end - 1));
+  } else {
+    resizeState.end = Math.min(SLOT_MAX + 1, Math.max(slot + 1, resizeState.start + 1));
+  }
+  resizeState.invalid = isConflicted(
+    resizeState.dateStr,
+    resizeState.start,
+    resizeState.end,
+    resizeState.roomId,
+    resizeState.scheduleId
+  );
+  resizeState.card.classList.toggle('is-resize-invalid', resizeState.invalid);
+  applyMyCardPosition(resizeState.card, resizeState.start, resizeState.end);
+}
+
+function onResizeMouseUp() {
+  if (!resizeState) return;
+  const state = resizeState;
+  resizeState = null;
+  state.card.classList.remove('is-resize-invalid');
+  if (state.invalid) {
+    showToast('해당 시간으로는 조정할 수 없습니다.', true);
+    renderBoard();
+    renderPlacedList();
+    return;
+  }
+  saveSchedule(state.dateStr, state.start, state.end, state.roomId, { scheduleId: state.scheduleId });
 }
 
 // ── 배치 목록 렌더링 ──
@@ -658,17 +820,22 @@ function onGridDragOver(e) {
   const dateStr = grid.dataset.date;
   const slotStart = getSlotFromY(grid, e.clientY);
   const slotEnd = Math.min(slotStart + (dragState ? dragState.duration : 2), SLOT_MAX + 1);
+  const roomId = getDropRoomId(grid, e.clientX);
+  const roomIndex = getRoomIndexMap().get(String(roomId || '')) || 0;
+  const roomCount = getGridRoomCount();
 
   // 미리보기 표시
   const preview = document.getElementById(`ep-preview-${dateStr}`);
   if (preview) {
     const dur = slotEnd - slotStart;
     preview.style.display = 'block';
+    preview.dataset.roomId = String(roomId || '');
+    applyRoomPosition(preview, roomIndex, roomCount);
     preview.style.top = `calc(${slotStart - SLOT_MIN} * var(--slot-h))`;
     preview.style.height = `calc(${dur} * var(--slot-h) - 2px)`;
 
     // 유효성: 합주실 블록 or 이미 차있는 슬롯
-    const invalid = isConflicted(dateStr, slotStart, slotEnd);
+    const invalid = isConflicted(dateStr, slotStart, slotEnd, roomId);
     preview.classList.toggle('invalid', invalid);
   }
 }
@@ -689,47 +856,58 @@ function onGridDrop(e) {
   const preview = document.getElementById(`ep-preview-${dateStr}`);
   if (preview) preview.style.display = 'none';
 
-  if (!activeRoomId) { showToast('합주실을 선택해주세요.', true); return; }
+  const roomId = getDropRoomId(grid, e.clientX);
+  if (!roomId) { showToast('합주실을 선택해주세요.', true); return; }
 
   const slotStart = getSlotFromY(grid, e.clientY);
   const slotEnd = Math.min(slotStart + (dragState ? dragState.duration : 2), SLOT_MAX + 1);
 
-  if (isConflicted(dateStr, slotStart, slotEnd)) {
+  if (isConflicted(dateStr, slotStart, slotEnd, roomId)) {
     showToast('해당 시간은 배치할 수 없습니다.', true);
     return;
   }
 
-  saveSchedule(dateStr, slotStart, slotEnd);
+  activeRoomId = roomId;
+  saveSchedule(dateStr, slotStart, slotEnd, roomId);
 }
 
-function isConflicted(dateStr, start, end) {
-  if (!activeRoomId || activeRoomId.startsWith('temp-')) return false;
-  const blocked = getRoomBlockSlots(dateStr, activeRoomId);
+function isConflicted(dateStr, start, end, roomId, excludeScheduleId = '') {
+  const rid = String(roomId || '');
+  if (!rid || rid.startsWith('temp-')) return false;
+  const blocked = getRoomBlockSlots(dateStr, rid);
   for (let s = start; s < end; s++) {
     if (blocked.has(s)) return true;
   }
   // 기존 카드와 겹침 체크
+  const excludeId = String(excludeScheduleId || '');
   const allCards = [
-    ...EXISTING_SCHEDULES.filter(sc => sc.date === dateStr && sc.room_id === activeRoomId),
-    ...myExtraSchedules.filter(sc => sc.date === dateStr && sc.room_id === activeRoomId),
+    ...EXISTING_SCHEDULES.filter(sc => sc.date === dateStr && sc.room_id === rid),
+    ...myExtraSchedules.filter(sc => (
+      sc.date === dateStr
+      && sc.room_id === rid
+      && String(sc.id || '') !== excludeId
+    )),
   ];
   return allCards.some(sc => sc.start < end && sc.end > start);
 }
 
 // ── API 호출 ──
-async function saveSchedule(dateStr, start, end) {
-  const room = getRoomById(activeRoomId);
+async function saveSchedule(dateStr, start, end, roomId, options = {}) {
+  const scheduleId = String(options.scheduleId || '');
+  const rid = String(roomId || activeRoomId || '');
+  const room = getRoomById(rid);
   if (!room) { showToast('합주실 정보를 찾을 수 없습니다.', true); return; }
 
   const body = {
     date: dateStr,
     start_index: start,
     end_index: end,
-    room_id: activeRoomId.startsWith('temp-') ? null : activeRoomId,
-    is_temp_room: room.is_temporary || activeRoomId.startsWith('temp-'),
+    room_id: rid.startsWith('temp-') ? null : rid,
+    is_temp_room: room.is_temporary || rid.startsWith('temp-'),
     room_name: room.name,
     room_location: room.location || '',
   };
+  if (scheduleId) body.schedule_id = scheduleId;
 
   try {
     const res = await fetch(SAVE_URL, {
@@ -740,32 +918,43 @@ async function saveSchedule(dateStr, start, end) {
     const data = await res.json();
     if (data.status === 'ok') {
       // 임시합주실이면 서버 발급 ID로 교체
-      if (activeRoomId.startsWith('temp-')) {
-        const idx = tempRooms.findIndex(r => r.id === activeRoomId);
+      if (rid.startsWith('temp-')) {
+        const idx = tempRooms.findIndex(r => r.id === rid);
         if (idx !== -1) {
           tempRooms[idx].id = data.room_id;
           tempRooms[idx].name = data.room_name;
           tempRooms[idx].location = data.room_location;
           activeRoomId = data.room_id;
         }
-        // ROOM_LIST에 추가
-        if (!ROOM_LIST.find(r => r.id === data.room_id)) {
-          ROOM_LIST.push({ id: data.room_id, name: data.room_name, location: data.room_location, is_temporary: true, capacity: 7 });
-        }
-        tempRooms = tempRooms.filter(r => !r.id.startsWith('temp-'));
+        tempRooms = tempRooms.filter(r => String(r.id || '') !== rid);
       }
-      myExtraSchedules.push({
-        id: data.schedule_id,
-        room_id: data.room_id,
-        room_name: data.room_name,
-        room_location: data.room_location || '',
-        date: dateStr,
-        start: start,
-        end: end,
-        can_delete: true,
-      });
+      if (scheduleId) {
+        myExtraSchedules = myExtraSchedules.map((row) => (
+          String(row.id || '') === scheduleId
+            ? {
+                ...row,
+                room_id: data.room_id,
+                room_name: data.room_name,
+                room_location: data.room_location || '',
+                date: dateStr,
+                start: start,
+                end: end,
+              }
+            : row
+        ));
+      } else {
+        myExtraSchedules.push({
+          id: data.schedule_id,
+          room_id: data.room_id,
+          room_name: data.room_name,
+          room_location: data.room_location || '',
+          date: dateStr,
+          start: start,
+          end: end,
+          can_delete: true,
+        });
+      }
       showToast('추가 합주가 저장되었습니다.');
-      renderRoomTabs();
       renderBoard();
       renderPlacedList();
     } else if (data.status === 'conflict') {
@@ -801,7 +990,13 @@ async function deleteSchedule(scheduleId) {
 }
 
 // ── 초기화 ──
-renderRoomTabs();
+const addTempRoomBtn = document.getElementById('ep-add-temp-room-btn');
+if (addTempRoomBtn) {
+  addTempRoomBtn.addEventListener('click', addTempRoom);
+}
+document.addEventListener('mousemove', onResizeMouseMove);
+document.addEventListener('mouseup', onResizeMouseUp);
+window.addEventListener('blur', onResizeMouseUp);
 renderBoard();
 renderPlacedList();
 

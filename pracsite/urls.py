@@ -74,6 +74,9 @@ urlpatterns = [
 
     path('meeting/<uuid:meeting_id>/song/create/', views.SongCreateView.as_view(), name='song_create'),
     path('song/<uuid:song_id>/applicants-data/', views.song_applicants_data, name='song_applicants_data'),
+    path('song/<uuid:song_id>/comments/', views.song_comments_data, name='song_comments_data'),
+    path('song/<uuid:song_id>/comments/create/', views.song_comment_create, name='song_comment_create'),
+    path('song/comment/<uuid:comment_id>/delete/', views.song_comment_delete, name='song_comment_delete'),
     path('song/update/<uuid:pk>/', views.SongUpdateView.as_view(), name='song_update'),
     path('song/delete/<uuid:pk>/', views.SongDeleteView.as_view(), name='song_delete'),
 
@@ -94,4 +97,11 @@ urlpatterns = [
 
 
     path('reset-db/', views.reset_db_data, name='reset_db_data'),
+
+    path('demo/', views.demo_home, name='demo_home'),
+    path('demo/dashboard/', views.demo_dashboard, name='demo_dashboard'),
+    path('demo/start/', views.demo_start, name='demo_start'),
+    path('demo/scenario/<int:scenario>/', views.demo_scenario, name='demo_scenario'),
+    path('demo/switch-role/', views.demo_switch_role, name='demo_switch_role'),
+    path('demo/exit/', views.demo_exit, name='demo_exit'),
 ]

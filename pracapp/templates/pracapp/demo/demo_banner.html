@@ -1,0 +1,57 @@
+<style>
+  .demo-role-banner {
+    position: sticky;
+    top: 0;
+    z-index: 1055;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: #fff;
+  }
+  .demo-role-banner.manager { background: #3730a3; }
+  .demo-role-banner.member { background: #166534; }
+  .demo-role-banner .banner-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .demo-role-banner .btn {
+    border-radius: 999px;
+    font-weight: 700;
+  }
+</style>
+
+<div class="demo-role-banner {% if demo_role == 'member' %}member{% else %}manager{% endif %}">
+  <div class="fw-bold">
+    {% if demo_role == 'member' %}
+      👤 [데모 중] 일반 멤버가 보는 화면입니다
+    {% else %}
+      🎛️ [데모 중] 매니저가 보는 화면입니다
+    {% endif %}
+    {% if demo_scenario_label %}<span class="ms-2 badge bg-light text-dark">시나리오 {{ demo_scenario_label }}</span>{% endif %}
+    {% if demo_scenario == 1 and demo_role == 'member' %}
+      <span class="ms-2 small">공유 전이라 선곡회의 화면에서 대기 중</span>
+    {% endif %}
+    {% if demo_date_message %}
+      <div class="small mt-1">{{ demo_date_message }}</div>
+    {% endif %}
+  </div>
+  <div class="banner-actions">
+    <form method="post" action="{% url 'demo_switch_role' %}" class="m-0">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="btn btn-sm btn-outline-light">
+        {% if demo_role == 'member' %}매니저 뷰로 전환{% else %}멤버 뷰로 전환{% endif %}
+      </button>
+    </form>
+    <button type="button" id="demoTourReplayBtn" class="btn btn-sm btn-light text-dark">투어 다시 보기</button>
+    <form method="post" action="{% url 'demo_exit' %}" class="m-0">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-warning text-dark">데모 종료</button>
+    </form>
+  </div>
+</div>

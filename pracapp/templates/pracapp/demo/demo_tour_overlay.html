@@ -1,0 +1,55 @@
+{% load static %}
+<style>
+  #tutorial-overlay {
+    position: fixed;
+    z-index: 9000;
+    pointer-events: none;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.62);
+    display: none;
+    transition: all 0.2s ease;
+  }
+  #tutorial-tooltip {
+    position: fixed;
+    z-index: 9001;
+    max-width: 320px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    display: none;
+  }
+  #tutorial-tooltip .tour-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  #tutorial-tooltip .tour-desc {
+    font-size: 0.92rem;
+    color: #4b5563;
+    margin-bottom: 10px;
+  }
+  #tutorial-tooltip .tour-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  #tutorial-tooltip .tour-actions .btn {
+    border-radius: 999px;
+  }
+</style>
+
+<div id="tutorial-overlay" aria-hidden="true"></div>
+<div id="tutorial-tooltip" role="dialog" aria-live="polite">
+  <div class="tour-title" id="tourTitle"></div>
+  <div class="tour-desc" id="tourDesc"></div>
+  <div class="tour-actions">
+    <small id="tourProgress" class="text-muted">1 / 1</small>
+    <div class="d-flex gap-2">
+      <button type="button" id="tourSkipBtn" class="btn btn-sm btn-outline-secondary">건너뛰기</button>
+      <button type="button" id="tourNextBtn" class="btn btn-sm btn-primary">다음</button>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'pracapp/js/tutorial_demo.js' %}"></script>

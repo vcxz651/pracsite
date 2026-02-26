@@ -220,12 +220,13 @@ def _build_song_conflict_map_for_week(song, week_start, week_end):
     }
 
 
-def _build_existing_schedules_json(meeting, rooms_qs, week_start, week_end, exclude_song=None):
+def _build_existing_schedules_json(meeting, rooms_qs, week_start, week_end, exclude_song=None, my_song_ids=None):
     """
     해당 주의 PracticeSchedule + ExtraPracticeSchedule 을 배경 카드용 JSON으로 반환.
     exclude_song 에 해당하는 이 곡의 ExtraPracticeSchedule 은 별도로 내려주므로 여기선 제외.
     """
     schedules = []
+    my_song_id_set = {str(x) for x in (my_song_ids or []) if x}
 
     # 기존 PracticeSchedule (읽기 전용 배경)
     for ps in PracticeSchedule.objects.filter(
@@ -243,7 +244,7 @@ def _build_existing_schedules_json(meeting, rooms_qs, week_start, week_end, excl
             'start': ps.start_index,
             'end': ps.end_index,
             'is_extra': False,
-            'is_mine': False,
+            'is_mine': str(ps.song_id) in my_song_id_set,
         })
 
     # 다른 곡들의 ExtraPracticeSchedule (읽기 전용 배경)
@@ -265,7 +266,7 @@ def _build_existing_schedules_json(meeting, rooms_qs, week_start, week_end, excl
             'start': eps.start_index,
             'end': eps.end_index,
             'is_extra': True,
-            'is_mine': False,
+            'is_mine': str(eps.song_id) in my_song_id_set,
         })
 
     return schedules
@@ -322,7 +323,17 @@ def extra_practice(request, meeting_id, song_id):
         rooms_qs, week_start, week_end, exclude_meeting=meeting
     )
     song_conflict_map = _build_song_conflict_map_for_week(song, week_start, week_end)
-    existing_schedules = _build_existing_schedules_json(meeting, rooms_qs, week_start, week_end, exclude_song=song)
+    my_song_ids = list(
+        Session.objects.filter(song__meeting=meeting, assignee=request.user).values_list('song_id', flat=True).distinct()
+    )
+    existing_schedules = _build_existing_schedules_json(
+        meeting,
+        rooms_qs,
+        week_start,
+        week_end,
+        exclude_song=song,
+        my_song_ids=my_song_ids,
+    )
     my_extra_schedules = _build_my_extra_schedules_json(song, meeting, request.user)
 
     room_list = [
@@ -382,6 +393,7 @@ def extra_practice_save(request, meeting_id, song_id):
     start_index = body.get('start_index')
     end_index = body.get('end_index')
     room_id = body.get('room_id')
+    schedule_id = body.get('schedule_id')
     is_temp_room = body.get('is_temp_room', False)
     room_name = body.get('room_name', '').strip()
     room_location = body.get('room_location', '').strip()
@@ -396,6 +408,20 @@ def extra_practice_save(request, meeting_id, song_id):
 
     if not (18 <= start_index < end_index <= 48):
         return JsonResponse({'status': 'error', 'message': '유효하지 않은 시간 범위'}, status=400)
+
+    target_eps = None
+    if schedule_id:
+        try:
+            target_eps = ExtraPracticeSchedule.objects.select_related('room').get(
+                id=schedule_id,
+                meeting=meeting,
+                song=song,
+            )
+        except (ExtraPracticeSchedule.DoesNotExist, ValueError):
+            return JsonResponse({'status': 'error', 'message': '수정할 추가 합주를 찾을 수 없습니다.'}, status=404)
+        is_manager = has_meeting_manager_permission(meeting, request.user)
+        if not is_manager and target_eps.created_by_id != request.user.id:
+            return JsonResponse({'status': 'error', 'message': '수정 권한이 없습니다.'}, status=403)
 
     # 합주실 결정
     if is_temp_room:
@@ -424,25 +450,44 @@ def extra_practice_save(request, meeting_id, song_id):
         return JsonResponse({'status': 'conflict', 'message': '해당 시간에 이미 합주 일정이 있습니다.'}, status=409)
 
     # 중복 체크: ExtraPracticeSchedule
-    eps_conflict = ExtraPracticeSchedule.objects.filter(
+    eps_conflict_qs = ExtraPracticeSchedule.objects.filter(
         room=room,
         date=date,
         start_index__lt=end_index,
         end_index__gt=start_index,
-    ).exists()
+    )
+    if target_eps is not None:
+        eps_conflict_qs = eps_conflict_qs.exclude(id=target_eps.id)
+    eps_conflict = eps_conflict_qs.exists()
     if eps_conflict:
         return JsonResponse({'status': 'conflict', 'message': '해당 시간에 이미 추가 합주가 있습니다.'}, status=409)
 
-    # 저장
-    eps = ExtraPracticeSchedule.objects.create(
-        meeting=meeting,
-        song=song,
-        room=room,
-        date=date,
-        start_index=start_index,
-        end_index=end_index,
-        created_by=request.user,
-    )
+    if target_eps is not None:
+        # 기존 RoomBlock 정리 후 새 범위 반영
+        RoomBlock.objects.filter(
+            room=target_eps.room,
+            date=target_eps.date,
+            start_index=target_eps.start_index,
+            end_index=target_eps.end_index,
+            source_meeting=meeting,
+        ).delete()
+        target_eps.room = room
+        target_eps.date = date
+        target_eps.start_index = start_index
+        target_eps.end_index = end_index
+        target_eps.save(update_fields=['room', 'date', 'start_index', 'end_index'])
+        eps = target_eps
+    else:
+        # 신규 저장
+        eps = ExtraPracticeSchedule.objects.create(
+            meeting=meeting,
+            song=song,
+            room=room,
+            date=date,
+            start_index=start_index,
+            end_index=end_index,
+            created_by=request.user,
+        )
 
     # RoomBlock 생성 (다른 미팅 충돌 방지)
     block = RoomBlock.objects.create(

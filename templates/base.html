@@ -1,7 +1,9 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Rock of School</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,9 +30,46 @@
         color: #fff;
         filter: brightness(1.04);
       }
+      .base-nav-actions {
+        gap: 0.5rem;
+      }
+      .base-nav-greeting {
+        white-space: nowrap;
+      }
+      @media (max-width: 576px) {
+        .base-navbar-wrap {
+          gap: 0.45rem;
+        }
+        .base-navbar-wrap .navbar-brand {
+          font-size: 1rem;
+          margin-right: 0.25rem;
+        }
+        .base-nav-actions {
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .base-nav-actions .btn {
+          min-height: 38px;
+          padding-top: 0.38rem;
+          padding-bottom: 0.38rem;
+        }
+        .base-nav-greeting {
+          display: none;
+        }
+      }
+      @media (max-width: 380px) {
+        .base-navbar-wrap .navbar-brand {
+          font-size: 0.92rem;
+        }
+        .base-nav-actions .btn {
+          font-size: 0.74rem;
+          padding-left: 0.5rem;
+          padding-right: 0.5rem;
+        }
+      }
     </style>
 </head>
-<body class="bg-light">
+<body class="bg-light" data-is-demo-mode="{% if is_demo %}1{% else %}0{% endif %}">
 
 {% if debug %}
 <div style="background-color: #ffcc00; text-align: center; font-weight: bold; padding: 5px;">
@@ -40,13 +79,14 @@
 
 {% if not hide_base_chrome %}
   <nav class="navbar navbar-dark bg-dark mb-4">
-    <div class="container">
+    <div class="container base-navbar-wrap">
       <a class="navbar-brand nav-brand-trendy" href="{% url 'home' %}">Rock of School</a>
 
-      <div class="d-flex align-items-center">
+      <div class="d-flex align-items-center base-nav-actions">
+        <a href="{% url 'demo_home' %}" class="btn btn-outline-light btn-sm me-2">데모페이지</a>
         {% if user.is_authenticated %}
           <span class="text-white fw-bold">{{ user.realname }}</span>
-          <span class="text-white me-3">님 어서오십쇼</span>
+          <span class="text-white me-3 base-nav-greeting">님 어서오십쇼</span>
           <form action="{% url 'logout' %}" method="post" class="m-0">
             {% csrf_token %}
             <button type="submit" class="btn btn-outline-light btn-sm">logout</button>
@@ -61,6 +101,9 @@
 {% endif %}
 
   <div class="container">
+{% if is_demo %}
+  {% include "pracapp/demo/demo_banner.html" %}
+{% endif %}
 {% if messages and not hide_base_chrome %}
     <div class="fixed-top start-50 translate-middle-x mt-4" style="z-index: 9999; top: 70px; max-width: 400px; width: 90%;">
         {% for message in messages %}
@@ -78,6 +121,10 @@
 {% block content %}
     {% endblock %}
   </div>
+
+{% if is_demo %}
+  {% include "pracapp/demo/demo_tour_overlay.html" %}
+{% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>

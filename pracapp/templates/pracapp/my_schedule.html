@@ -150,30 +150,40 @@
         .week-label { width: 50px; margin-right: 5px; padding-right: 5px; }
         .timeline-container { grid-template-columns: 20px repeat(7, 1fr); }
         .header-grid { grid-template-columns: 20px repeat(7, 1fr); }
-        .header-cell { font-size: 0.7rem; }
-        .time-tick { font-size: 0.6rem; right: 2px; }
-        .data-cell { height: 120px; }
-        .week-range { font-size: 0.6rem; }
-        .busy-bar-label { font-size: 0.5rem; -webkit-line-clamp: 2; }
+        .header-cell { font-size: 0.78rem; }
+        .time-tick { font-size: 0.68rem; right: 2px; }
+        .data-cell { height: 132px; }
+        .week-range { font-size: 0.68rem; }
+        .busy-bar-label { font-size: 0.62rem; -webkit-line-clamp: 2; }
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+        }
+        .month-nav-spacer {
+            display: none;
+        }
+        .myschedule-container > .d-flex.justify-content-between.align-items-end.mb-3 {
+            justify-content: center !important;
+        }
     }
 </style>
 
 <div class="myschedule-container">
 
     <div class="d-flex justify-content-between align-items-end mb-3">
-        <div style="width: 100px;"></div>
+        <div class="month-nav-spacer" style="width: 100px;"></div>
 
         <div class="month-nav">
-            <a href="?year={{ prev_year }}&month={{ prev_month }}" class="nav-btn">
+            <a href="?year={{ prev_year }}&month={{ prev_month }}" class="nav-btn" aria-label="이전 달">
                 <i class="bi bi-chevron-left">&lt;</i>
             </a>
             <h2>{{ current_year }}. {{ current_month }}</h2>
-            <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-btn">
+            <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-btn" aria-label="다음 달">
                 <i class="bi bi-chevron-right">&gt;</i>
             </a>
         </div>
 
-        <div style="width: 100px; text-align: right;">
+        <div class="month-nav-spacer" style="width: 100px; text-align: right;">
             <a href="{% url 'home' %}" class="btn btn-outline-secondary fw-bold shadow-sm">
                 <i class="bi bi-list-ul"></i>홈에서 수정
             </a>

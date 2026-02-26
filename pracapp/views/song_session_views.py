@@ -5,10 +5,11 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import CreateView, UpdateView, DeleteView
 
 from ..forms import SongForm
-from ..models import Song, Session, User, Membership, MeetingParticipant
+from ..models import Song, Session, User, Membership, MeetingParticipant, SongComment
 from .. import utils
 from ._meeting_common import (
     is_final_locked as common_is_final_locked,
@@ -371,6 +372,7 @@ def session_manage_applicant(request, session_id, user_id):
     target_user = get_object_or_404(User, id=user_id)
     meeting = session.song.meeting
     band = meeting.band
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     membership = _get_approved_membership(request.user, band)
 
     sort_option = request.POST.get('sort', '').strip() or request.GET.get('sort', '').strip()
@@ -378,21 +380,31 @@ def session_manage_applicant(request, session_id, user_id):
     if sort_option:
         target = f"{target}?sort={sort_option}"
     if _is_final_locked(meeting):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': _final_lock_message(meeting, '세션 지원/배정을 변경할 수 없습니다.')}, status=409)
         messages.error(request, _final_lock_message(meeting, '세션 지원/배정을 변경할 수 없습니다.'))
         return redirect(target)
 
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
         messages.error(request, '권한이 없습니다.')
         return redirect(target)
 
     if not Membership.objects.filter(user=target_user, band=band, is_approved=True).exists():
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': '밴드 승인 멤버만 추가할 수 있습니다.'}, status=409)
         messages.error(request, '밴드 승인 멤버만 추가할 수 있습니다.')
         return redirect(target)
     if not _is_meeting_participant_approved(meeting, target_user):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': '선곡회의 참가 승인된 멤버만 지원자에 포함할 수 있습니다.'}, status=409)
         messages.error(request, '선곡회의 참가 승인된 멤버만 지원자에 포함할 수 있습니다.')
         return redirect(target)
 
     if target_user in session.applicant.all() and session.assignee_id == target_user.id:
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': '배정된 세션은 지원을 취소할 수 없습니다.'}, status=409)
         messages.error(request, '배정된 세션은 지원을 취소할 수 없습니다.')
         return redirect(target)
 
@@ -400,6 +412,14 @@ def session_manage_applicant(request, session_id, user_id):
         session.applicant.remove(target_user)
     else:
         session.applicant.add(target_user)
+    if is_ajax:
+        return JsonResponse({
+            'status': 'success',
+            'session_id': str(session.id),
+            'user_id': str(target_user.id),
+            'is_applicant': bool(session.applicant.filter(id=target_user.id).exists()),
+            'applicant_count': int(session.applicant.count()),
+        })
     return redirect(target)
 
 
@@ -606,4 +626,121 @@ def song_applicants_data(request, song_id):
         'song_id': str(song.id),
         'can_assign': can_assign,
         'sessions': rows,
+    })
+
+
+def _comment_author_name(user):
+    return str(getattr(user, 'realname', '') or getattr(user, 'username', '') or '알 수 없음')
+
+
+def _serialize_song_comment(comment, *, can_delete=False):
+    created_local = timezone.localtime(comment.created_at)
+    return {
+        'id': str(comment.id),
+        'author_id': str(comment.author_id),
+        'author_name': _comment_author_name(comment.author),
+        'content': str(comment.content or ''),
+        'created_at': created_local.isoformat(),
+        'created_text': created_local.strftime('%m/%d %H:%M'),
+        'can_delete': bool(can_delete),
+        'delete_url': reverse('song_comment_delete', kwargs={'comment_id': comment.id}),
+    }
+
+
+@login_required
+def song_comments_data(request, song_id):
+    if request.method != 'GET':
+        return JsonResponse({'status': 'error', 'message': '잘못된 요청입니다.'}, status=405)
+
+    song = get_object_or_404(Song.objects.select_related('meeting__band'), id=song_id)
+    meeting = song.meeting
+    membership = _get_approved_membership(request.user, meeting.band)
+    if not membership:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    if not _is_meeting_participant_approved(meeting, request.user, membership=membership):
+        return JsonResponse({'status': 'error', 'message': '선곡회의 참가 승인 후 확인할 수 있습니다.'}, status=403)
+
+    can_manage = _has_meeting_manager_permission(meeting, request.user, membership=membership)
+    total_count = SongComment.objects.filter(song=song).count()
+    recent_comments_desc = list(
+        SongComment.objects.filter(song=song)
+        .select_related('author')
+        .order_by('-created_at')[:120]
+    )
+    comments = list(reversed(recent_comments_desc))
+    payload = [
+        _serialize_song_comment(
+            c,
+            can_delete=(can_manage or c.author_id == request.user.id),
+        )
+        for c in comments
+    ]
+    return JsonResponse({
+        'status': 'success',
+        'song_id': str(song.id),
+        'comment_count': int(total_count),
+        'comments': payload,
+    })
+
+
+@login_required
+def song_comment_create(request, song_id):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '잘못된 요청입니다.'}, status=405)
+
+    song = get_object_or_404(Song.objects.select_related('meeting__band'), id=song_id)
+    meeting = song.meeting
+    membership = _get_approved_membership(request.user, meeting.band)
+    if not membership:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    if not _is_meeting_participant_approved(meeting, request.user, membership=membership):
+        return JsonResponse({'status': 'error', 'message': '선곡회의 참가 승인 후 댓글 작성이 가능합니다.'}, status=403)
+
+    content = str(request.POST.get('content') or '').strip()
+    if not content:
+        return JsonResponse({'status': 'error', 'message': '댓글 내용을 입력해주세요.'}, status=400)
+    if len(content) > 500:
+        return JsonResponse({'status': 'error', 'message': '댓글은 500자 이내로 입력해주세요.'}, status=400)
+
+    comment = SongComment.objects.create(
+        song=song,
+        author=request.user,
+        content=content,
+    )
+    comment_count = SongComment.objects.filter(song=song).count()
+    return JsonResponse({
+        'status': 'success',
+        'song_id': str(song.id),
+        'comment_count': int(comment_count),
+        'comment': _serialize_song_comment(comment, can_delete=True),
+    })
+
+
+@login_required
+def song_comment_delete(request, comment_id):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '잘못된 요청입니다.'}, status=405)
+
+    comment = get_object_or_404(
+        SongComment.objects.select_related('song__meeting__band', 'author'),
+        id=comment_id,
+    )
+    meeting = comment.song.meeting
+    membership = _get_approved_membership(request.user, meeting.band)
+    if not membership:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    if not _is_meeting_participant_approved(meeting, request.user, membership=membership):
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+
+    can_manage = _has_meeting_manager_permission(meeting, request.user, membership=membership)
+    if not can_manage and comment.author_id != request.user.id:
+        return JsonResponse({'status': 'error', 'message': '삭제 권한이 없습니다.'}, status=403)
+
+    song_id = str(comment.song_id)
+    comment.delete()
+    comment_count = SongComment.objects.filter(song_id=song_id).count()
+    return JsonResponse({
+        'status': 'success',
+        'song_id': song_id,
+        'comment_count': int(comment_count),
     })

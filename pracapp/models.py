@@ -199,6 +199,7 @@ class Meeting(models.Model):
         indexes = [
             models.Index(fields=['band', 'created_at'], name='meeting_band_created_idx'),
             models.Index(fields=['band', 'visibility', 'created_at'], name='meeting_band_vis_created_idx'),
+            models.Index(fields=['band', 'practice_start_date', 'practice_end_date'], name='meeting_band_prac_range_idx'),
         ]
 
     # models.py > Meeting 클래스 내부
@@ -501,6 +502,7 @@ class RoomBlock(models.Model):
         indexes = [
             models.Index(fields=['room', 'date', 'start_index'], name='roomblock_room_date_start_idx'),
             models.Index(fields=['source_meeting', 'date'], name='roomblock_source_date_idx'),
+            models.Index(fields=['source_meeting', 'room', 'date', 'start_index'], name='roomblock_src_r_d_s_idx'),
         ]
 
 
@@ -744,3 +746,25 @@ class ExtraPracticeSchedule(models.Model):
             models.Index(fields=['meeting', 'date'], name='eps_meeting_date_idx'),
             models.Index(fields=['room', 'date', 'start_index'], name='eps_room_date_start_idx'),
         ]
+
+
+class SongComment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    song = models.ForeignKey(Song, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='song_comments',
+    )
+    content = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['song', 'created_at'], name='songcmt_song_created_idx'),
+            models.Index(fields=['author', 'created_at'], name='songcmt_author_created_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.song.title} - {self.author.username}'

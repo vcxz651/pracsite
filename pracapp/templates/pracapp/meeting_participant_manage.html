@@ -1,6 +1,43 @@
 {% extends 'base.html' %}
 {% block content %}
 <script>
+    function showParticipantToast(message, isError) {
+        const el = document.getElementById('participantToast');
+        if (!el) return;
+        el.textContent = String(message || '요청을 처리하지 못했습니다.');
+        el.classList.remove('d-none', 'alert-success', 'alert-danger');
+        el.classList.add(isError ? 'alert-danger' : 'alert-success');
+        window.clearTimeout(window.__participantToastTimer);
+        window.__participantToastTimer = window.setTimeout(() => {
+            el.classList.add('d-none');
+        }, 2200);
+    }
+
+    function renderSortIndicators() {
+        const params = new URLSearchParams(window.location.search);
+        const currentSort = (params.get('sort') || 'default').trim();
+        document.querySelectorAll('.js-sort-ind').forEach((el) => el.remove());
+        if (currentSort === 'default') return;
+
+        let key = '';
+        let symbol = '';
+        if (currentSort.endsWith('_asc')) {
+            key = currentSort.replace('_asc', '');
+            symbol = '↑';
+        } else if (currentSort.endsWith('_desc')) {
+            key = currentSort.replace('_desc', '');
+            symbol = '↓';
+        }
+        if (!key || !symbol) return;
+
+        document.querySelectorAll(`.js-participant-sort[data-sort-key="${key}"]`).forEach((btn) => {
+            const mark = document.createElement('span');
+            mark.className = 'js-sort-ind ms-1 text-primary';
+            mark.textContent = symbol;
+            btn.appendChild(mark);
+        });
+    }
+
     function closeParticipantModal() {
         if (window.parent && window.parent !== window) {
             window.parent.postMessage({type: 'participant_modal_close'}, window.location.origin);
@@ -20,13 +57,34 @@
     async function refreshParticipantTables() {
         const root = document.getElementById('participantTablesRoot');
         if (!root) return;
-        const url = "{{ request.path }}?modal=1&fragment=1";
+        const params = new URLSearchParams(window.location.search);
+        const currentSort = (params.get('sort') || 'default').trim();
+        const url = `{{ request.path }}?modal=1&fragment=1&sort=${encodeURIComponent(currentSort)}`;
         const res = await fetch(url, {
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         if (!res.ok) return;
         root.innerHTML = await res.text();
+        renderSortIndicators();
+    }
+
+    function nextSortValue(sortKey) {
+        const params = new URLSearchParams(window.location.search);
+        const currentSort = (params.get('sort') || 'default').trim();
+        if (sortKey === 'name') {
+            return currentSort === 'name_asc' ? 'name_desc' : 'name_asc';
+        }
+        if (sortKey === 'role') {
+            return currentSort === 'role_asc' ? 'role_desc' : 'role_asc';
+        }
+        if (sortKey === 'session') {
+            return currentSort === 'session_asc' ? 'session_desc' : 'session_asc';
+        }
+        if (sortKey === 'availability') {
+            return currentSort === 'availability_desc' ? 'availability_asc' : 'availability_desc';
+        }
+        return 'default';
     }
 
     async function submitParticipantAction(action, userId, triggerEl) {
@@ -46,8 +104,12 @@
                 },
                 body: body.toString(),
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+                showParticipantToast('처리 중 오류가 발생했습니다.', true);
+                return;
+            }
             await refreshParticipantTables();
+            showParticipantToast('처리되었습니다.', false);
         } finally {
             if (triggerEl) triggerEl.disabled = false;
         }
@@ -55,10 +117,25 @@
 
     document.addEventListener('click', async (e) => {
         const btn = e.target.closest('.js-participant-action');
-        if (!btn) return;
+        if (btn) {
+            e.preventDefault();
+            await submitParticipantAction(btn.dataset.action, btn.dataset.userId, btn);
+            return;
+        }
+
+        const sortBtn = e.target.closest('.js-participant-sort');
+        if (!sortBtn) return;
         e.preventDefault();
-        await submitParticipantAction(btn.dataset.action, btn.dataset.userId, btn);
+        const sortKey = String(sortBtn.dataset.sortKey || '').trim();
+        const nextSort = nextSortValue(sortKey);
+        const params = new URLSearchParams(window.location.search);
+        params.set('modal', '1');
+        params.set('sort', nextSort);
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+        await refreshParticipantTables();
     });
+
+    document.addEventListener('DOMContentLoaded', renderSortIndicators, { once: true });
 </script>
 
 <div class="container mt-4" style="max-width: 980px;">
@@ -78,4 +155,6 @@
         </div>
     </div>
 </div>
+
+<div id="participantToast" class="alert d-none position-fixed bottom-0 end-0 m-3 shadow-sm" style="z-index:1080;"></div>
 {% endblock %}

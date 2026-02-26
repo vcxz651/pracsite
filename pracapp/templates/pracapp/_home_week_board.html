@@ -1,0 +1,53 @@
+<div class="home-week-board">
+    <div class="home-week-head time-head"></div>
+    {% for day in board.days %}
+        <div class="home-week-head{% if day.is_today %} today{% endif %}">{{ day.date_text }}</div>
+    {% endfor %}
+
+    <div class="home-week-time-col">
+        {% for row in board.time_rows %}
+            <div class="home-week-time-row{% if row.slot|divisibleby:2 %}{% else %} half{% endif %}">{{ row.label }}</div>
+        {% endfor %}
+    </div>
+
+    {% for day in board.days %}
+        <div class="home-week-day-col">
+            <div class="home-week-day-grid" style="height: calc({{ board.slot_count }} * var(--home-slot-h));">
+                {% for row in board.time_rows %}
+                    <div class="home-week-slot-line{% if row.slot|divisibleby:2 %}{% else %} half{% endif %}" style="top: calc({{ forloop.counter0 }} * var(--home-slot-h));"></div>
+                {% endfor %}
+                {% for pb in day.personal_blocks %}
+                    <div class="home-week-personal-block js-home-personal-tooltip"
+                         style="
+                            top: calc({{ pb.top_slots }} * var(--home-slot-h));
+                            height: calc({{ pb.span_slots }} * var(--home-slot-h) - 2px);
+                         "
+                         data-reason-text="{{ pb.reason_text }}"
+                         tabindex="0">
+                        <div class="personal-reason">{{ pb.reason_text }}</div>
+                    </div>
+                {% endfor %}
+                {% for ev in day.events %}
+                    <div class="home-week-event js-home-event-tooltip{% if ev.kind == '추가' %} extra{% endif %}"
+                         style="
+                            top: calc({{ ev.top_slots }} * var(--home-slot-h));
+                            height: calc({{ ev.span_slots }} * var(--home-slot-h) - 2px);
+                            left: calc({{ ev.lane_index }} * (100% / {{ ev.lane_count }}));
+                            width: calc((100% / {{ ev.lane_count }}) - 3px);
+                         "
+                         data-band-name="{{ ev.band_name }}"
+                         data-meeting-title="{{ ev.meeting_title }}"
+                         data-kind="{{ ev.kind }}"
+                         data-song-title="{{ ev.song_title }}"
+                         data-song-artist="{{ ev.song_artist }}"
+                         data-time-text="{{ ev.time_text }}"
+                         data-room-name="{{ ev.room_name }}"
+                         tabindex="0">
+                        <div class="event-main">{{ ev.song_title }}</div>
+                        <div class="event-sub">{{ ev.time_text }} · {{ ev.room_name }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
