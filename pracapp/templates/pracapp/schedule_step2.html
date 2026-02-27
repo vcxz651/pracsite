@@ -16,6 +16,20 @@
         border-radius: 4px;
         overflow: hidden;
     }
+    .schedule-grid-scroll {
+        max-width: 1000px;
+        margin: 0 auto;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .schedule-grid-scroll .schedule-container {
+        margin: 0;
+        max-width: none;
+    }
+    body.schedule-dragging {
+        overflow: hidden;
+        touch-action: none;
+    }
 
     .header-cell {
         background-color: #f8f9fa;
@@ -52,6 +66,11 @@
         font-size: 0.75rem;
         color: white;
         transition: 0.1s;
+        touch-action: none;
+    }
+    #scheduleGrid,
+    #specialScheduleGrid {
+        touch-action: none;
     }
 
     .grid-cell.selecting { background-color: #ffc9c9; }
@@ -160,6 +179,8 @@
         display: none;
         padding: 10px;
         background: #fff;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .special-period-card.expanded .special-period-body {
@@ -205,6 +226,21 @@
         background: #ff9a3d;
         border-color: #ff9a3d;
     }
+    @media (max-width: 768px) {
+        .schedule-grid-scroll .schedule-container,
+        .special-period-body .schedule-container {
+            min-width: 760px;
+        }
+        .action-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        .action-bar .d-flex {
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+    }
 </style>
 
 <div class="container mt-4 mb-5">
@@ -216,7 +252,9 @@
         </p>
     </div>
 
-    <div class="schedule-container no-select" id="scheduleGrid"></div>
+    <div class="schedule-grid-scroll">
+        <div class="schedule-container no-select" id="scheduleGrid"></div>
+    </div>
 
     <div class="special-period-section">
         <div id="specialPeriodCards"></div>
@@ -237,7 +275,9 @@
                 </div>
             </div>
 
-            <div class="schedule-container no-select" id="specialScheduleGrid"></div>
+            <div class="schedule-grid-scroll">
+                <div class="schedule-container no-select" id="specialScheduleGrid"></div>
+            </div>
         </div>
 
         <button type="button" id="addSpecialPeriodBtn" class="special-add-btn">
@@ -378,8 +418,8 @@
                 }
 
                 if (bindEvents) {
-                    cell.addEventListener('mousedown', startDrag);
-                    cell.addEventListener('mouseenter', onMouseEnter);
+                    cell.addEventListener('pointerdown', startDrag);
+                    cell.addEventListener('pointerenter', onMouseEnter);
                 }
                 targetGrid.appendChild(cell);
             });
@@ -419,8 +459,8 @@
                     if (reason !== prevReason) cell.innerText = reason;
                 }
 
-                cell.addEventListener('mousedown', startSpecialDrag);
-                cell.addEventListener('mouseenter', onSpecialMouseEnter);
+                cell.addEventListener('pointerdown', startSpecialDrag);
+                cell.addEventListener('pointerenter', onSpecialMouseEnter);
                 specialGrid.appendChild(cell);
             });
         }
@@ -627,9 +667,11 @@
     let dragMode = 'create';
     let selectedCells = [];
 
-    function startDrag() {
+    function startDrag(e) {
+        if (e) e.preventDefault();
         closeBubble();
         isDragging = true;
+        document.body.classList.add('schedule-dragging');
         dragStartDay = parseInt(this.dataset.day);
         dragStartTime = parseInt(this.dataset.time);
         selectedCells = [];
@@ -637,7 +679,8 @@
         processCell(this);
     }
 
-    function onMouseEnter() {
+    function onMouseEnter(e) {
+        if (e && (e.buttons === 0) && !isDragging) return;
         if (!isDragging) return;
         if (parseInt(this.dataset.day) !== dragStartDay) return;
         processCell(this);
@@ -663,13 +706,14 @@
         }
     }
 
-    document.addEventListener('mouseup', (e) => {
+    function finishMainDrag(clientX, clientY) {
         if (!isDragging) return;
         isDragging = false;
+        document.body.classList.remove('schedule-dragging');
 
         if (selectedCells.length > 0) {
             if (dragMode === 'create') {
-                showBubble(e.clientX, e.clientY);
+                showBubble(clientX, clientY);
                 return;
             }
             const dayMap = scheduleMap.get(dragStartDay);
@@ -682,6 +726,13 @@
             });
         }
         document.querySelectorAll('#scheduleGrid .grid-cell').forEach(c => c.classList.remove('selecting', 'erasing'));
+    }
+
+    document.addEventListener('mouseup', (e) => {
+        finishMainDrag(e.clientX, e.clientY);
+    });
+    document.addEventListener('pointerup', (e) => {
+        finishMainDrag(e.clientX, e.clientY);
     });
 
     function selectAllDay(dayIdx) {
@@ -746,9 +797,11 @@
     let specialDragMode = 'create';
     let specialSelectedCells = [];
 
-    function startSpecialDrag() {
+    function startSpecialDrag(e) {
+        if (e) e.preventDefault();
         closeSpecialBubble();
         specialDragging = true;
+        document.body.classList.add('schedule-dragging');
         specialDragStartDay = parseInt(this.dataset.day);
         specialDragStartTime = parseInt(this.dataset.time);
         specialSelectedCells = [];
@@ -756,7 +809,8 @@
         processSpecialCell(this);
     }
 
-    function onSpecialMouseEnter() {
+    function onSpecialMouseEnter(e) {
+        if (e && (e.buttons === 0) && !specialDragging) return;
         if (!specialDragging) return;
         if (parseInt(this.dataset.day) !== specialDragStartDay) return;
         processSpecialCell(this);
@@ -782,13 +836,14 @@
         }
     }
 
-    document.addEventListener('mouseup', (e) => {
+    function finishSpecialDrag(clientX, clientY) {
         if (!specialDragging) return;
         specialDragging = false;
+        document.body.classList.remove('schedule-dragging');
 
         if (specialSelectedCells.length > 0) {
             if (specialDragMode === 'create') {
-                showSpecialBubble(e.clientX, e.clientY);
+                showSpecialBubble(clientX, clientY);
                 return;
             }
             const dayMap = specialEditorMap.get(specialDragStartDay);
@@ -802,7 +857,61 @@
             renderSpecialEditorGrid();
         }
         document.querySelectorAll('#specialScheduleGrid .grid-cell').forEach(c => c.classList.remove('selecting', 'erasing'));
+    }
+
+    document.addEventListener('mouseup', (e) => {
+        finishSpecialDrag(e.clientX, e.clientY);
     });
+    document.addEventListener('pointerup', (e) => {
+        finishSpecialDrag(e.clientX, e.clientY);
+    });
+
+    // iOS Safari 등 터치 환경에서 스크롤 대신 드래그 선택이 우선되도록 보강
+    document.addEventListener('touchstart', (e) => {
+        const cell = e.target.closest('#scheduleGrid .grid-cell');
+        if (cell) {
+            e.preventDefault();
+            startDrag.call(cell, e);
+            return;
+        }
+        const specialCell = e.target.closest('#specialScheduleGrid .grid-cell');
+        if (specialCell) {
+            e.preventDefault();
+            startSpecialDrag.call(specialCell, e);
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            const t = (e.touches && e.touches[0]) ? e.touches[0] : null;
+            if (!t) return;
+            const el = document.elementFromPoint(t.clientX, t.clientY);
+            const cell = el && el.closest ? el.closest('#scheduleGrid .grid-cell') : null;
+            if (cell && parseInt(cell.dataset.day) === dragStartDay) {
+                processCell(cell);
+            }
+            return;
+        }
+        if (specialDragging) {
+            e.preventDefault();
+            const t = (e.touches && e.touches[0]) ? e.touches[0] : null;
+            if (!t) return;
+            const el = document.elementFromPoint(t.clientX, t.clientY);
+            const cell = el && el.closest ? el.closest('#specialScheduleGrid .grid-cell') : null;
+            if (cell && parseInt(cell.dataset.day) === specialDragStartDay) {
+                processSpecialCell(cell);
+            }
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchend', (e) => {
+        const t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+        const x = t ? t.clientX : 0;
+        const y = t ? t.clientY : 0;
+        finishMainDrag(x, y);
+        finishSpecialDrag(x, y);
+    }, { passive: true });
 
     function selectAllDaySpecial(dayIdx) {
         closeSpecialBubble();

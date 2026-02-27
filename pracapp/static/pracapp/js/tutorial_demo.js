@@ -17,8 +17,8 @@
   let idx = 0;
 
   function getSteps() {
-    const inMatch = !!document.querySelector('.match-result-wrap');
-    const inMeeting = !!document.querySelector('.meeting-body');
+    const inMatch = !!document.querySelector('#matchResultRoot, .match-result-wrap');
+    const inMeeting = !!document.querySelector('#liveMeetingRow, .meeting-body');
     const items = [];
     if (inMatch) {
       items.push(

@@ -285,6 +285,14 @@
                                     <span class="badge bg-dark-subtle text-dark border">{{ m.schedule_preset_label }}</span>
                                 {% endif %}
                                 {% if is_manager %}
+                                    {% if m.visibility == 'UNLISTED' %}
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm js-share-meeting-link"
+                                                data-meeting-path="{% url 'meeting_detail' m.id %}"
+                                                style="font-size: 0.8rem;">
+                                            링크 공유
+                                        </button>
+                                    {% endif %}
                                     <a href="#"
                                        onclick="return openMeetingModal('{% url 'meeting_update' m.id %}');"
                                        class="btn btn-outline-secondary btn-sm"
@@ -519,6 +527,41 @@
                 buttons.forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
                 applyFilter(btn.dataset.filterKey || 'ALL');
+            });
+        });
+    })();
+
+    (function () {
+        const shareButtons = Array.from(document.querySelectorAll('.js-share-meeting-link'));
+        if (!shareButtons.length) return;
+
+        async function copyMeetingLink(button) {
+            const meetingPath = button.dataset.meetingPath || '';
+            if (!meetingPath) return;
+            const shareUrl = new URL(meetingPath, window.location.origin).toString();
+
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(shareUrl);
+                return;
+            }
+            window.prompt('아래 링크를 복사하세요.', shareUrl);
+        }
+
+        shareButtons.forEach((btn) => {
+            btn.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const originalText = btn.textContent;
+                try {
+                    await copyMeetingLink(btn);
+                    btn.textContent = '복사됨';
+                } catch (err) {
+                    alert('링크 복사에 실패했습니다.');
+                } finally {
+                    window.setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 1200);
+                }
             });
         });
     })();

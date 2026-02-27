@@ -2,6 +2,7 @@ import datetime
 import csv
 import random
 import uuid
+import re
 from pathlib import Path
 
 from django.contrib import messages
@@ -47,7 +48,7 @@ DEMO_SESSION_KEYS = [
     'demo_user_manager_id',
     'demo_user_member_id',
     'demo_user_ids',
-    'demo_is_cached',
+    'demo_cache_scope',
 ]
 
 
@@ -74,12 +75,36 @@ SCENARIO_DATE_MESSAGES = {
 }
 
 
-def _scenario_cache_prefix(scenario):
-    return f"demo_cache_s{int(scenario)}_"
+def _normalize_cache_scope(raw_scope):
+    scope = re.sub(r'[^a-zA-Z0-9_-]+', '', str(raw_scope or '').strip())
+    scope = scope[:24]
+    return scope or 'global'
 
 
-def _scenario_cache_band_name(scenario):
-    return f"[데모CACHE][S{int(scenario)}] 락스타즈"
+def _scenario_cache_prefix(scenario, cache_scope):
+    scope = _normalize_cache_scope(cache_scope)
+    return f"demo_cache_s{int(scenario)}_{scope}_"
+
+
+def _scenario_cache_band_name(scenario, cache_scope):
+    scope = _normalize_cache_scope(cache_scope)
+    return f"[데모CACHE][S{int(scenario)}][{scope}] 락스타즈"
+
+
+def _ensure_demo_cache_scope(request):
+    existing = request.session.get('demo_cache_scope')
+    if existing:
+        normalized = _normalize_cache_scope(existing)
+        if normalized != existing:
+            request.session['demo_cache_scope'] = normalized
+        return normalized
+
+    if not request.session.session_key:
+        request.session.save()
+    base = str(request.session.session_key or uuid.uuid4().hex)
+    scope = _normalize_cache_scope(base[:12])
+    request.session['demo_cache_scope'] = scope
+    return scope
 
 
 def _clear_demo_session(request):
@@ -88,7 +113,6 @@ def _clear_demo_session(request):
 
 
 def _cleanup_demo_assets_from_session(request):
-    is_cached = bool(request.session.get('demo_is_cached'))
     band_id = request.session.get('demo_band_id')
     raw_user_ids = request.session.get('demo_user_ids') or []
     user_ids = [uid for uid in raw_user_ids if uid]
@@ -96,10 +120,11 @@ def _cleanup_demo_assets_from_session(request):
         manager_id = request.session.get('demo_user_manager_id')
         member_id = request.session.get('demo_user_member_id')
         user_ids = [uid for uid in [manager_id, member_id] if uid]
-    if band_id and not is_cached:
-        Band.objects.filter(id=band_id).delete()
-    if user_ids and not is_cached:
-        User.objects.filter(id__in=user_ids).delete()
+    if band_id:
+        Band.objects.filter(id=band_id, name__startswith='[데모').delete()
+    if user_ids:
+        User.objects.filter(id__in=user_ids, username__startswith='demo_cache_').delete()
+        User.objects.filter(id__in=user_ids, username__startswith='demo_member_').delete()
     _clear_demo_session(request)
 
 
@@ -222,11 +247,11 @@ def _backfill_assignee_to_applicant(meeting):
         through.objects.bulk_create(pending, ignore_conflicts=True)
 
 
-def _ensure_cached_demo_dataset(scenario):
+def _ensure_cached_demo_dataset(scenario, cache_scope):
     scenario = int(scenario)
     cfg = SCENARIO_CONFIG.get(scenario, SCENARIO_CONFIG[1])
-    cache_prefix = _scenario_cache_prefix(scenario)
-    cache_band_name = _scenario_cache_band_name(scenario)
+    cache_prefix = _scenario_cache_prefix(scenario, cache_scope)
+    cache_band_name = _scenario_cache_band_name(scenario, cache_scope)
 
     band = Band.objects.filter(name=cache_band_name).first()
     if band:
@@ -638,7 +663,11 @@ def demo_start(request):
         _cleanup_demo_assets_from_session(request)
 
     cfg = SCENARIO_CONFIG.get(scenario, SCENARIO_CONFIG[1])
-    band, meeting, rooms, songs, demo_users, manager_user, member_user = _ensure_cached_demo_dataset(scenario)
+    cache_scope = _ensure_demo_cache_scope(request)
+    band, meeting, rooms, songs, demo_users, manager_user, member_user = _ensure_cached_demo_dataset(
+        scenario,
+        cache_scope=cache_scope,
+    )
     _apply_scenario_state(meeting, manager_user, rooms, songs, scenario, assigned_songs=cfg['assigned_songs'])
 
     login(request, manager_user, backend='django.contrib.auth.backends.ModelBackend')
@@ -650,7 +679,7 @@ def demo_start(request):
     request.session['demo_user_manager_id'] = str(manager_user.id)
     request.session['demo_user_member_id'] = str(member_user.id)
     request.session['demo_user_ids'] = [str(u.id) for u in demo_users]
-    request.session['demo_is_cached'] = True
+    request.session['demo_cache_scope'] = cache_scope
 
     return redirect('demo_scenario', scenario=scenario)
 
@@ -704,6 +733,8 @@ def demo_switch_role(request):
 def demo_exit(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
+    if not request.session.get('demo_mode'):
+        return redirect('home')
     _cleanup_demo_assets_from_session(request)
     if request.user.is_authenticated:
         logout(request)

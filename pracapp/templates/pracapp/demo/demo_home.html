@@ -25,7 +25,7 @@
     <div class="col-12 col-lg-4">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body d-flex flex-column">
-          <h5 class="fw-bold">시나리오 B: 60명 중 팀 A 합주 잡기</h5>
+          <h5 class="fw-bold">시나리오 B: 6명 중 팀 A 합주 잡기</h5>
           <p class="text-muted small flex-grow-1 mb-3">대시보드에서 팀 B~F 예약 현황을 확인하고, 우리 팀 A 선곡시트(20곡/4곡 배정)로 이동합니다.</p>
           <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
             {% csrf_token %}
@@ -50,8 +50,8 @@
     </div>
   </div>
 
-  <div class="mt-4">
-    <a href="/tutorial/" class="btn btn-outline-secondary">전체 튜토리얼(6단계) 보기</a>
+  <div class="mt-4 small text-muted">
+    튜토리얼은 데모 시작 후 상단 <strong>투어 다시 보기</strong> 버튼에서 실행할 수 있습니다.
   </div>
 </div>
 

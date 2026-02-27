@@ -534,6 +534,13 @@
     .js-song-card.bg-danger.bg-opacity-10 {
         background-color: #f4b8bf !important;
     }
+    .meeting-body:not(.manager-page) .js-song-card,
+    .meeting-body:not(.manager-page) .js-song-card.bg-success.bg-opacity-10,
+    .meeting-body:not(.manager-page) .js-song-card.bg-warning.bg-opacity-10,
+    .meeting-body:not(.manager-page) .js-song-card.bg-orange.bg-opacity-10,
+    .meeting-body:not(.manager-page) .js-song-card.bg-danger.bg-opacity-10 {
+        background-color: #fff !important;
+    }
     .js-song-card .js-session-slot-btn {
         transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease, box-shadow 240ms ease;
     }
@@ -673,6 +680,9 @@
         display: none;
     }
     .song-session-col.song-session-collapsible.is-expanded {
+        display: flex;
+    }
+    .meeting-body:not(.manager-page) .song-session-col.song-session-collapsible {
         display: flex;
     }
     .js-song-card.song-applicants-expanded .session-grid > .empty-slot {
@@ -981,6 +991,22 @@
         }
         .song-artist-text {
             font-size: 0.86rem !important;
+        }
+    }
+    @media (min-width: 768px) {
+        .meeting-body:not(.manager-page) .song-main-row {
+            flex-direction: row;
+            gap: 12px;
+        }
+        .meeting-body:not(.manager-page) .song-meta-col {
+            flex: 0 0 260px;
+            width: 260px;
+            max-width: 260px;
+            padding-right: 10px;
+            padding-bottom: 0;
+        }
+        .meeting-body:not(.manager-page) .song-session-col {
+            padding-left: 10px;
         }
     }
     @media (max-width: 576px) {
@@ -1835,6 +1861,7 @@
             initLazyYoutubeEmbeds();
             initSongAuthorNoteTooltips();
             syncSongSearchInputs();
+            syncMemberSongCardExpandByViewport({ force: true });
             applySongQuickFilter();
             return true;
         } catch (_) {
@@ -1867,6 +1894,7 @@
             initLazyYoutubeEmbeds();
             initSongAuthorNoteTooltips();
             syncSongSearchInputs();
+            syncMemberSongCardExpandByViewport({ force: true });
             return true;
         } catch (_) {
             window.location.href = restoreUrl;
@@ -2838,6 +2866,7 @@
             initLazyYoutubeEmbeds();
             initSongAuthorNoteTooltips();
             syncSongSearchInputs();
+            syncMemberSongCardExpandByViewport({ force: true });
             applySongQuickFilter();
         } catch (_) {
             form.submit();
@@ -2884,6 +2913,7 @@
                 initLazyYoutubeEmbeds();
                 initSongAuthorNoteTooltips();
                 syncSongSearchInputs();
+                syncMemberSongCardExpandByViewport({ force: true });
                 applySongQuickFilter();
             } catch (_) {
                 window.location.href = nextUrl;
@@ -3028,6 +3058,25 @@
                 }
             });
         }
+    }
+
+    let memberExpandedByViewport = null;
+    function syncMemberSongCardExpandByViewport(options = {}) {
+        if (isManagerPage) return;
+        const force = !!options.force;
+        const shouldExpand = false;
+        if (!force && memberExpandedByViewport === shouldExpand) return;
+        memberExpandedByViewport = shouldExpand;
+
+        document.querySelectorAll('.js-song-card.song-card-collapsible').forEach((card) => {
+            const mainRow = card.querySelector('.js-song-main-toggle');
+            if (!mainRow) return;
+            const sessionRows = Array.from(card.querySelectorAll('.js-song-session-details'));
+            const footerRows = Array.from(card.querySelectorAll('.js-song-footer-actions'));
+            sessionRows.forEach((row) => row.classList.toggle('is-expanded', shouldExpand));
+            footerRows.forEach((row) => row.classList.toggle('is-expanded', shouldExpand));
+            mainRow.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+        });
     }
 
     document.addEventListener('click', function (event) {
@@ -3268,6 +3317,7 @@
         applySongQuickFilter();
         syncSongSearchInputs();
         initApplicantsToggleState();
+        syncMemberSongCardExpandByViewport({ force: true });
         initSheetHoldButtons();
         initSongAuthorNoteTooltips();
         if (isManagerPage) {
@@ -3525,7 +3575,7 @@
 
 </script>
 
-<div class="container mt-4 {% if is_manager %}manager-page{% endif %}" style="max-width: 1280px;">
+<div class="container mt-4 meeting-body {% if is_manager %}manager-page{% endif %}" style="max-width: 1280px;">
     <div class="mb-4">
         <div class="d-flex align-items-center mb-2">
             <h2 class="fw-bold mb-0">{{ meeting.title }}</h2>
@@ -3545,8 +3595,15 @@
                     <p class="text-muted mb-1">📅 회의 일정 : {{ meeting.schedule|date:"y년 n월 j일 H:i" }}</p>
                     <p class="text-muted mb-2">📍 회의 장소 : {% if meeting.location|slice:":4" == "http" %}<a href="{{ meeting.location }}" target="_blank" rel="noopener noreferrer">바로가기 →</a>{% else %}{{ meeting.location }}{% endif %}</p>
                     {% if meeting.practice_start_date and meeting.practice_end_date %}
-                    <p class="text-muted mb-0">🎸 합주 기간: {{ meeting.practice_start_date|date:"y년 n월 j일" }} ~ {% if meeting.practice_start_date|date:"y" == meeting.practice_end_date|date:"y" %}{{ meeting.practice_end_date|date:"n월 j일" }}{% else %}{{ meeting.practice_end_date|date:"y년 n월 j일" }}{% endif %}</p>
+                    <p class="text-muted mb-2">🎸 합주 기간: {{ meeting.practice_start_date|date:"y년 n월 j일" }} ~ {% if meeting.practice_start_date|date:"y" == meeting.practice_end_date|date:"y" %}{{ meeting.practice_end_date|date:"n월 j일" }}{% else %}{{ meeting.practice_end_date|date:"y년 n월 j일" }}{% endif %}</p>
                     {% endif %}
+                    <div class="mb-0">
+                        <button type="button"
+                                class="btn btn-outline-primary btn-sm js-copy-meeting-link"
+                                data-meeting-path="{% url 'meeting_detail' meeting.id %}">
+                            링크 복사
+                        </button>
+                    </div>
                 </div>
                 {% if is_manager and not is_final_locked %}
                 <div class="d-none d-md-flex gap-2 flex-shrink-0 ms-3">
@@ -4678,6 +4735,37 @@
     collapseEl.addEventListener('hide.bs.collapse', function () {
         const chevron = document.querySelector('.meeting-info-chevron');
         if (chevron) chevron.style.transform = 'rotate(0deg)';
+    });
+})();
+
+(function () {
+    const copyBtn = document.querySelector('.js-copy-meeting-link');
+    if (!copyBtn) return;
+
+    async function copyMeetingLink() {
+        const meetingPath = copyBtn.dataset.meetingPath || '';
+        if (!meetingPath) return;
+        const shareUrl = new URL(meetingPath, window.location.origin).toString();
+
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(shareUrl);
+            return;
+        }
+        window.prompt('아래 링크를 복사하세요.', shareUrl);
+    }
+
+    copyBtn.addEventListener('click', async () => {
+        const originalText = copyBtn.textContent;
+        try {
+            await copyMeetingLink();
+            copyBtn.textContent = '복사됨';
+        } catch (err) {
+            alert('링크 복사에 실패했습니다.');
+        } finally {
+            window.setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 1200);
+        }
     });
 })();
 </script>
