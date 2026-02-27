@@ -1417,6 +1417,10 @@
     .result-header-actions .btn {
         margin: 0 !important;
     }
+    .booking-stage-banner-actions {
+        justify-content: flex-start;
+        margin-top: 0.75rem;
+    }
     .match-settings-card {
         margin-top: 0.75rem;
         margin-bottom: 0;
@@ -1527,11 +1531,6 @@
     }
     .booking-item strong {
         color: #1e3a5f;
-    }
-    .booking-empty-room-toggle-btn {
-        white-space: normal;
-        line-height: 1.25;
-        min-height: calc(1.25em * 2 + 0.55rem);
     }
     .booking-change-floating {
         position: static;
@@ -1750,7 +1749,7 @@
     }
 </style>
 
-<div class="container mt-5 mb-5" id="matchResultRoot" style="max-width: 1200px;">
+<div class="container mt-5 mb-5 match-result-wrap" id="matchResultRoot" style="max-width: 1200px;">
 
     {% if not is_booking_confirm_view %}
     <div class="match-quick-remote" id="matchQuickRemote">
@@ -1763,11 +1762,9 @@
         {% endif %}
         <button type="button" id="quickSaveDraftBtn" class="btn btn-primary btn-sm">임시 저장</button>
         <button type="button" id="quickFinalSaveBtn" class="btn btn-success btn-sm">확정 저장</button>
-        <button type="button" id="quickLayoutToggleBtn" class="btn btn-outline-primary btn-sm">룸 보기</button>
         <button type="button" id="quickForcedOnlyBtn" class="btn btn-outline-warning btn-sm">강제 배치만</button>
         <button type="button" id="quickTempRoomOnlyBtn" class="btn btn-outline-secondary btn-sm">임시합주실만</button>
         <button type="button" id="quickSharedDiffOnlyBtn" class="btn btn-outline-info btn-sm">공유 후 변경만</button>
-        <button type="button" id="quickEmptyRoomsToggleBtn" class="btn btn-outline-secondary btn-sm">빈 합주실 가리기</button>
         <button type="button" id="quickWeekendToggleBtn" class="btn btn-outline-secondary btn-sm">주말 가리기</button>
         <button type="button" id="quickExpandAllBtn" class="btn btn-outline-secondary btn-sm">전체 시간표 확장</button>
         <button type="button" id="quickResetAllBtn" class="btn btn-outline-danger btn-sm">전체 초기화</button>
@@ -1800,7 +1797,7 @@
             </div>
             {% if not is_simulation and match_duration_minutes and match_required_count %}
             <div class="match-settings-card mb-2">
-                <div class="match-settings-title">현재 매칭 세팅</div>
+                <div class="match-settings-title">{{ meeting.title }}</div>
                 <div class="match-settings-item"><span class="label">합주 기간</span>{{ meeting.practice_start_date|date:"Y-m-d" }} ~ {{ meeting.practice_end_date|date:"Y-m-d" }}</div>
                 <div class="match-settings-item"><span class="label">곡당/주당</span>{{ match_duration_minutes }}분 / {{ match_required_count }}회</div>
                 <div class="match-settings-item">
@@ -1834,10 +1831,6 @@
                         </p>
                     </div>
                     <div class="result-summary-shell-right result-inline-actions">
-                        <div class="btn-group" role="group" aria-label="레이아웃 보기 전환">
-                            <button type="button" id="boardLayoutGeneralBtn" class="btn btn-outline-secondary">일반</button>
-                            <button type="button" id="boardLayoutRoomslotBtn" class="btn btn-outline-secondary">룸슬롯</button>
-                        </div>
                         <button type="button"
                            id="matchRematchBtn"
                            class="btn btn-outline-secondary"
@@ -1853,16 +1846,18 @@
                         <button id="saveWorkDraftBtn" class="btn btn-outline-primary fw-bold px-4">
                             💾 현재 시간표 임시 저장
                         </button>
-                        <span class="text-muted small">최종 공유본 기준으로 예약단계로 이동</span>
-                        <button id="goBookingConfirmFromMatchBtn" class="btn btn-success fw-bold px-4">
-                            🏷️ 예약하기
-                        </button>
+                        <div class="d-flex flex-column align-items-end gap-1">
+                            <span id="bookingEntryStatusTop" class="small text-muted">현재 배치 기준으로 예약을 진행합니다</span>
+                            <button id="goBookingConfirmFromMatchBtn" class="btn btn-success fw-bold px-4">
+                                🏷️ 예약하기
+                            </button>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
                 {% if share_warning_needed %}
                 <div class="alert alert-info py-2 px-3 mt-2 mb-0" id="sharedScheduleGuideBanner">
-                    <strong>현재 공유된 시간표 기준</strong>으로 팀원과 소통 후 예약을 진행하세요.
+                    <strong>공유 기준 정보</strong>
                     <span class="small d-block mt-1 text-muted">
                         마지막 공유: <span id="sharedScheduleUpdatedAtText">{% if shared_schedule_updated_at %}{{ shared_schedule_updated_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span>
                         · 버전 <span id="sharedScheduleVersionText">{{ meeting.schedule_version }}</span>
@@ -1875,20 +1870,15 @@
             {% if is_final_view %}
                 {% if is_manager_role and not is_confirmed_final %}
                     {% if is_booking_confirm_view %}
-                    <a href="{% url 'schedule_match_resume' meeting.id %}"
-                       class="btn btn-outline-secondary fw-bold px-3"
-                       data-leave-guard-skip="1"
-                       data-resume-from-booking="1">
-                        ✏️ 합주 재매칭
-                    </a>
-                    <span class="text-muted small">Shift+클릭: 불가능 사유 고정</span>
                     {% else %}
-                    <button type="button"
-                            id="goBookingConfirmBtn"
-                            class="btn btn-outline-primary fw-bold px-3">
-                        🏷️ 합주 예약 확정 페이지
-                    </button>
-                    <span class="text-muted small">최종 공유본 기준으로 예약단계로 이동</span>
+                    <div class="d-flex flex-column align-items-end gap-1">
+                        <span id="bookingEntryStatusHeader" class="small text-muted">현재 배치 기준으로 예약을 진행합니다</span>
+                        <button type="button"
+                                id="goBookingConfirmBtn"
+                                class="btn btn-outline-primary fw-bold px-3">
+                            🏷️ 합주 예약 확정 페이지
+                        </button>
+                    </div>
                     {% endif %}
                 {% endif %}
                 {% if can_confirm_final and not is_booking_confirm_view %}
@@ -1899,18 +1889,7 @@
                     ✏️ 합주 시간표 조정
                 </a>
                 {% endif %}
-                {% if is_booking_confirm_view %}
-                <button id="saveWorkDraftBtnBooking"
-                        class="btn btn-outline-primary fw-bold px-3">
-                    💾 예약 임시 저장
-                </button>
-            <!--
-                <button type="button" id="resetAllChangesBookingBtn" class="btn btn-outline-danger fw-bold px-3">
-                    전체 리셋
-                </button>
-            -->
-                {% endif %}
-                {% if can_confirm_final %}
+                {% if can_confirm_final and not is_booking_confirm_view %}
                 <button id="saveResultBtn" class="btn btn-success fw-bold px-4">
                     {% if is_booking_confirm_view %}✅ 예약 확정{% else %}✅ 합주 시간표 확정{% endif %}
                 </button>
@@ -1922,6 +1901,26 @@
     <div class="alert alert-primary py-2 px-3">
         현재 화면은 <strong>관리자 예약 확정 단계</strong>입니다. 일반 멤버 화면은 그대로 유지되며 상태 배지만 <strong>예약중</strong>으로 표시됩니다.
     </div>
+    {% if is_manager_role and not is_confirmed_final %}
+    <div class="result-header-actions booking-stage-banner-actions">
+        <a href="{% url 'schedule_match_resume' meeting.id %}"
+           class="btn btn-outline-secondary fw-bold px-3"
+           data-leave-guard-skip="1"
+           data-resume-from-booking="1">
+            ✏️ 합주 재매칭
+        </a>
+        <button id="saveWorkDraftBtnBooking"
+                class="btn btn-outline-primary fw-bold px-3">
+            💾 예약 임시 저장
+        </button>
+        {% if can_confirm_final %}
+        <button id="saveResultBtn" class="btn btn-success fw-bold px-4">
+            ✅ 예약 확정
+        </button>
+        {% endif %}
+        <span class="text-muted small">Shift+클릭: 불가능 사유 고정</span>
+    </div>
+    {% endif %}
     {% endif %}
     {% if is_final_view and is_booking_in_progress and not is_manager_role %}
     <div class="alert alert-warning py-2 px-3">
@@ -1953,13 +1952,6 @@
             <div id="bookingSelectionSummary" class="booking-list">
                 <div class="text-muted small">예약이 필요한 타일이 없습니다.</div>
             </div>
-        </div>
-        <div class="mt-2">
-            <button type="button"
-                    class="btn btn-outline-secondary btn-sm w-100 booking-empty-room-toggle-btn"
-                    data-empty-room-toggle-mode="deactivate">
-                전체 곡 없는 합주실 비활성화
-            </button>
         </div>
         <div class="booking-tools-panel-resize-handle" aria-label="리모콘 높이 조절"></div>
     </div>
@@ -2011,25 +2003,28 @@
     {% endif %}
     {% for week in weeks %}
     <div class="week-block" data-week-block data-week-number="{{ forloop.counter }}">
-        <div class="week-title d-flex justify-content-between align-items-end">
-            <div class="d-flex align-items-center gap-2">
-                <span>{{ forloop.counter }}주차</span>
-                {% if is_booking_confirm_view and is_manager_role %}
-                <button type="button"
-                        class="booking-day-select-btn"
-                        data-booking-week-no="{{ forloop.counter }}">
-                    일괄 예약
-                </button>
-                {% elif not is_final_view or is_manager_role %}
-                <span class="badge {% if week.is_complete %}bg-success-subtle text-success border border-success-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %}"
-                      data-week-status-badge>
-                    {% if week.is_complete %}배치 완료{% else %}미배치 {{ week.failed_count }}곡{% endif %}
-                </span>
-                {% endif %}
+        <div class="week-title d-flex justify-content-between align-items-start">
+            <div class="d-flex flex-column gap-1">
+                <div class="d-flex align-items-center gap-2">
+                    <span>{{ forloop.counter }}주차</span>
+                    {% if is_booking_confirm_view and is_manager_role %}
+                    <button type="button"
+                            class="booking-day-select-btn"
+                            data-booking-week-no="{{ forloop.counter }}">
+                        일괄 예약
+                    </button>
+                    {% elif not is_final_view or is_manager_role %}
+                    <span class="badge {% if week.is_complete %}bg-success-subtle text-success border border-success-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %}"
+                          data-week-status-badge>
+                        {% if week.is_complete %}배치 완료{% else %}미배치 {{ week.failed_count }}곡{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+                <small class="text-muted fw-normal fs-6">
+                    {{ week.start|date:"Y.m.d" }} ~ {{ week.end|date:"m.d" }}
+                </small>
             </div>
-            <small class="text-muted fw-normal fs-6">
-                {{ week.start|date:"Y.m.d" }} ~ {{ week.end|date:"m.d" }}
-            </small>
+            <span></span>
         </div>
 
         <div class="timetable-wrapper">
@@ -2052,16 +2047,6 @@
                             class="btn btn-outline-danger btn-sm week-toggle-btn"
                             data-week-action="reset-week">
                         변경사항 리셋
-                    </button>
-                    {% endif %}
-                    {% if is_booking_confirm_view and is_manager_role %}
-                    <div class="w-100"></div>
-                    <button type="button"
-                            class="btn btn-outline-secondary btn-sm week-toggle-btn"
-                            data-week-empty-room-toggle-mode="deactivate"
-                            data-week-action="toggle-empty-room"
-                            data-week-no="{{ forloop.counter }}">
-                        곡 없는 합주실 비활성화
                     </button>
                     {% endif %}
                 </div>
@@ -2354,7 +2339,7 @@
             "{{ u.realname|escapejs }}({{ u.username|escapejs }})"{% if not forloop.last %},{% endif %}
         {% endfor %}
     ];
-    let myRehearsalOnly = false;
+    let myRehearsalOnly = isTemporaryFinalView && !isBookingConfirmView;
     const songConflictMap = JSON.parse('{{ song_conflict_map_json|escapejs }}');
     const songMemberMap = JSON.parse('{{ song_member_map_json|escapejs }}');
     const baseRooms = JSON.parse('{{ room_list_json|escapejs }}');
@@ -2414,7 +2399,6 @@
     const bookingSavedCompletedKeys = new Set(JSON.parse('{{ booking_saved_completed_keys_json|default:"[]"|escapejs }}'));
     const bookingToolsPanelStorageKey = `bookingToolsPanelPos:${window.location.pathname}`;
     const bookingToolsPanelSizeStorageKey = `bookingToolsPanelSize:${window.location.pathname}`;
-    const boardLayoutModeStorageKey = `boardLayoutMode:${window.location.pathname}`;
     const weekendVisibilityStorageKey = `matchWeekendHidden:${window.location.pathname}`;
     let bookingTempRoomCounter = 1;
     let activeHoverSongId = null;
@@ -2438,24 +2422,14 @@
     let visualHoveredSongId = null;
     let visualHoveredWeekId = null;
     let resizeState = null;
-    let boardLayoutMode = 'general';
-    if (!isFinalView) {
-        boardLayoutMode = 'roomslot';
-        try {
-            const savedMode = String(localStorage.getItem(boardLayoutModeStorageKey) || '').trim();
-            if (savedMode === 'general' || savedMode === 'roomslot') {
-                boardLayoutMode = savedMode;
-            }
-        } catch (_) {}
-    }
     let hasSavedWorkDraft = {{ loaded_user_work_draft|default:False|yesno:"true,false" }};
     let savedWorkDraftSignature = null;
+    let savedBookingCompletedSignature = JSON.stringify(Array.from(bookingSavedCompletedKeys).sort());
     let sharedScheduleSignature = String(sharedScheduleSignatureFromServer || '');
     let leaveGuardModalOpen = false;
     let shareEditWarnedThisSession = false;
     let blockPaintState = null;
     let deferDurationSync = false;
-    let quickEmptyRoomsHidden = false;
     let isWeekendHidden = false;
     let quickForcedOnlyActive = false;
     let quickForcedOnlyPreview = false;
@@ -2463,7 +2437,6 @@
     let quickTempRoomOnlyPreview = false;
     let quickSharedDiffOnlyActive = false;
     let quickSharedDiffOnlyPreview = false;
-    let quickLayoutPreviewMode = '';
     const disableAutoTempRoomReassign = true;
     const disableTempRoomIdentityPrompt = true;
     const splitHoldMs = 1200;
@@ -2948,7 +2921,7 @@
     }
 
     function getEffectiveBoardLayoutMode() {
-        return String(quickLayoutPreviewMode || boardLayoutMode || 'general');
+        return isFinalView ? 'general' : 'roomslot';
     }
 
     function isQuickForcedOnlyEffective() {
@@ -2967,40 +2940,6 @@
         if (bookingToolsEnabled()) return true;
         if (!isFinalView) return getEffectiveBoardLayoutMode() === 'roomslot';
         return false;
-    }
-
-    function updateBoardLayoutToggleUI() {
-        const generalBtn = document.getElementById('boardLayoutGeneralBtn');
-        const roomslotBtn = document.getElementById('boardLayoutRoomslotBtn');
-        if (!generalBtn || !roomslotBtn) return;
-        const isGeneral = getEffectiveBoardLayoutMode() === 'general';
-        generalBtn.classList.toggle('btn-primary', isGeneral);
-        generalBtn.classList.toggle('btn-outline-secondary', !isGeneral);
-        roomslotBtn.classList.toggle('btn-primary', !isGeneral);
-        roomslotBtn.classList.toggle('btn-outline-secondary', isGeneral);
-    }
-
-    function setBoardLayoutMode(nextMode) {
-        if (isFinalView) return;
-        const mode = String(nextMode || '').trim();
-        if (mode !== 'general' && mode !== 'roomslot') return;
-        if (boardLayoutMode === mode) {
-            updateBoardLayoutToggleUI();
-            return;
-        }
-        boardLayoutMode = mode;
-        try { localStorage.setItem(boardLayoutModeStorageKey, boardLayoutMode); } catch (_) {}
-        updateBoardLayoutToggleUI();
-        document.querySelectorAll('.board-day-grid').forEach((grid) => {
-            relayoutDayGrid(grid);
-            renderMyUnavailableOverlayForGrid(grid);
-        });
-        renderBookingRoomToggleCells();
-        applyBookingRoomVisibilityForDate();
-        markBookingRoomBlockedEvents();
-        recomputeForcedBadgesForBoard();
-        refreshCompletionIndicators();
-        syncQuickRemoteButtons();
     }
 
     function getBookingTempRoomsForDate(dateStr) {
@@ -3824,6 +3763,7 @@
 
     function renderBookingSelectionSummary() {
         if (!bookingToolsEnabled()) return;
+        syncWorkDraftSaveButtonsState();
         const wrap = document.getElementById('bookingSelectionSummary');
         const countEl = document.getElementById('bookingNeededCount');
         if (!wrap) return;
@@ -4243,13 +4183,11 @@
             nodes.forEach((el) => {
                 if (!el || el.dataset.hoverPreviewBound === '1') return;
                 el.dataset.hoverPreviewBound = '1';
-                el.addEventListener('mouseenter', onEnter);
-                el.addEventListener('mouseleave', onLeave);
+                el.addEventListener('pointerenter', onEnter);
+                el.addEventListener('pointerleave', onLeave);
             });
         };
 
-        bindClickById('boardLayoutGeneralBtn', () => setBoardLayoutMode('general'));
-        bindClickById('boardLayoutRoomslotBtn', () => setBoardLayoutMode('roomslot'));
         bindClickById('matchRematchBtn', () => openMatchSettingsPopup(
             '{% url "schedule_match_settings" meeting.id %}{% if is_simulation %}?simulation=1{% endif %}',
             {{ room_count }},
@@ -4272,8 +4210,6 @@
         });
         bindClickById('quickWeekendToggleBtn', () => toggleAllWeekendVisibility());
         bindClickById('quickExpandAllBtn', () => toggleAllWeekBoardRange());
-        bindClickById('quickEmptyRoomsToggleBtn', () => toggleQuickEmptyRooms());
-        bindClickById('quickLayoutToggleBtn', () => toggleQuickLayoutMode());
         bindClickById('quickForcedOnlyBtn', () => toggleQuickForcedOnly());
         bindClickById('quickTempRoomOnlyBtn', () => toggleQuickTempRoomOnly());
         bindClickById('quickSharedDiffOnlyBtn', () => toggleQuickSharedDiffOnly());
@@ -4311,14 +4247,6 @@
                 applyQuickBoardFilters();
                 syncQuickRemoteButtons();
             });
-            bindHoverPreviewById('quickLayoutToggleBtn', (ev) => {
-                const btn = ev?.currentTarget;
-                if (!btn || btn.disabled || isFinalView) return;
-                const previewMode = (boardLayoutMode === 'roomslot') ? 'general' : 'roomslot';
-                applyQuickLayoutPreviewMode(previewMode);
-            }, () => {
-                applyQuickLayoutPreviewMode('');
-            });
         }
         bindClickById('bookingSelectAllBtn', () => selectAllBookingEvents());
         bindClickById('bookingClearAllBtn', () => clearBookingSelectionWithConfirm());
@@ -4326,12 +4254,6 @@
         bindClickById('ackScheduleBtn', () => acknowledgeMySchedule());
         bindClickById('songConflictCloseBtn', () => closeSongConflict());
         bindClickById('eventInfoCloseBtn', () => closeEventInfo());
-
-        document.querySelectorAll('.booking-empty-room-toggle-btn').forEach((btn) => {
-            if (btn.dataset.clickBound === '1') return;
-            btn.dataset.clickBound = '1';
-            btn.addEventListener('click', () => toggleAllEmptyBookingRooms(btn));
-        });
 
         if (document.body.dataset.matchResultStaticDelegationBound !== '1') {
             document.body.dataset.matchResultStaticDelegationBound = '1';
@@ -4369,8 +4291,6 @@
                         toggleWeekBoardRange(weekActionBtn);
                     } else if (action === 'reset-week') {
                         resetWeekChanges(weekActionBtn);
-                    } else if (action === 'toggle-empty-room') {
-                        toggleWeekEmptyBookingRooms(weekActionBtn, weekActionBtn.dataset.weekNo || '');
                     }
                     return;
                 }
@@ -4394,12 +4314,14 @@
         if (!id) return;
         const el = Array.from(document.querySelectorAll('.board-event')).find((x) => String(x.dataset.eventId || '') === id);
         if (!el) return;
-        const weekBlock = el.closest('.week-block');
-        if (weekBlock) {
-            weekBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } else {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        const rect = el.getBoundingClientRect();
+        const currentTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const targetTop = Math.max(0, currentTop + rect.top - Math.max(120, Math.round(viewportHeight * 0.32)));
+        window.scrollTo({
+            top: targetTop,
+            behavior: 'smooth',
+        });
         el.classList.add('booking-selected');
         window.setTimeout(() => {
             el.classList.remove('booking-selected');
@@ -5108,6 +5030,11 @@
         return getWorkDraftSignatureFromEvents(collectCurrentBoardEvents());
     }
 
+    function getCurrentBookingCompletedSignature() {
+        if (!bookingToolsEnabled()) return '';
+        return JSON.stringify(collectBookingCompletedEventKeys().slice().sort());
+    }
+
     function canEnterBookingFromMatch() {
         if (isFinalView || isSimulation) return { ok: true, message: '' };
         if (!shareWarningNeeded) {
@@ -5134,8 +5061,22 @@
     }
 
     function refreshBookingEntryButtonsState() {
-        if (isFinalView || isSimulation) return;
+        syncWorkDraftSaveButtonsState();
+        syncShareCurrentScheduleButtonState();
         const state = canEnterBookingFromMatch();
+        const statusText = state.ok
+            ? '현재 배치 기준으로 예약을 진행합니다'
+            : '멤버들에게 공유 후 예약 가능합니다';
+        const statusClass = state.ok ? 'text-muted' : 'text-danger';
+
+        ['bookingEntryStatusTop', 'bookingEntryStatusHeader'].forEach((id) => {
+            const statusNode = document.getElementById(id);
+            if (!statusNode) return;
+            statusNode.textContent = statusText;
+            statusNode.classList.remove('text-muted', 'text-danger');
+            statusNode.classList.add(statusClass);
+        });
+
         ['goBookingConfirmFromMatchBtn', 'goBookingConfirmBtn'].forEach((id) => {
             const btn = document.getElementById(id);
             if (!btn) return;
@@ -5144,25 +5085,82 @@
         });
     }
 
+    function syncWorkDraftSaveButtonsState() {
+        const draftButtons = [
+            document.getElementById('saveWorkDraftBtn'),
+            document.getElementById('saveWorkDraftBtnBooking'),
+            document.getElementById('quickSaveDraftBtn'),
+            document.getElementById('quickSaveDraftBtnBooking'),
+        ].filter(Boolean);
+        if (!draftButtons.length) return;
+
+        const canEdit = !!isBoardEditable;
+        const hasChanges = hasUnsavedWorkDraftChanges();
+        const shouldEnable = canEdit && hasChanges;
+        const disabledTitle = canEdit
+            ? '변경사항이 없습니다.'
+            : '읽기 전용 화면에서는 사용할 수 없습니다.';
+
+        draftButtons.forEach((btn) => {
+            const isSaving = String(btn.dataset.saving || '0') === '1';
+            if (isSaving) return;
+            btn.disabled = !shouldEnable;
+            btn.title = shouldEnable ? '' : disabledTitle;
+        });
+    }
+
+    function syncShareCurrentScheduleButtonState() {
+        const btn = document.getElementById('shareCurrentScheduleBtnInline');
+        if (!btn) return;
+        if (shareActionInProgress) {
+            btn.disabled = true;
+            btn.title = '공유 중입니다.';
+            return;
+        }
+
+        const canEdit = !!isBoardEditable;
+        const baseSig = String(sharedScheduleSignature || '');
+        const currentSig = getCurrentWorkDraftSignature();
+        const hasChangesSinceShare = !baseSig || currentSig !== baseSig;
+        const shouldEnable = canEdit && hasChangesSinceShare;
+
+        btn.disabled = !shouldEnable;
+        btn.title = shouldEnable
+            ? ''
+            : (canEdit ? '공유 후 변경사항이 없습니다.' : '읽기 전용 화면에서는 사용할 수 없습니다.');
+    }
+
     function hasUnsavedWorkDraftChanges() {
         const draftGuardEnabled = (!isFinalView || bookingToolsEnabled()) && !isSimulation;
         if (!draftGuardEnabled || allowPageLeave) return false;
-        if (!hasSavedWorkDraft) {
+        const workDraftChanged = (() => {
+            if (!hasSavedWorkDraft) {
+                if (!savedWorkDraftSignature) return false;
+                return getCurrentWorkDraftSignature() !== savedWorkDraftSignature;
+            }
             if (!savedWorkDraftSignature) return false;
             return getCurrentWorkDraftSignature() !== savedWorkDraftSignature;
+        })();
+        if (workDraftChanged) return true;
+        if (!hasSavedWorkDraft) {
+            return bookingToolsEnabled() && getCurrentBookingCompletedSignature() !== String(savedBookingCompletedSignature || '');
         }
-        if (!savedWorkDraftSignature) return false;
-        return getCurrentWorkDraftSignature() !== savedWorkDraftSignature;
+        if (!bookingToolsEnabled()) return false;
+        return getCurrentBookingCompletedSignature() !== String(savedBookingCompletedSignature || '');
     }
 
     function markCurrentAsSavedWorkDraft() {
         hasSavedWorkDraft = true;
         savedWorkDraftSignature = getCurrentWorkDraftSignature();
+        savedBookingCompletedSignature = getCurrentBookingCompletedSignature();
+        syncWorkDraftSaveButtonsState();
     }
 
     function captureInitialWorkDraftSignatureIfNeeded() {
         if (savedWorkDraftSignature) return;
         savedWorkDraftSignature = getCurrentWorkDraftSignature();
+        savedBookingCompletedSignature = getCurrentBookingCompletedSignature();
+        syncWorkDraftSaveButtonsState();
     }
 
     async function persistMyWorkDraft(options = {}) {
@@ -5511,6 +5509,7 @@
     async function saveMyWorkDraft(btnEl = null) {
         const btn = btnEl || document.getElementById('saveWorkDraftBtn') || document.getElementById('saveWorkDraftBtnBooking');
         if (!btn) return;
+        btn.dataset.saving = '1';
         btn.disabled = true;
         const prevText = btn.textContent;
         btn.textContent = '저장 중...';
@@ -5519,8 +5518,9 @@
         } catch (_) {
             alert('네트워크 오류가 발생했습니다.');
         } finally {
-            btn.disabled = false;
+            btn.dataset.saving = '0';
             btn.textContent = prevText;
+            syncWorkDraftSaveButtonsState();
         }
     }
 
@@ -5556,7 +5556,7 @@
 
             const events = collectCurrentBoardEvents();
             const matchParams = collectCurrentMatchParamsForDraft();
-            sharedScheduleSignature = getWorkDraftSignatureFromRawEvents(events);
+            const nextSharedSignature = getWorkDraftSignatureFromRawEvents(events);
             const res = await fetch(prepareFinalUrl, {
                 method: 'POST',
                 headers: {
@@ -5567,6 +5567,7 @@
             });
             const data = await res.json();
             if (data.status === 'success') {
+                sharedScheduleSignature = nextSharedSignature;
                 shareWarningNeeded = true;
                 shareEditWarnedThisSession = false;
                 const stageBadge = document.querySelector('.result-header-title .badge.rounded-pill');
@@ -5591,10 +5592,9 @@
                 hideForce: true,
             });
         } finally {
-            btn.disabled = false;
             btn.textContent = prevText;
-            refreshBookingEntryButtonsState();
             shareActionInProgress = false;
+            refreshBookingEntryButtonsState();
         }
     }
 
@@ -5876,71 +5876,6 @@
         });
     }
 
-    function toggleAllEmptyBookingRooms(btnEl) {
-        if (!bookingToolsEnabled()) return;
-        const mode = String(btnEl?.dataset?.emptyRoomToggleMode || 'deactivate');
-        const dateSet = Array.from(new Set(
-            Array.from(document.querySelectorAll('.board-day-grid[data-in-range="1"]'))
-                .map((el) => String(el.dataset.date || '').trim())
-                .filter(Boolean)
-        ));
-        if (!dateSet.length) return;
-        setBookingRoomActivationByDates(dateSet, mode);
-        if (btnEl) {
-            const nextMode = mode === 'deactivate' ? 'activate' : 'deactivate';
-            btnEl.dataset.emptyRoomToggleMode = nextMode;
-            btnEl.textContent = nextMode === 'activate'
-                ? '전체 합주실 활성화'
-                : '전체 곡 없는 합주실 비활성화';
-        }
-        quickEmptyRoomsHidden = mode === 'deactivate';
-        syncQuickRemoteButtons();
-    }
-
-    function toggleWeekEmptyBookingRooms(btnEl, weekNumber) {
-        if (!bookingToolsEnabled()) return;
-        const weekNo = String(weekNumber || '').trim();
-        if (!weekNo) return;
-        const weekBlock = document.querySelector(`.week-block[data-week-number="${weekNo}"]`);
-        if (!weekBlock) return;
-        const dates = Array.from(new Set(
-            Array.from(weekBlock.querySelectorAll('.board-day-grid[data-in-range="1"]'))
-                .map((el) => String(el.dataset.date || '').trim())
-                .filter(Boolean)
-        ));
-        if (!dates.length) return;
-        const mode = String(btnEl?.dataset?.weekEmptyRoomToggleMode || 'deactivate');
-        setBookingRoomActivationByDates(dates, mode);
-        if (btnEl) {
-            const nextMode = mode === 'deactivate' ? 'activate' : 'deactivate';
-            btnEl.dataset.weekEmptyRoomToggleMode = nextMode;
-            btnEl.textContent = nextMode === 'activate'
-                ? '합주실 전체 활성화'
-                : '곡 없는 합주실 비활성화';
-        }
-    }
-
-    function toggleQuickEmptyRooms() {
-        if (!isRoomSlotLayoutEnabled()) return;
-        const dateSet = Array.from(new Set(
-            Array.from(document.querySelectorAll('.board-day-grid[data-in-range="1"]'))
-                .map((el) => String(el.dataset.date || '').trim())
-                .filter(Boolean)
-        ));
-        if (!dateSet.length) return;
-        const mode = quickEmptyRoomsHidden ? 'activate' : 'deactivate';
-        setRoomActivationByDates(dateSet, mode);
-        quickEmptyRoomsHidden = mode === 'deactivate';
-        syncQuickRemoteButtons();
-    }
-
-    function toggleQuickLayoutMode() {
-        if (isFinalView) return;
-        const nextMode = boardLayoutMode === 'roomslot' ? 'general' : 'roomslot';
-        setBoardLayoutMode(nextMode);
-        syncQuickRemoteButtons();
-    }
-
     function toggleQuickForcedOnly() {
         quickForcedOnlyActive = !quickForcedOnlyActive;
         applyQuickBoardFilters();
@@ -5956,25 +5891,6 @@
     function toggleQuickTempRoomOnly() {
         quickTempRoomOnlyActive = !quickTempRoomOnlyActive;
         applyQuickBoardFilters();
-        syncQuickRemoteButtons();
-    }
-
-    function applyQuickLayoutPreviewMode(nextMode = '') {
-        if (!isManagerRole) return;
-        const next = String(nextMode || '').trim();
-        if (next && next !== 'general' && next !== 'roomslot') return;
-        if (quickLayoutPreviewMode === next) return;
-        quickLayoutPreviewMode = next;
-        updateBoardLayoutToggleUI();
-        document.querySelectorAll('.board-day-grid').forEach((grid) => {
-            relayoutDayGrid(grid);
-            renderMyUnavailableOverlayForGrid(grid);
-        });
-        renderBookingRoomToggleCells();
-        applyBookingRoomVisibilityForDate();
-        markBookingRoomBlockedEvents();
-        recomputeForcedBadgesForBoard();
-        refreshCompletionIndicators();
         syncQuickRemoteButtons();
     }
 
@@ -7003,6 +6919,7 @@
     }
 
     function syncQuickRemoteButtons() {
+        syncWorkDraftSaveButtonsState();
         const root = document.getElementById('matchResultRoot');
         const resetBtn = document.getElementById('quickResetAllBtn');
         const saveDraftBtn = document.getElementById('quickSaveDraftBtn');
@@ -7012,9 +6929,7 @@
         const sharedDiffOnlyBtn = document.getElementById('quickSharedDiffOnlyBtn');
         const weekendBtn = document.getElementById('quickWeekendToggleBtn');
         const expandBtn = document.getElementById('quickExpandAllBtn');
-        const emptyRoomsBtn = document.getElementById('quickEmptyRoomsToggleBtn');
-        const layoutBtn = document.getElementById('quickLayoutToggleBtn');
-        if (!resetBtn && !saveDraftBtn && !finalSaveBtn && !forcedOnlyBtn && !tempRoomOnlyBtn && !sharedDiffOnlyBtn && !weekendBtn && !expandBtn && !emptyRoomsBtn && !layoutBtn) return;
+        if (!resetBtn && !saveDraftBtn && !finalSaveBtn && !forcedOnlyBtn && !tempRoomOnlyBtn && !sharedDiffOnlyBtn && !weekendBtn && !expandBtn) return;
 
         const expanded = isAllWeekBoardsExpanded();
         if (expandBtn) {
@@ -7032,9 +6947,8 @@
             resetBtn.title = isBoardEditable ? '' : '읽기 전용 화면에서는 사용할 수 없습니다.';
             resetBtn.style.display = (!isManagerRole && resetBtn.disabled) ? 'none' : '';
         }
+        syncWorkDraftSaveButtonsState();
         if (saveDraftBtn) {
-            saveDraftBtn.disabled = !isBoardEditable;
-            saveDraftBtn.title = isBoardEditable ? '' : '읽기 전용 화면에서는 사용할 수 없습니다.';
             saveDraftBtn.style.display = (!isManagerRole && saveDraftBtn.disabled) ? 'none' : '';
         }
         if (finalSaveBtn) {
@@ -7049,24 +6963,6 @@
                     finalSaveBtn.style.display = 'none';
                 }
             }
-        }
-        if (emptyRoomsBtn) {
-            const enabled = isRoomSlotLayoutEnabled();
-            emptyRoomsBtn.disabled = !enabled;
-            emptyRoomsBtn.textContent = quickEmptyRoomsHidden ? '전체 합주실 보기' : '빈 합주실 가리기';
-            emptyRoomsBtn.classList.toggle('btn-primary', enabled && quickEmptyRoomsHidden);
-            emptyRoomsBtn.classList.toggle('btn-outline-secondary', !quickEmptyRoomsHidden);
-            emptyRoomsBtn.style.display = (!isManagerRole && emptyRoomsBtn.disabled) ? 'none' : '';
-        }
-        if (layoutBtn) {
-            const canToggleLayout = !isFinalView;
-            const isRoomMode = getEffectiveBoardLayoutMode() === 'roomslot';
-            layoutBtn.disabled = !canToggleLayout;
-            layoutBtn.textContent = isRoomMode ? '일반 보기' : '룸 보기';
-            layoutBtn.classList.remove('btn-primary');
-            layoutBtn.classList.toggle('btn-outline-primary', isRoomMode);
-            layoutBtn.classList.toggle('btn-outline-secondary', !isRoomMode);
-            layoutBtn.style.display = (!isManagerRole && layoutBtn.disabled) ? 'none' : '';
         }
         if (forcedOnlyBtn) {
             forcedOnlyBtn.disabled = !isBoardEditable;
@@ -9938,7 +9834,6 @@
     document.querySelectorAll('.board-head-day[data-date-str]').forEach((el) => {
         if (el.dataset.dateStr === todayStr) el.classList.add('is-today');
     });
-    updateBoardLayoutToggleUI();
     document.querySelectorAll('.board-day-grid').forEach((grid) => {
         relayoutDayGrid(grid);
         renderMyUnavailableOverlayForGrid(grid);
@@ -10057,6 +9952,8 @@
         }
         applyMyRehearsalFilterState();
     }
+
+    applyMyRehearsalFilterState();
 
     function markMatchResultRenderReady() {
         const marker = document.getElementById('matchResultPageMarker');
