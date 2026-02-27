@@ -9,17 +9,25 @@
 
 | 파일 | 종류 | 라인 수 | 주요 역할 |
 |---|---|---|---|
-| `pracapp/templates/pracapp/match_result.html` | Template | ~10,000 | 스케줄 보드 인터랙티브 UI |
-| `pracapp/templates/pracapp/meeting_detail.html` | Template | ~3,900 | 미팅 상세 페이지 전체 |
-| `pracapp/views/matching_views.py` | View | ~2,850 | 매칭 알고리즘 + 스케줄 확정 |
+| `pracapp/templates/pracapp/match_result.html` | Template | ~10,300 | 스케줄 보드 인터랙티브 UI |
+| `pracapp/templates/pracapp/meeting_detail.html` | Template | ~4,800 | 미팅 상세 페이지 전체 |
+| `pracapp/views/matching_views.py` | View | ~2,930 | 매칭 알고리즘 + 스케줄 확정 |
 | `pracapp/utils.py` | Utility | ~2,150 | 스케줄 알고리즘 · 가용성 계산 |
 | `pracapp/views/meeting_views.py` | View | ~1,400 | 미팅 CRUD · 세션 승인 흐름 |
 | `pracapp/templates/pracapp/match_settings.html` | Template | ~930 | 매칭 파라미터 설정 UI |
-| `pracapp/views/song_session_views.py` | View | ~565 | 곡·세션 관리 |
+| `pracapp/views/song_session_views.py` | View | ~750 | 곡·세션 관리 |
 | `pracapp/views/extra_practice_views.py` | View | ~500 | 추가 합주 스케줄 |
-| `pracapp/models.py` | Model | ~710 | 전체 ORM 스키마 |
+| `pracapp/views/home_views.py` | View | ~620 | 홈 주간보드 · 개인일정 오버레이 |
+| `pracapp/views/demo_views.py` | View | ~740 | 데모 세션/시나리오 처리 |
+| `pracapp/views/schedule_views.py` | View | ~510 | 개인 일정 관리 |
+| `pracapp/models.py` | Model | ~770 | 전체 ORM 스키마 |
 | `pracapp/forms.py` | Form | ~430 | 폼 클래스 모음 |
 | `pracsite/urls.py` | URL | ~95 | 전체 URL 라우팅 |
+| `pracapp/templates/pracapp/schedule_step2.html` | Template | ~1,020 | 주간 가용 시간 설정 화면 |
+| `pracapp/templates/pracapp/schedule_step3.html` | Template | ~830 | 블록/예외 설정 화면 |
+| `pracapp/templates/pracapp/extra_practice.html` | Template | ~1,010 | 추가합주 배치 보드 |
+| `pracapp/templates/pracapp/home.html` | Template | ~900 | 홈 주간보드 (§28에서 변경) |
+| `pracapp/templates/pracapp/dashboard.html` | Template | ~570 | 밴드 대시보드 (`band_views.DashboardView` 렌더링) |
 
 ---
 
@@ -51,7 +59,7 @@
 | `buildHoverOverlayTextHtml(...)` | 마우스 오버 시 멤버 충돌 요약 HTML |
 | `initBookingToolControls()` | 예약 확정 뷰 초기화 (bookingToolsEnabled 전용) |
 | `bindWeekRoomToggleHandler()` | 합주실 토글 클릭 핸들러 등록 (뷰 무관) |
-| `isRoomSlotLayoutEnabled()` | roomslot 모드 여부 판단 |
+| `isRoomSlotLayoutEnabled()` | 현재는 사실상 roomslot 고정 기준 분기 |
 | `bookingToolsEnabled()` | 예약 확정 뷰 + 매니저 여부 판단 |
 
 **연관 파일:**
@@ -85,7 +93,7 @@
 ---
 
 ### `pracapp/utils.py`
-**라인 수:** ~2,150줄
+**라인 수:** ~2,474줄
 **역할:** 스케줄 알고리즘·가용성 계산 유틸리티. 매칭 뷰와 기타 뷰가 공통으로 호출.
 
 **주요 함수:**
@@ -150,6 +158,13 @@
 
 ---
 
+### `pracapp/templates/pracapp/match_settings.html`
+**라인 수:** ~930줄
+**역할:** 매칭 파라미터(합주 시간/횟수/합주실 등) 설정 UI. `matching_views.py`의 `schedule_match_settings()`가 렌더링.
+> 상세 섹션 미작성 — 주요 변경 발생 시 보완 예정.
+
+---
+
 ### `pracsite/urls.py`
 **라인 수:** ~95줄
 **역할:** 전체 URL 라우팅.
@@ -169,21 +184,28 @@
 ```
 urls.py
   └─ views/
-       ├─ matching_views.py   ← 가장 복잡한 뷰, match_result.html 렌더링
-       ├─ meeting_views.py    ← 미팅 라이프사이클 전반
+       ├─ matching_views.py      ← 가장 복잡한 뷰, match_result.html 렌더링
+       ├─ meeting_views.py       ← 미팅 라이프사이클 전반
        ├─ extra_practice_views.py
-       ├─ song_session_views.py
-       ├─ schedule_views.py
-       ├─ band_views.py
-       └─ _meeting_common.py  ← 공통 권한·컨텍스트 헬퍼
-  └─ utils.py                ← 스케줄 알고리즘 (matching_views 등이 import)
-  └─ models.py               ← ORM 스키마
+       ├─ song_session_views.py  ← ~750줄
+       ├─ home_views.py          ← ~620줄, 홈 주간보드 (§28 변경)
+       ├─ demo_views.py          ← ~740줄, 데모 세션/시나리오
+       ├─ schedule_views.py      ← ~510줄, 개인 일정 관리
+       ├─ band_views.py          ← ~250줄, 밴드 CRUD + 멤버 관리 + DashboardView
+       └─ _meeting_common.py     ← 공통 권한·컨텍스트 헬퍼
+  └─ utils.py                   ← 스케줄 알고리즘 (~2,474줄, matching_views 등이 import)
+  └─ models.py                  ← ORM 스키마
   └─ templates/
-       ├─ match_result.html  ← 최대 단일 파일 (~10,000줄), CSS+HTML+JS 포함
-       └─ meeting_detail.html ← 두 번째로 큰 템플릿 (~3,900줄)
+       ├─ match_result.html      ← 최대 단일 파일 (~10,300줄), CSS+HTML+JS 포함
+       ├─ meeting_detail.html    ← 두 번째로 큰 템플릿 (~4,800줄)
+       ├─ schedule_step2.html    ← ~1,020줄, 주간 가용 시간 설정
+       ├─ schedule_step3.html    ← ~830줄, 블록/예외 설정
+       ├─ extra_practice.html    ← ~1,010줄, 추가합주 배치 보드
+       ├─ home.html              ← ~900줄, 홈 주간보드
+       └─ dashboard.html         ← ~570줄, 밴드 대시보드 (band_views.DashboardView)
 ```
 
 **주의사항:**
 - `match_result.html` 수정 시 CSS 변수(`--slot-h`, `--ep-primary`)와 JS 함수 간 의존관계 파악 필수
-- `bookingToolsEnabled()` vs `isRoomSlotLayoutEnabled()` 구분 중요 (혼용 시 뷰별 동작 차이 발생)
+- 현재 보드는 관리자 조율 단계에서 **룸슬롯 단일 모드** 기준으로 운영된다. 예전 `일반/룸 보기` 토글 전제를 다시 넣지 말 것.
 - `matching_views.py`의 `schedule_final`과 `schedule_match_run`은 모두 `match_result.html`을 렌더링하지만 컨텍스트 플래그(`is_final_view`, `is_booking_confirm_view` 등)로 동작이 달라짐

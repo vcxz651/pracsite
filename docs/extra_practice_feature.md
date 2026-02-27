@@ -190,6 +190,11 @@ def _week_bounds(week_offset: int):
 4. `ExtraPracticeSchedule.objects.create(...)`
 5. `RoomBlock.objects.create(source_meeting=meeting, ...)` — 다른 미팅 매칭 충돌 방지
 
+> **[주의] Atomicity 부재**: 4~5단계가 `transaction.atomic()` 없이 순차 실행된다.
+> 동시 요청 경합 시 `ExtraPracticeSchedule`은 생성되고 `RoomBlock`은 실패(또는 반대)하는 부분 성공 상태가 발생할 수 있다.
+> 운영 중 `schedule_id`는 존재하나 대응 `RoomBlock`이 없는 레코드가 관측되면 이 지점을 먼저 확인한다.
+> 근본 해결은 두 `create` 호출을 `with transaction.atomic():` 블록으로 감싸는 것이나, 현재는 모니터링 우선.
+
 **응답 (성공)**
 ```json
 {

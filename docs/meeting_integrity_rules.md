@@ -2,8 +2,9 @@
 
 ## 1. 임시 합주실(Temporary Room) 정책
 - 임시 합주실은 "빈값 방지"를 위한 보조 개념이어야 함
-- 임시 합주실 생성/사용이 실제 합주실 모델(`MeetingRoom`)의 의미를 오염하면 안 됨
+- 임시 합주실 생성/사용이 실제 합주실 모델(`PracticeRoom`)의 의미를 오염하면 안 됨
 - 예약 확정 이전의 임시 값은 운영상 가변 데이터로 취급
+- **[알려진 위험]** `matching_views.py` 임시합주실 처리에서 `PracticeRoom.get_or_create(band=..., name=..., location=...)` 호출 시, 같은 이름/위치의 영구 합주실이 이미 존재하면 `is_temporary=True`로 강제 업데이트될 수 있음. 이 코드를 수정하거나 인근 로직을 건드릴 때는 반드시 이 경로를 확인한다. 근본 해결은 임시합주실 생성 경로에서 명시적 `create` + 고유 prefix를 사용하는 것.
 
 ## 2. 세션 배정/지원 무결성
 - 배정된 세션은 지원 취소 불가
@@ -36,3 +37,9 @@
 - 현재 보드 내부 점유 사유(같은 미팅)는 공간 부족 사유 텍스트로 노출하지 않는다.
 - 외부 미팅 요인만 `[미팅 이름] - 곡명`으로 표시한다.
 - RoomBlock 수동 설정은 `예약 불가`로 유지한다.
+
+## 8. RoomBlock 생성 원자성 규칙
+- `ExtraPracticeSchedule`과 그에 대응하는 `RoomBlock`은 항상 함께 생성/삭제되어야 한다.
+- 현재 `extra_practice_save`는 두 `create` 호출이 `transaction.atomic()` 없이 수행된다 — 동시 요청 경합 시 한쪽만 생성되는 부분 성공 상태가 발생할 수 있음.
+- `extra_practice_views.py`에서 DB 저장 로직을 수정할 때는 두 `create`를 하나의 atomic 블록으로 감싸는 것을 원칙으로 한다.
+- 운영 중 `schedule_id`는 존재하나 대응 `RoomBlock`이 없는 레코드가 관측되면 이 지점을 먼저 확인한다.

@@ -178,8 +178,7 @@ class MeetingCreateForm(forms.ModelForm):
         # [수정] 합주 시작일/종료일 필드 추가
         fields = [
             'title', 'performance_datetime', 'schedule', 'location', 'description',
-            'visibility', 'jo'
-                          'in_policy',
+            'visibility', 'join_policy',
             'practice_start_date', 'practice_end_date'
         ]
 
