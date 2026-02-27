@@ -150,13 +150,21 @@ grep -RIn "meeting_handover.md\\|meeting_regression_checklist.md" docs
 작업 종료 전 최소 커맨드:
 
 ```bash
+# 서버사이드 회귀 검증 (31개 테스트, 약 5분)
+./.venv/bin/python manage.py test pracapp.tests
+
+# import/모델 정합성 점검
 ./.venv/bin/python manage.py check
+
+# 문서 변경 범위 확인
 git diff -- docs
 ```
 
 원칙:
-- 기능 수정 후에는 최소 `manage.py check`는 항상 돌린다.
+- 뷰/모델/비즈니스 로직을 수정했으면 `manage.py test`를 반드시 돌린다.
+- 템플릿/CSS/JS만 수정했으면 `manage.py check`로 충분하다.
 - 문서를 손댔으면 `git diff -- docs`로 문서 변경 범위를 확인한다.
+- 새 static 파일(이미지/영상 등)을 추가했으면 `manage.py collectstatic --noinput` 후 `manage.py test` 순서로 실행한다.
 
 ### 2-7. 작업 유형별 즉시 적용 예시
 
@@ -245,9 +253,10 @@ git diff -- docs
 4. 화면 구조가 바뀌면 `docs/meeting_ui_css_map.md` 또는 관련 스타일 문서를 같이 갱신한다.
 5. **데이터 저장/무결성/트랜잭션 경계가 바뀌었으면 `docs/meeting_integrity_rules.md`를 갱신한다.**
 6. **500줄 이상 파일이 추가되거나, 기존 파일의 라인 수가 크게 바뀌었으면 `docs/large_files_overview.md`를 갱신한다.**
-7. 과거 기준이 된 문서는 루트에 남기지 말고 `docs/archive/`로 이동하거나, 최소한 아카이브 표기를 추가한다.
-8. 문서 간 참조 경로가 깨지지 않았는지 확인한다.
-9. 동일 주제 문서가 2개 이상 서로 다른 기준을 말하지 않는지 확인한다.
+7. **뷰/모델/비즈니스 로직을 수정했으면 `manage.py test pracapp.tests`를 돌린다. 새 정책이 추가되면 대응 테스트도 함께 추가한다.**
+8. 과거 기준이 된 문서는 루트에 남기지 말고 `docs/archive/`로 이동하거나, 최소한 아카이브 표기를 추가한다.
+9. 문서 간 참조 경로가 깨지지 않았는지 확인한다.
+10. 동일 주제 문서가 2개 이상 서로 다른 기준을 말하지 않는지 확인한다.
 
 ### 4-4. 하지 말아야 할 것
 
@@ -255,6 +264,7 @@ git diff -- docs
 - 현재와 안 맞는 문서를 루트에 두고 방치하는 것
 - 과거 문서를 현재 기준처럼 보이게 두는 것
 - 코드 변경은 컸는데 회귀 체크 문서를 안 고치는 것
+- 뷰/모델 로직을 바꿨는데 테스트가 깨지는지 확인하지 않는 것
 
 ---
 
