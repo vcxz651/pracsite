@@ -8,6 +8,7 @@ from django.urls import reverse
 from .views.matching_views import _build_events_signature
 from .models import (
     Band,
+    ExtraPracticeSchedule,
     Meeting,
     MeetingFinalDraft,
     MeetingWorkDraft,
@@ -794,8 +795,8 @@ class TestDemoFlowExtreme(TestCase):
         self.assertEqual(exit_resp.status_code, 302)
         self.assertEqual(exit_resp['Location'], reverse('home'))
 
-        self.assertTrue(Band.objects.filter(id=meeting.band_id).exists())
-        self.assertGreaterEqual(User.objects.filter(username__startswith='demo_cache_').count(), 2)
+        # 새 정책: demo_exit 시 세션 밴드/유저 모두 삭제 (demo_is_cached 가드 제거됨)
+        self.assertFalse(Band.objects.filter(id=meeting.band_id).exists())
         self.assertIsNone(self.client.session.get('demo_mode'))
 
     def test_demo_switch_role_repeated_keeps_session_and_swaps_user(self):
@@ -837,13 +838,14 @@ class TestDemoFlowExtreme(TestCase):
 
         self.assertNotEqual(first_band_id, second_band_id)
         self.assertNotEqual(first_meeting_id, second_meeting_id)
-        self.assertTrue(Band.objects.filter(id=first_band_id).exists())
-        self.assertTrue(Meeting.objects.filter(id=first_meeting_id).exists())
+        # 새 정책: demo_start 재진입 시 이전 세션 밴드/미팅 삭제 (demo_cache_scope 방식으로 전환)
+        self.assertFalse(Band.objects.filter(id=first_band_id).exists())
+        self.assertFalse(Meeting.objects.filter(id=first_meeting_id).exists())
         self.assertTrue(Band.objects.filter(id=second_band_id).exists())
         self.assertTrue(Meeting.objects.filter(id=second_meeting_id).exists())
 
-        # 캐시 밴드는 시나리오별로 유지될 수 있다.
-        self.assertGreaterEqual(Band.objects.filter(name__startswith='[데모CACHE]').count(), 2)
+        # 재진입 후 활성 캐시 밴드는 새 시나리오 1개만 남는다.
+        self.assertEqual(Band.objects.filter(name__startswith='[데모CACHE]').count(), 1)
 
     def test_demo_member_scenario_one_redirects_to_meeting_detail(self):
         self._post(reverse('demo_start'), {'scenario': '1'})
@@ -866,6 +868,133 @@ class TestDemoFlowExtreme(TestCase):
         resp = self._get(reverse('home'))
         self.assertEqual(resp.status_code, 200)
 
-        self.assertTrue(Band.objects.filter(id=band_id).exists())
+        # 새 정책: 미들웨어가 demo 세션 종료 시 밴드도 함께 삭제
+        self.assertFalse(Band.objects.filter(id=band_id).exists())
         self.assertIsNone(self.client.session.get('demo_mode'))
         self.assertFalse('_auth_user_id' in self.client.session)
+
+
+class TestExtraPracticeRoomBlockConsistency(TestCase):
+    """
+    회귀 체크리스트 §J: 추가합주 RoomBlock 일관성 검증
+    ExtraPracticeSchedule + RoomBlock 동시 생성/삭제 정책을 커버한다.
+    """
+
+    def setUp(self):
+        self.manager = User.objects.create_user(username='ep_manager', password='pw123456', realname='매니저')
+        self.assignee = User.objects.create_user(username='ep_assignee', password='pw123456', realname='배정자')
+        self.other = User.objects.create_user(username='ep_other', password='pw123456', realname='타인')
+
+        self.band = Band.objects.create(name='EP밴드')
+        Membership.objects.create(user=self.manager, band=self.band, role='MANAGER', is_approved=True)
+        Membership.objects.create(user=self.assignee, band=self.band, role='MEMBER', is_approved=True)
+
+        self.meeting = Meeting.objects.create(
+            band=self.band,
+            title='EP테스트 미팅',
+            is_final_schedule_confirmed=True,
+            practice_start_date=datetime.date(2026, 3, 2),
+            practice_end_date=datetime.date(2026, 3, 8),
+        )
+        self.room = PracticeRoom.objects.create(band=self.band, name='EP룸', capacity=10)
+        self.song = Song.objects.create(meeting=self.meeting, author=self.manager, title='EP곡', artist='X')
+        Session.objects.create(song=self.song, name='Vocal', assignee=self.assignee)
+
+    def _save_url(self):
+        return reverse('extra_practice_save', args=[self.meeting.id, self.song.id])
+
+    def _delete_url(self):
+        return reverse('extra_practice_delete', args=[self.meeting.id, self.song.id])
+
+    def _save_payload(self, **kwargs):
+        base = {
+            'date': '2026-03-03',
+            'start_index': 20,
+            'end_index': 24,
+            'room_id': str(self.room.id),
+        }
+        base.update(kwargs)
+        return base
+
+    def test_save_creates_schedule_and_roomblock_together(self):
+        """저장 성공 시 ExtraPracticeSchedule + RoomBlock 동시 생성, 응답에 두 ID 모두 포함"""
+        self.client.login(username='ep_manager', password='pw123456')
+        resp = self.client.post(
+            self._save_url(),
+            data=json.dumps(self._save_payload()),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body['status'], 'ok')
+        self.assertIn('schedule_id', body)
+        self.assertIn('block_id', body)
+
+        schedule_id = body['schedule_id']
+        block_id = body['block_id']
+        self.assertTrue(ExtraPracticeSchedule.objects.filter(id=schedule_id).exists())
+        self.assertTrue(RoomBlock.objects.filter(id=block_id, source_meeting=self.meeting).exists())
+
+    def test_delete_removes_schedule_and_roomblock_together(self):
+        """삭제 시 ExtraPracticeSchedule + 연관 RoomBlock 함께 제거"""
+        self.client.login(username='ep_manager', password='pw123456')
+        save_resp = self.client.post(
+            self._save_url(),
+            data=json.dumps(self._save_payload()),
+            content_type='application/json',
+        )
+        schedule_id = save_resp.json()['schedule_id']
+        block_id = save_resp.json()['block_id']
+
+        del_resp = self.client.post(
+            self._delete_url(),
+            data=json.dumps({'schedule_id': schedule_id}),
+            content_type='application/json',
+        )
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertEqual(del_resp.json()['status'], 'ok')
+        self.assertFalse(ExtraPracticeSchedule.objects.filter(id=schedule_id).exists())
+        self.assertFalse(RoomBlock.objects.filter(id=block_id).exists())
+
+    def test_duplicate_save_returns_409(self):
+        """같은 합주실·날짜·시간 중복 저장 시 409 반환"""
+        self.client.login(username='ep_manager', password='pw123456')
+        self.client.post(
+            self._save_url(),
+            data=json.dumps(self._save_payload()),
+            content_type='application/json',
+        )
+        resp2 = self.client.post(
+            self._save_url(),
+            data=json.dumps(self._save_payload()),
+            content_type='application/json',
+        )
+        self.assertEqual(resp2.status_code, 409)
+
+    def test_assignee_can_save_and_delete_own_schedule(self):
+        """배정자(assignee)도 저장/삭제 가능"""
+        self.client.login(username='ep_assignee', password='pw123456')
+        save_resp = self.client.post(
+            self._save_url(),
+            data=json.dumps(self._save_payload()),
+            content_type='application/json',
+        )
+        self.assertEqual(save_resp.status_code, 200)
+        schedule_id = save_resp.json()['schedule_id']
+
+        del_resp = self.client.post(
+            self._delete_url(),
+            data=json.dumps({'schedule_id': schedule_id}),
+            content_type='application/json',
+        )
+        self.assertEqual(del_resp.status_code, 200)
+
+    def test_non_participant_cannot_save(self):
+        """미배정·비매니저 유저는 저장 불가 (403)"""
+        self.client.login(username='ep_other', password='pw123456')
+        resp = self.client.post(
+            self._save_url(),
+            data=json.dumps(self._save_payload()),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 403)
