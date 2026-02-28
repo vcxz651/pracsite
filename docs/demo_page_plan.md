@@ -80,6 +80,8 @@
 운영 규칙:
 - 템플릿은 lazy create도 가능하지만, 실제 시연 전에는 관리 커맨드로 **선생성(prewarm)** 하는 것을 기본으로 한다.
 - 권장 커맨드: `./.venv/bin/python manage.py prepare_demo_cache`
+- 운영/배포 환경에서는 권장이 아니라 **배포 직후 선실행 권장도가 매우 높다**. 시나리오 A/C 첫 진입은 템플릿이 없으면 요청 한 번에 더미 생성 + 가용성 동기화가 몰려 `WORKER TIMEOUT`으로 실패할 수 있다.
+- 실제 운영 서버에서는 배포 직후 또는 DB 초기화 직후 `python manage.py prepare_demo_cache`를 먼저 실행한 뒤 `/demo/start/`를 열어야 한다.
 - 데모 템플릿/더미 생성 로직을 수정했으면, `manage.py check`만으로 끝내지 말고 `prepare_demo_cache` 또는 실제 `/demo/start/` 진입까지 한 번 확인한다.
 - 서버 재시작이나 일반 코드 배포만으로는 템플릿이 사라지지 않는다.
 - DB 초기화/리셋 후에는 `prepare_demo_cache`를 다시 실행해야 한다.
@@ -213,6 +215,10 @@ request.session['demo_user_member_id'] = '<pk>'
 - 데모에서 첫 페이지 전환이 아직 처리 중일 때 다른 전환/요청을 겹치면, 일부 브라우저/웹뷰 환경에서 `Load failed` 메시지가 남을 수 있다.
 - 현재는 중복 요청 방어를 넣어 빈도를 줄였지만, 완전히 제거되지는 않았다.
 - 기능 진행 자체는 가능한 경우가 많아 우선순위는 낮게 본다. 데모 핵심 기능 버그로 분류하지 않는다.
+
+### 알려진 운영 이슈
+- 운영 서버에서 `prepare_demo_cache` 없이 시나리오 A/C를 처음 열면, lazy create 경로가 한 요청 안에서 대량 더미 데이터를 생성하면서 Gunicorn `WORKER TIMEOUT`으로 `/demo/start/`가 `500 Internal Server Error`로 실패할 수 있다.
+- 이 이슈는 템플릿 데이터가 한 번 생성된 뒤에는 재현 빈도가 크게 낮아진다. 따라서 운영 배포 체크리스트에서는 `prepare_demo_cache` 선실행을 사실상 필수 취급한다.
 
 ---
 

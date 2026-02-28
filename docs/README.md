@@ -123,6 +123,24 @@
 - 개인일정 오버레이는 `RecurringBlock`, `OneOffBlock(is_generated=False)`, `RecurringException`을 직접 반영한다.
 - 홈 팝오버는 `.floating-popover` 커스텀 팝오버를 사용한다. Bootstrap 기본 tooltip으로 되돌리지 않는다.
 
+### 2-9. 배포 / 운영 / 장애 확인
+
+먼저 읽을 문서:
+1. `docs/deployment_runbook.md`
+2. 작업 주제가 데모면 `docs/demo_page_plan.md`
+3. 필요 시 `docs/ai_working_rules.md`
+
+먼저 볼 코드:
+1. `Procfile`
+2. `scripts/release_web.sh`
+3. `scripts/prewarm_demo.sh`
+4. 필요 시 `pracsite/settings.py`
+
+주의:
+- Railway 대시보드 설정을 감으로 믿지 말고, 저장소의 배포 기준 파일과 먼저 대조한다.
+- `railway logs`는 스트리밍 명령이라, 같은 터미널에서 다른 명령을 이어 치지 않는다.
+- 데모 장애는 앱 로그(Railway) 우선으로 보고, Supabase 로그는 DB 보조 신호로만 본다.
+
 ### 2-5. 데이터 무결성 / 상태 정책
 
 먼저 읽을 문서:
@@ -223,6 +241,7 @@ git diff -- docs
 | `docs/meeting_ui_css_map.md` | `meeting_detail` CSS 책임 범위 |
 | `docs/meeting_integrity_rules.md` | 데이터 무결성 원칙 |
 | `docs/demo_page_plan.md` | 현재 데모 단일 기준 |
+| `docs/deployment_runbook.md` | 배포/운영/장애 확인 공통 런북 |
 | `docs/extra_practice_feature.md` | 추가합주 기능 기준 |
 | `docs/extra_practice_ui_style.md` | 추가합주 스타일 기준 |
 | `docs/dummy_name_pool.md` | 더미 이름 기준 |
