@@ -3,6 +3,13 @@
 > 작성일: 2026-02-24
 > 관련 브랜치: main
 
+선행 읽기:
+1. `docs/project_overview.md`
+2. `docs/ai_working_rules.md`
+3. `docs/ai_task_triage_checklist.md`
+
+이 문서는 추가 합주 도메인 상세 기준이므로, 본 매칭/예약 흐름과 분리된 별도 기능이라는 전제를 먼저 이해하고 읽는다.
+
 ---
 
 ## 개요

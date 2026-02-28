@@ -7,6 +7,8 @@ def demo_context(request):
     }
     session = request.session
     is_demo = bool(session.get('demo_mode'))
+    resolver_match = getattr(request, 'resolver_match', None)
+    demo_page_name = getattr(resolver_match, 'url_name', '') if resolver_match else ''
     demo_role = str(session.get('demo_role') or '').strip() if is_demo else ''
     demo_scenario = session.get('demo_scenario') if is_demo else None
 
@@ -28,6 +30,8 @@ def demo_context(request):
 
     return {
         'is_demo': is_demo,
+        'show_demo_banner': bool(is_demo and demo_page_name != 'demo_home'),
+        'demo_page_name': demo_page_name,
         'demo_role': demo_role,
         'demo_scenario': demo_scenario,
         'demo_scenario_label': scenario_label_map.get(demo_scenario),

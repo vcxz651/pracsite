@@ -41,17 +41,73 @@
     {% endif %}
   </div>
   <div class="banner-actions">
-    <form method="post" action="{% url 'demo_switch_role' %}" class="m-0">
+    <form method="post" action="{% url 'demo_switch_role' %}" class="m-0 js-demo-nav-form">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <button type="submit" class="btn btn-sm btn-outline-light">
+      <button type="submit" class="btn btn-sm btn-outline-light js-demo-nav-btn">
         {% if demo_role == 'member' %}매니저 뷰로 전환{% else %}멤버 뷰로 전환{% endif %}
       </button>
     </form>
     <button type="button" id="demoTourReplayBtn" class="btn btn-sm btn-light text-dark">투어 다시 보기</button>
-    <form method="post" action="{% url 'demo_exit' %}" class="m-0">
+    <form method="post" action="{% url 'demo_exit' %}" class="m-0 js-demo-nav-form">
       {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-warning text-dark">데모 종료</button>
+      <button type="submit" class="btn btn-sm btn-warning text-dark js-demo-nav-btn">데모 종료</button>
     </form>
   </div>
 </div>
+
+<script>
+  (function () {
+    const forms = document.querySelectorAll('.js-demo-nav-form');
+    const navLinks = document.querySelectorAll('[data-demo-nav-link]');
+    if (!forms.length && !navLinks.length) return;
+
+    let navPending = false;
+
+    function lockDemoNav() {
+      if (navPending) return false;
+      navPending = true;
+      document.body.classList.add('demo-nav-pending');
+      sessionStorage.setItem('demo_transition_pending', '1');
+      document.querySelectorAll('.js-demo-nav-btn').forEach((btn) => {
+        btn.disabled = true;
+      });
+      navLinks.forEach((link) => {
+        link.classList.add('disabled');
+        link.setAttribute('aria-disabled', 'true');
+        link.style.pointerEvents = 'none';
+      });
+      return true;
+    }
+
+    window.addEventListener('pageshow', function () {
+      navPending = false;
+      document.body.classList.remove('demo-nav-pending');
+      sessionStorage.removeItem('demo_transition_pending');
+      document.querySelectorAll('.js-demo-nav-btn').forEach((btn) => {
+        btn.disabled = false;
+      });
+      navLinks.forEach((link) => {
+        link.classList.remove('disabled');
+        link.removeAttribute('aria-disabled');
+        link.style.pointerEvents = '';
+      });
+    });
+
+    forms.forEach((form) => {
+      form.addEventListener('submit', function (event) {
+        if (!lockDemoNav()) {
+          event.preventDefault();
+        }
+      });
+    });
+
+    navLinks.forEach((link) => {
+      link.addEventListener('click', function (event) {
+        if (!lockDemoNav()) {
+          event.preventDefault();
+        }
+      });
+    });
+  })();
+</script>

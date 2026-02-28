@@ -36,8 +36,8 @@
         </table>
       </div>
       <div class="mt-3 d-flex gap-2">
-        <a href="{% url 'meeting_detail' pk=meeting.id %}" class="btn btn-primary">선곡시트로 이동</a>
-        <a href="{% url 'demo_scenario' 2 %}" class="btn btn-outline-secondary">시나리오 B 상태 재적용</a>
+        <a href="{% url 'meeting_detail' pk=meeting.id %}" class="btn btn-primary" data-demo-nav-link="1">선곡시트로 이동</a>
+        <a href="{% url 'demo_scenario' 2 %}" class="btn btn-outline-secondary" data-demo-nav-link="1">시나리오 B 상태 재적용</a>
       </div>
     </div>
   </div>

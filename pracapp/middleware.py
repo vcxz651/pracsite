@@ -3,7 +3,7 @@ import re
 from django.contrib.auth import logout
 from django.utils import timezone
 
-from .models import Band, Session, Song, User
+from .models import Band, Meeting, Session, Song, User
 
 
 UUID_RE = r'[0-9a-fA-F-]{32,36}'
@@ -13,25 +13,26 @@ SONG_PATH_RE = re.compile(rf'^/song/(?P<sid>{UUID_RE})/')
 
 def _cleanup_demo_assets(request):
     session = request.session
-    is_cached = bool(session.get('demo_is_cached'))
     band_id = session.get('demo_band_id')
-    user_ids = session.get('demo_user_ids') or []
-    if not user_ids:
-        for key in ('demo_user_manager_id', 'demo_user_member_id'):
-            uid = session.get(key)
-            if uid:
-                user_ids.append(uid)
+    if band_id:
+        band = Band.objects.filter(id=band_id).first()
+        if band and str(getattr(band, 'name', '') or '').startswith('[데모WORK]'):
+            Band.objects.filter(id=band.id).delete()
 
-    if band_id and not is_cached:
-        Band.objects.filter(id=band_id).delete()
-    if user_ids and not is_cached:
-        User.objects.filter(id__in=user_ids).delete()
+    meeting_id = session.get('demo_meeting_id')
+    if meeting_id:
+        meeting = Meeting.objects.filter(id=meeting_id).first()
+        if meeting and str(getattr(meeting, 'title', '') or '').startswith('[데모WORK]'):
+            Meeting.objects.filter(id=meeting.id).delete()
+
+    if band_id:
+        Band.objects.filter(id=band_id, name__startswith='[데모CACHE]').delete()
 
     for key in (
         'demo_mode', 'demo_role', 'demo_scenario',
         'demo_band_id', 'demo_meeting_id',
         'demo_user_manager_id', 'demo_user_member_id',
-        'demo_user_ids', 'demo_is_cached', 'demo_last_seen',
+        'demo_user_ids', 'demo_is_cached', 'demo_cache_scope', 'demo_last_seen',
         '_auth_user_id', '_auth_user_backend', '_auth_user_hash',
     ):
         session.pop(key, None)

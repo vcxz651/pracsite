@@ -1,10 +1,10 @@
 from django.core.management.base import BaseCommand
 
-from pracapp.views.demo_views import _ensure_cached_demo_dataset
+from pracapp.views.demo_views import _ensure_demo_template_dataset
 
 
 class Command(BaseCommand):
-    help = 'Pre-generate and store demo cache datasets for scenarios 1~3.'
+    help = 'Pre-generate and store demo template datasets for scenarios 1~3.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -21,7 +21,7 @@ class Command(BaseCommand):
             if scenario not in (1, 2, 3):
                 self.stdout.write(self.style.WARNING(f'skip invalid scenario={scenario}'))
                 continue
-            band, meeting, _, songs, users, _, _ = _ensure_cached_demo_dataset(scenario)
+            band, meeting, _, songs, users, _, _ = _ensure_demo_template_dataset(scenario)
             self.stdout.write(
                 self.style.SUCCESS(
                     f'prepared scenario={scenario} band={band.id} meeting={meeting.id} '

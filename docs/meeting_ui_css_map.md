@@ -1,5 +1,12 @@
 # Meeting UI CSS Responsibility Map
 
+선행 읽기:
+1. `docs/project_overview.md`
+2. `docs/ai_working_rules.md`
+3. `docs/ai_task_triage_checklist.md`
+
+이 문서는 `meeting_detail` 화면의 CSS 책임 범위를 정리한 문서다. 기능 동작 기준은 관련 SSOT를 먼저 보고, 스타일 책임만 이 문서로 판단한다.
+
 파일: `pracapp/templates/pracapp/meeting_detail.html`
 
 ## 공통 레이아웃

@@ -6,7 +6,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Min, Max, F, Q
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import redirect, get_object_or_404, render
@@ -2570,6 +2570,14 @@ def schedule_save_result(request, meeting_id):
         }, status=409)
 
     with transaction.atomic():
+        locked_meeting = Meeting.objects.select_for_update().get(id=meeting.id)
+        if locked_meeting.is_final_schedule_confirmed:
+            return JsonResponse({
+                'status': 'already',
+                'message': '이미 최종 확정된 일정입니다.',
+                'redirect_url': reverse('schedule_final', args=[locked_meeting.id]),
+            })
+
         PracticeSchedule.objects.filter(meeting=meeting).delete()
         rows = [
             PracticeSchedule(
@@ -2585,21 +2593,21 @@ def schedule_save_result(request, meeting_id):
         ]
         if rows:
             PracticeSchedule.objects.bulk_create(rows)
-        utils.sync_generated_oneoff_for_meeting(meeting)
-        MeetingFinalDraft.objects.filter(meeting=meeting).delete()
+        utils.sync_generated_oneoff_for_meeting(locked_meeting)
+        MeetingFinalDraft.objects.filter(meeting=locked_meeting).delete()
         update_fields = []
-        if meeting.is_booking_in_progress:
-            meeting.is_booking_in_progress = False
+        if locked_meeting.is_booking_in_progress:
+            locked_meeting.is_booking_in_progress = False
             update_fields.append('is_booking_in_progress')
-        if meeting.is_final_schedule_released:
-            meeting.is_final_schedule_released = False
+        if locked_meeting.is_final_schedule_released:
+            locked_meeting.is_final_schedule_released = False
             update_fields.append('is_final_schedule_released')
-        if not meeting.is_final_schedule_confirmed:
-            meeting.is_final_schedule_confirmed = True
+        if not locked_meeting.is_final_schedule_confirmed:
+            locked_meeting.is_final_schedule_confirmed = True
             update_fields.append('is_final_schedule_confirmed')
         if update_fields:
-            meeting.save(update_fields=update_fields)
-        _sync_room_blocks_for_confirmed_schedule(meeting)
+            locked_meeting.save(update_fields=update_fields)
+        _sync_room_blocks_for_confirmed_schedule(locked_meeting)
 
     return JsonResponse({
         'status': 'success',
@@ -2626,27 +2634,28 @@ def schedule_final_reset(request, meeting_id):
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
 
     with transaction.atomic():
-        PracticeSchedule.objects.filter(meeting=meeting).delete()
-        MeetingFinalDraft.objects.filter(meeting=meeting).delete()
-        MeetingScheduleConfirmation.objects.filter(meeting=meeting).delete()
-        _clear_room_blocks_for_confirmed_schedule(meeting)
-        utils.sync_generated_oneoff_for_meeting(meeting)
+        locked_meeting = Meeting.objects.select_for_update().get(id=meeting.id)
+        PracticeSchedule.objects.filter(meeting=locked_meeting).delete()
+        MeetingFinalDraft.objects.filter(meeting=locked_meeting).delete()
+        MeetingScheduleConfirmation.objects.filter(meeting=locked_meeting).delete()
+        _clear_room_blocks_for_confirmed_schedule(locked_meeting)
+        utils.sync_generated_oneoff_for_meeting(locked_meeting)
 
         update_fields = []
-        if meeting.is_final_schedule_confirmed:
-            meeting.is_final_schedule_confirmed = False
+        if locked_meeting.is_final_schedule_confirmed:
+            locked_meeting.is_final_schedule_confirmed = False
             update_fields.append('is_final_schedule_confirmed')
-        if meeting.is_final_schedule_released:
-            meeting.is_final_schedule_released = False
+        if locked_meeting.is_final_schedule_released:
+            locked_meeting.is_final_schedule_released = False
             update_fields.append('is_final_schedule_released')
-        if meeting.is_booking_in_progress:
-            meeting.is_booking_in_progress = False
+        if locked_meeting.is_booking_in_progress:
+            locked_meeting.is_booking_in_progress = False
             update_fields.append('is_booking_in_progress')
-        if meeting.is_schedule_coordinating:
-            meeting.is_schedule_coordinating = False
+        if locked_meeting.is_schedule_coordinating:
+            locked_meeting.is_schedule_coordinating = False
             update_fields.append('is_schedule_coordinating')
         if update_fields:
-            meeting.save(update_fields=update_fields)
+            locked_meeting.save(update_fields=update_fields)
 
     return JsonResponse({
         'status': 'success',
@@ -2663,31 +2672,37 @@ def schedule_final_acknowledge(request, meeting_id):
         return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
     meeting = get_object_or_404(Meeting, id=meeting_id)
-    membership = _get_approved_membership(meeting, request.user)
-    if not membership:
-        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
-    if _has_meeting_manager_permission(meeting, request.user, membership=membership):
-        return JsonResponse({'status': 'error', 'message': '관리자는 확인 제출 대상이 아닙니다.'}, status=400)
-    if meeting.is_booking_in_progress:
-        return JsonResponse({'status': 'error', 'message': '현재 일정은 예약 반영 중입니다. 공유본에서 다시 확인해주세요.'}, status=409)
-    if not (meeting.is_final_schedule_released or meeting.is_final_schedule_confirmed):
-        return JsonResponse({'status': 'error', 'message': '아직 최종 합주 일정이 공개되지 않았습니다.'}, status=409)
 
-    participant_ids = set(
-        meeting.songs.filter(sessions__assignee__isnull=False)
-        .values_list('sessions__assignee_id', flat=True)
-        .distinct()
-    )
-    if request.user.id not in participant_ids:
-        return JsonResponse({'status': 'error', 'message': '이번 합주 일정에 참여한 곡이 없습니다.'}, status=400)
+    with transaction.atomic():
+        locked_meeting = Meeting.objects.select_for_update().get(id=meeting.id)
+        membership = _get_approved_membership(locked_meeting, request.user)
+        if not membership:
+            return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+        if _has_meeting_manager_permission(locked_meeting, request.user, membership=membership):
+            return JsonResponse({'status': 'error', 'message': '관리자는 확인 제출 대상이 아닙니다.'}, status=400)
+        if locked_meeting.is_booking_in_progress:
+            return JsonResponse({'status': 'error', 'message': '현재 일정은 예약 반영 중입니다. 공유본에서 다시 확인해주세요.'}, status=409)
+        if not (locked_meeting.is_final_schedule_released or locked_meeting.is_final_schedule_confirmed):
+            return JsonResponse({'status': 'error', 'message': '아직 최종 합주 일정이 공개되지 않았습니다.'}, status=409)
 
-    _, created = MeetingScheduleConfirmation.objects.get_or_create(
-        meeting=meeting,
-        user=request.user,
-        version=meeting.schedule_version,
-    )
-    if not created:
-        return JsonResponse({'status': 'already', 'message': '이미 일정 확정을 제출했습니다.'})
+        participant_ids = set(
+            locked_meeting.songs.filter(sessions__assignee__isnull=False)
+            .values_list('sessions__assignee_id', flat=True)
+            .distinct()
+        )
+        if request.user.id not in participant_ids:
+            return JsonResponse({'status': 'error', 'message': '이번 합주 일정에 참여한 곡이 없습니다.'}, status=400)
+
+        try:
+            _, created = MeetingScheduleConfirmation.objects.get_or_create(
+                meeting=locked_meeting,
+                user=request.user,
+                version=locked_meeting.schedule_version,
+            )
+        except IntegrityError:
+            created = False
+        if not created:
+            return JsonResponse({'status': 'already', 'message': '이미 일정 확정을 제출했습니다.'})
     return JsonResponse({'status': 'success'})
 
 

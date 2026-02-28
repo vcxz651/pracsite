@@ -66,6 +66,31 @@
 - `matching_views.py` → context 제공 (`schedule_match_run`, `schedule_final`, `schedule_booking_start`)
 - `extra_practice_ui_style.md` → CSS 스타일 레퍼런스
 
+**수정 프로토콜 (match_result.html 전용):**
+
+> 이 파일은 CSS·HTML·JS가 단일 파일에 공존하며 10,000줄이 넘는다. 아래 절차 없이 즉흥 수정하지 말 것.
+
+**수정 전 체크**
+1. 변경할 함수명·CSS 클래스명을 `Grep`으로 파일 전체 검색해 호출 위치를 모두 파악한다.
+2. 수정 지점 ± 300줄을 읽어 `init*` / `bind*` 등 초기화 함수 안에서 호출되는지 확인한다.
+3. `bookingToolsEnabled()` / `isRoomSlotLayoutEnabled()` 분기에 영향받는 경로인지 확인한다 — 두 함수는 뷰 모드(조율/예약확정/최종)를 결정하는 핵심 분기점이다.
+4. CSS 변수(`--slot-h`, `--ep-primary` 등)를 변경하면 동일 변수를 사용하는 모든 규칙을 `Grep`으로 확인한다.
+
+**수정 시 금지**
+- `addEventListener`를 추가할 때 대응하는 `removeEventListener` 또는 이전 핸들러 제거 패턴 없이 추가하지 않는다.
+- 함수를 이름 변경·삭제할 때 파일 내 모든 호출처를 먼저 확인하지 않고 진행하지 않는다.
+- 컨텍스트 플래그(`is_final_view`, `is_booking_confirm_view`, `bookingToolsEnabled`)의 분기 결과를 추정으로 수정하지 않는다 — `matching_views.py`가 어떤 값을 주입하는지 대조한다.
+- 한 번에 1,000줄 이상 수정하지 않는다. 기능 단위로 나눠 각 단계에서 `manage.py check`로 Python 오류를 확인한다.
+- 확인 모달 뒤에 `fetch`가 이어지는 액션(예: 예약 진입, 임시 저장, 확정 저장)은 **모달 이전에** in-flight 잠금을 먼저 걸지 않은 상태로 두지 않는다.
+- 같은 액션을 호출하는 버튼이 여러 개면, 클릭된 버튼 하나만 잠그지 말고 해당 액션 버튼군 전체를 함께 잠근다.
+
+**수정 후 검증**
+1. 파일 내 같은 이름의 함수 정의가 중복되지 않았는지 `Grep`으로 확인한다.
+2. 추가한 `addEventListener`에 대응하는 제거 경로가 있는지 직접 추적한다.
+3. CSS 변수를 수정했다면 `:root` 정의와 실사용 위치가 일치하는지 확인한다.
+4. `python manage.py test` 실행 후 31개 테스트 전원 통과 확인.
+5. 저장/공유/예약 진입 버튼을 빠르게 연타해도 동일 요청이 중복 발사되지 않는지 확인한다.
+
 ---
 
 ### `pracapp/views/matching_views.py`
@@ -162,6 +187,20 @@
 **라인 수:** ~930줄
 **역할:** 매칭 파라미터(합주 시간/횟수/합주실 등) 설정 UI. `matching_views.py`의 `schedule_match_settings()`가 렌더링.
 > 상세 섹션 미작성 — 주요 변경 발생 시 보완 예정.
+
+---
+
+### `pracapp/templates/pracapp/meeting_detail.html`
+**라인 수:** ~4,800줄
+**역할:** 미팅 상세 페이지 전체. 탭(곡·세션·참가자·스케줄) + AJAX 인터랙션 포함.
+
+**수정 프로토콜:**
+1. 탭별 섹션 경계를 먼저 파악한다 (`Grep`으로 탭 ID 또는 `data-tab` 검색).
+2. AJAX 호출부(`fetch`, `$.ajax`)를 수정할 때는 URL 패턴을 `pracsite/urls.py`에서 교차 확인한다.
+3. 인라인 `<script>` 블록이 여럿 존재하므로 함수명 충돌 여부를 `Grep`으로 사전 확인한다.
+4. 수정 후 `manage.py check` 및 `manage.py test` 실행.
+5. 모달/패널을 비동기로 채우는 경우, 이전 요청 응답이 나중에 도착해 최신 모달 내용을 덮어쓰지 않는지 확인한다.
+6. 댓글 삭제/지원 변경 같은 반복 클릭 가능한 버튼은 요청 중 재클릭 방어가 있는지 확인한다.
 
 ---
 

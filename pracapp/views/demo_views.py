@@ -3,6 +3,7 @@ import csv
 import random
 import uuid
 import re
+from collections import defaultdict
 from pathlib import Path
 
 from django.contrib import messages
@@ -59,8 +60,7 @@ DEMO_MEMBER_NAMES = [
     '송정자', '오말순', '서화자', '신덕예', '권보배', '유순남', '황점숙', '안인자', '고숙자', '양길순',
 ]
 
-DEMO_TEMPLATE_CSV_PRIMARY = Path(__file__).resolve().parents[2] / 'demo_songs_rock_80.csv'
-DEMO_TEMPLATE_CSV_FALLBACK = Path(__file__).resolve().parents[2] / '김민기_밴드음악_명곡선_선곡템플릿.csv'
+DEMO_TEMPLATE_CSV = Path(__file__).resolve().parents[2] / '김민기_밴드음악_명곡선_선곡템플릿.csv'
 
 SCENARIO_CONFIG = {
     1: {'label': 'A', 'member_count': 40, 'total_songs': 80, 'assigned_songs': 25},
@@ -74,11 +74,26 @@ SCENARIO_DATE_MESSAGES = {
     3: '지금은 5월 18일입니다. 합주가 이미 시작된 시점입니다.',
 }
 
+DEMO_TEMPLATE_BAND_PREFIX = '[데모TEMPLATE]'
+DEMO_TEMPLATE_MEETING_PREFIX = '[데모TEMPLATE]'
+DEMO_WORK_BAND_PREFIX = '[데모WORK]'
+DEMO_WORK_MEETING_PREFIX = '[데모WORK]'
+
 
 def _normalize_cache_scope(raw_scope):
     scope = re.sub(r'[^a-zA-Z0-9_-]+', '', str(raw_scope or '').strip())
     scope = scope[:24]
     return scope or 'global'
+
+
+def _template_band_name(scenario):
+    cfg = SCENARIO_CONFIG.get(int(scenario), SCENARIO_CONFIG[1])
+    return f"{DEMO_TEMPLATE_BAND_PREFIX}[S{int(scenario)}] 락스타즈"
+
+
+def _template_meeting_title(scenario):
+    cfg = SCENARIO_CONFIG.get(int(scenario), SCENARIO_CONFIG[1])
+    return f"{DEMO_TEMPLATE_MEETING_PREFIX} 시나리오 {cfg['label']}"
 
 
 def _scenario_cache_prefix(scenario, cache_scope):
@@ -114,17 +129,19 @@ def _clear_demo_session(request):
 
 def _cleanup_demo_assets_from_session(request):
     band_id = request.session.get('demo_band_id')
-    raw_user_ids = request.session.get('demo_user_ids') or []
-    user_ids = [uid for uid in raw_user_ids if uid]
-    if not user_ids:
-        manager_id = request.session.get('demo_user_manager_id')
-        member_id = request.session.get('demo_user_member_id')
-        user_ids = [uid for uid in [manager_id, member_id] if uid]
     if band_id:
-        Band.objects.filter(id=band_id, name__startswith='[데모').delete()
-    if user_ids:
-        User.objects.filter(id__in=user_ids, username__startswith='demo_cache_').delete()
-        User.objects.filter(id__in=user_ids, username__startswith='demo_member_').delete()
+        working_band = Band.objects.filter(id=band_id).first()
+        if working_band and str(getattr(working_band, 'name', '') or '').startswith(DEMO_WORK_BAND_PREFIX):
+            Band.objects.filter(id=working_band.id).delete()
+
+    meeting_id = request.session.get('demo_meeting_id')
+    if meeting_id:
+        working_meeting = Meeting.objects.filter(id=meeting_id).first()
+        if working_meeting and str(getattr(working_meeting, 'title', '') or '').startswith(DEMO_WORK_MEETING_PREFIX):
+            Meeting.objects.filter(id=working_meeting.id).delete()
+
+    if band_id:
+        Band.objects.filter(id=band_id, name__startswith='[데모CACHE]').delete()
     _clear_demo_session(request)
 
 
@@ -171,11 +188,10 @@ def _resolve_demo_practice_range():
 
 
 def _load_demo_song_template_rows(limit=None):
-    template_csv = DEMO_TEMPLATE_CSV_PRIMARY if DEMO_TEMPLATE_CSV_PRIMARY.exists() else DEMO_TEMPLATE_CSV_FALLBACK
-    if not template_csv.exists():
-        raise FileNotFoundError(f"데모 템플릿 CSV를 찾을 수 없습니다: {template_csv}")
+    if not DEMO_TEMPLATE_CSV.exists():
+        raise FileNotFoundError(f"데모 템플릿 CSV를 찾을 수 없습니다: {DEMO_TEMPLATE_CSV}")
     rows = []
-    with template_csv.open(newline='', encoding='utf-8') as f:
+    with DEMO_TEMPLATE_CSV.open(newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             rows.append(row)
@@ -225,6 +241,31 @@ def _pick_session_applicants(sess_name, instrument_users, fallback_users, count=
         return []
     k = max(1, min(int(count), len(pool)))
     return random.sample(pool, k=k)
+
+
+def _pick_seed_assignee_for_session(sess_name, instrument_users, manager_user, seeded_role_counts):
+    if sess_name.startswith('Vocal'):
+        pool = list(instrument_users['Vocal'])
+    elif sess_name.startswith('Guitar'):
+        pool = list(instrument_users['Guitar'])
+    elif sess_name.startswith('Bass'):
+        pool = list(instrument_users['Bass'])
+    elif sess_name.startswith('Drum'):
+        pool = list(instrument_users['Drum'])
+        if pool:
+            min_count = min(seeded_role_counts['Drum'].get(u.id, 0) for u in pool)
+            candidates = [u for u in pool if seeded_role_counts['Drum'].get(u.id, 0) == min_count]
+            picked = random.choice(candidates)
+            seeded_role_counts['Drum'][picked.id] += 1
+            return picked
+    elif sess_name.startswith('Keyboard'):
+        pool = list(instrument_users['Keyboard'])
+    else:
+        return manager_user
+
+    if not pool:
+        return manager_user
+    return random.choice(pool)
 
 
 def _collect_band_users(band):
@@ -293,6 +334,295 @@ def _ensure_cached_demo_dataset(scenario, cache_scope):
     meeting.save(update_fields=['title'])
     _backfill_assignee_to_applicant(meeting)
     return band, meeting, rooms, songs, demo_users, manager_user, member_user
+
+
+def _ensure_demo_template_dataset(scenario):
+    scenario = int(scenario)
+    cfg = SCENARIO_CONFIG.get(scenario, SCENARIO_CONFIG[1])
+    band_name = _template_band_name(scenario)
+    meeting_title = _template_meeting_title(scenario)
+    user_prefix = f"demo_template_s{scenario}_"
+
+    band = Band.objects.filter(name=band_name).first()
+    if band:
+        meeting = band.meetings.filter(title=meeting_title).order_by('created_at').first()
+        users = _collect_band_users(band)
+        manager_user = next((u for u in users if band.memberships.filter(user=u, role='LEADER').exists()), None)
+        member_user = next((u for u in users if u != manager_user), None)
+        template_user_count_ok = len(users) >= int(cfg['member_count'])
+        template_participant_count_ok = bool(meeting and meeting.participants.count() >= int(cfg['member_count']))
+        template_song_count_ok = bool(meeting and meeting.songs.count() >= int(cfg['total_songs']))
+        if meeting and manager_user and member_user and template_user_count_ok and template_participant_count_ok and template_song_count_ok:
+            _backfill_assignee_to_applicant(meeting)
+            rooms = list(band.rooms.filter(is_temporary=False).order_by('name'))
+            songs = list(meeting.songs.order_by('created_at', 'title', 'id'))
+            return band, meeting, rooms, songs, users, manager_user, member_user
+        Band.objects.filter(id=band.id).delete()
+
+    User.objects.filter(username__startswith=user_prefix).delete()
+    manager_user = User.objects.create_user(
+        username=f"{user_prefix}manager",
+        password=uuid.uuid4().hex,
+        realname='데모 템플릿 매니저',
+        instrument='Guitar',
+    )
+    member_user = User.objects.create_user(
+        username=f"{user_prefix}member",
+        password=uuid.uuid4().hex,
+        realname='데모 템플릿 멤버',
+        instrument='Vocal',
+    )
+    band, meeting, rooms, songs, demo_users = _seed_demo_meeting_data(
+        manager_user=manager_user,
+        member_user=member_user,
+        member_count=cfg['member_count'],
+        total_songs=cfg['total_songs'],
+        assigned_songs=cfg['assigned_songs'],
+    )
+    band.name = band_name
+    band.save(update_fields=['name'])
+    meeting.title = meeting_title
+    meeting.save(update_fields=['title'])
+    _apply_scenario_state(meeting, manager_user, rooms, songs, scenario, assigned_songs=cfg['assigned_songs'])
+    _backfill_assignee_to_applicant(meeting)
+    return band, meeting, rooms, songs, demo_users, manager_user, member_user
+
+
+def _remap_event_payload_rooms(events, room_map):
+    if not isinstance(events, list):
+        return events
+    remapped = []
+    for row in events:
+        if not isinstance(row, dict):
+            remapped.append(row)
+            continue
+        copied = dict(row)
+        room_obj = room_map.get(str(row.get('room_id')))
+        if room_obj:
+            copied['room_id'] = str(room_obj.id)
+            copied['room_name'] = room_obj.name
+            copied['room_location'] = room_obj.location
+        remapped.append(copied)
+    return remapped
+
+
+def _remap_match_params(match_params, room_map):
+    if not isinstance(match_params, dict):
+        return match_params
+    remapped = dict(match_params)
+    for key in ('r', 'rp'):
+        raw = remapped.get(key)
+        if not raw:
+            continue
+        mapped_ids = []
+        for room_id in str(raw).split(','):
+            room_obj = room_map.get(str(room_id))
+            mapped_ids.append(str(room_obj.id) if room_obj else str(room_id))
+        remapped[key] = ','.join(mapped_ids)
+    return remapped
+
+
+def _remap_booking_completed_keys(keys, room_map):
+    if not isinstance(keys, list):
+        return keys
+    remapped = []
+    for raw in keys:
+        parts = str(raw or '').split('|')
+        if len(parts) == 5:
+            room_obj = room_map.get(parts[4])
+            if room_obj:
+                parts[4] = str(room_obj.id)
+            remapped.append('|'.join(parts))
+        else:
+            remapped.append(raw)
+    return remapped
+
+
+def _clone_demo_working_meeting(template_meeting, manager_user):
+    suffix = uuid.uuid4().hex[:8]
+    template_band = template_meeting.band
+    working_band = Band.objects.create(
+        name=f"{DEMO_WORK_BAND_PREFIX} {suffix}",
+        school=template_band.school,
+        department=template_band.department,
+        department_detail=template_band.department_detail,
+        introduce=template_band.introduce,
+        description=template_band.description,
+        is_public=False,
+    )
+    template_memberships = list(template_band.memberships.select_related('user').order_by('date_joined', 'id'))
+    membership_rows = []
+    for membership in template_memberships:
+        membership_rows.append(Membership(
+            user=membership.user,
+            band=working_band,
+            message=membership.message,
+            is_approved=membership.is_approved,
+            approval_notified=membership.approval_notified,
+            role=membership.role,
+            date_joined=membership.date_joined,
+        ))
+    if membership_rows:
+        Membership.objects.bulk_create(membership_rows)
+
+    room_map = {}
+    template_rooms = list(template_band.rooms.order_by('name', 'id'))
+    for template_room in template_rooms:
+        cloned_room = PracticeRoom.objects.create(
+            band=working_band,
+            name=template_room.name,
+            capacity=template_room.capacity,
+            location=template_room.location,
+            is_temporary=template_room.is_temporary,
+        )
+        room_map[str(template_room.id)] = cloned_room
+
+    working_meeting = Meeting.objects.create(
+        band=working_band,
+        title=f"{DEMO_WORK_MEETING_PREFIX} {template_meeting.title.replace(DEMO_TEMPLATE_MEETING_PREFIX, '').strip()} {suffix}",
+        description=template_meeting.description,
+        practice_start_date=template_meeting.practice_start_date,
+        practice_end_date=template_meeting.practice_end_date,
+        is_schedule_coordinating=template_meeting.is_schedule_coordinating,
+        is_final_schedule_released=template_meeting.is_final_schedule_released,
+        is_booking_in_progress=template_meeting.is_booking_in_progress,
+        is_final_schedule_confirmed=template_meeting.is_final_schedule_confirmed,
+        schedule_version=template_meeting.schedule_version,
+    )
+
+    participant_rows = []
+    template_participants = list(
+        template_meeting.participants.select_related('user', 'approved_by').order_by('approved_at', 'requested_at', 'id')
+    )
+    for participant in template_participants:
+        participant_rows.append(MeetingParticipant(
+            meeting=working_meeting,
+            user=participant.user,
+            status=participant.status,
+            role=participant.role,
+            approved_at=participant.approved_at,
+            approved_by=participant.approved_by,
+        ))
+    if participant_rows:
+        MeetingParticipant.objects.bulk_create(participant_rows)
+
+    song_map = {}
+    template_songs = list(template_meeting.songs.order_by('created_at', 'title', 'id'))
+    for template_song in template_songs:
+        cloned_song = Song.objects.create(
+            meeting=working_meeting,
+            author=template_song.author,
+            title=template_song.title,
+            artist=template_song.artist,
+            url=template_song.url,
+            author_note=template_song.author_note,
+        )
+        song_map[str(template_song.id)] = cloned_song
+
+    session_applicants = []
+    for template_song in template_songs:
+        cloned_song = song_map.get(str(template_song.id))
+        if not cloned_song:
+            continue
+        template_sessions = list(template_song.sessions.order_by('id'))
+        for template_session in template_sessions:
+            cloned_session = Session.objects.create(
+                song=cloned_song,
+                name=template_session.name,
+                is_extra=template_session.is_extra,
+                assignee=template_session.assignee,
+            )
+            applicant_ids = list(template_session.applicant.values_list('id', flat=True))
+            for user_id in applicant_ids:
+                session_applicants.append(Session.applicant.through(session_id=cloned_session.id, user_id=user_id))
+    if session_applicants:
+        Session.applicant.through.objects.bulk_create(session_applicants, ignore_conflicts=True)
+
+    work_drafts = list(MeetingWorkDraft.objects.filter(meeting=template_meeting))
+    for draft in work_drafts:
+        MeetingWorkDraft.objects.create(
+            meeting=working_meeting,
+            user=draft.user,
+            events=_remap_event_payload_rooms(draft.events, room_map),
+            match_params=_remap_match_params(draft.match_params, room_map),
+        )
+
+    final_drafts = list(MeetingFinalDraft.objects.filter(meeting=template_meeting))
+    for draft in final_drafts:
+        MeetingFinalDraft.objects.create(
+            meeting=working_meeting,
+            match_params=_remap_match_params(draft.match_params, room_map),
+            events=_remap_event_payload_rooms(draft.events, room_map),
+            booking_completed_keys=_remap_booking_completed_keys(draft.booking_completed_keys, room_map),
+        )
+
+    schedule_rows = []
+    for row in PracticeSchedule.objects.filter(meeting=template_meeting).select_related('song', 'room'):
+        cloned_song = song_map.get(str(row.song_id))
+        cloned_room = room_map.get(str(row.room_id))
+        if not cloned_song or not cloned_room:
+            continue
+        schedule_rows.append(PracticeSchedule(
+            meeting=working_meeting,
+            song=cloned_song,
+            room=cloned_room,
+            date=row.date,
+            start_index=row.start_index,
+            end_index=row.end_index,
+            is_forced=row.is_forced,
+        ))
+    if schedule_rows:
+        PracticeSchedule.objects.bulk_create(schedule_rows)
+
+    confirmations = []
+    for ack in MeetingScheduleConfirmation.objects.filter(meeting=template_meeting):
+        confirmations.append(MeetingScheduleConfirmation(
+            meeting=working_meeting,
+            user=ack.user,
+            version=ack.version,
+        ))
+    if confirmations:
+        MeetingScheduleConfirmation.objects.bulk_create(confirmations, ignore_conflicts=True)
+
+    ghost_meeting_map = {}
+    template_ghosts = list(
+        template_band.meetings.filter(title__startswith='[데모B]').exclude(id=template_meeting.id).order_by('created_at', 'id')
+    )
+    for ghost in template_ghosts:
+        cloned_ghost = Meeting.objects.create(
+            band=working_band,
+            title=ghost.title,
+            description=ghost.description,
+            practice_start_date=ghost.practice_start_date,
+            practice_end_date=ghost.practice_end_date,
+            is_schedule_coordinating=ghost.is_schedule_coordinating,
+            is_final_schedule_released=ghost.is_final_schedule_released,
+            is_booking_in_progress=ghost.is_booking_in_progress,
+            is_final_schedule_confirmed=ghost.is_final_schedule_confirmed,
+            schedule_version=ghost.schedule_version,
+        )
+        ghost_meeting_map[str(ghost.id)] = cloned_ghost
+
+    room_blocks = []
+    template_blocks = RoomBlock.objects.filter(
+        source_meeting__in=template_ghosts
+    ).select_related('room', 'source_meeting').order_by('date', 'start_index', 'id')
+    for block in template_blocks:
+        cloned_room = room_map.get(str(block.room_id))
+        cloned_source_meeting = ghost_meeting_map.get(str(block.source_meeting_id))
+        if not cloned_room or not cloned_source_meeting:
+            continue
+        room_blocks.append(RoomBlock(
+            room=cloned_room,
+            date=block.date,
+            start_index=block.start_index,
+            end_index=block.end_index,
+            source_meeting=cloned_source_meeting,
+        ))
+    if room_blocks:
+        RoomBlock.objects.bulk_create(room_blocks)
+
+    return working_meeting
 
 
 def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_songs=80, assigned_songs=25):
@@ -373,6 +703,7 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
     for key in instrument_users:
         if not instrument_users[key]:
             instrument_users[key] = [manager_user]
+    seeded_role_counts = defaultdict(lambda: defaultdict(int))
 
     # 더미데이터 규칙: 멤버 일정(수업/알바/oneoff) -> 가용 슬롯 동기화
     for user in demo_users:
@@ -405,18 +736,12 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
         for sess_name in needed:
             sess = Session.objects.create(song=song, name=sess_name, is_extra=False)
             if should_assign:
-                if sess_name.startswith('Vocal'):
-                    assignee = random.choice(instrument_users['Vocal'])
-                elif sess_name.startswith('Guitar'):
-                    assignee = random.choice(instrument_users['Guitar'])
-                elif sess_name.startswith('Bass'):
-                    assignee = random.choice(instrument_users['Bass'])
-                elif sess_name.startswith('Drum'):
-                    assignee = random.choice(instrument_users['Drum'])
-                elif sess_name.startswith('Keyboard'):
-                    assignee = random.choice(instrument_users['Keyboard'])
-                else:
-                    assignee = manager_user
+                assignee = _pick_seed_assignee_for_session(
+                    sess_name=sess_name,
+                    instrument_users=instrument_users,
+                    manager_user=manager_user,
+                    seeded_role_counts=seeded_role_counts,
+                )
                 sess.assignee = assignee
                 sess.save(update_fields=['assignee'])
                 sess.applicant.add(assignee)
@@ -662,24 +987,18 @@ def demo_start(request):
     if request.session.get('demo_mode'):
         _cleanup_demo_assets_from_session(request)
 
-    cfg = SCENARIO_CONFIG.get(scenario, SCENARIO_CONFIG[1])
-    cache_scope = _ensure_demo_cache_scope(request)
-    band, meeting, rooms, songs, demo_users, manager_user, member_user = _ensure_cached_demo_dataset(
-        scenario,
-        cache_scope=cache_scope,
-    )
-    _apply_scenario_state(meeting, manager_user, rooms, songs, scenario, assigned_songs=cfg['assigned_songs'])
+    band, template_meeting, _rooms, _songs, demo_users, manager_user, member_user = _ensure_demo_template_dataset(scenario)
+    meeting = _clone_demo_working_meeting(template_meeting, manager_user)
 
     login(request, manager_user, backend='django.contrib.auth.backends.ModelBackend')
     request.session['demo_mode'] = True
     request.session['demo_role'] = 'manager'
     request.session['demo_scenario'] = scenario
-    request.session['demo_band_id'] = str(band.id)
+    request.session['demo_band_id'] = str(meeting.band_id)
     request.session['demo_meeting_id'] = str(meeting.id)
     request.session['demo_user_manager_id'] = str(manager_user.id)
     request.session['demo_user_member_id'] = str(member_user.id)
-    request.session['demo_user_ids'] = [str(u.id) for u in demo_users]
-    request.session['demo_cache_scope'] = cache_scope
+    request.session['demo_user_ids'] = []
 
     return redirect('demo_scenario', scenario=scenario)
 
@@ -689,16 +1008,25 @@ def demo_scenario(request, scenario):
     if not request.session.get('demo_mode'):
         messages.info(request, '먼저 데모를 시작해주세요.')
         return redirect('demo_home')
-    meeting_id = request.session.get('demo_meeting_id')
-    meeting = get_object_or_404(Meeting, id=meeting_id)
     if scenario not in (1, 2, 3):
         scenario = 1
-    manager_user_id = request.session.get('demo_user_manager_id')
-    manager_user = get_object_or_404(User, id=manager_user_id)
-    rooms = list(meeting.band.rooms.filter(is_temporary=False).order_by('name'))
-    songs = list(meeting.songs.order_by('created_at', 'title', 'id'))
-    cfg = SCENARIO_CONFIG.get(scenario, SCENARIO_CONFIG[1])
-    _apply_scenario_state(meeting, manager_user, rooms, songs, scenario, assigned_songs=cfg['assigned_songs'])
+    current_scenario = int(request.session.get('demo_scenario') or 1)
+    meeting_id = request.session.get('demo_meeting_id')
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    if current_scenario != scenario:
+        current_role = str(request.session.get('demo_role') or 'manager')
+        _cleanup_demo_assets_from_session(request)
+        band, template_meeting, _rooms, _songs, demo_users, manager_user, member_user = _ensure_demo_template_dataset(scenario)
+        meeting = _clone_demo_working_meeting(template_meeting, manager_user)
+        login_user = member_user if current_role == 'member' else manager_user
+        login(request, login_user, backend='django.contrib.auth.backends.ModelBackend')
+        request.session['demo_mode'] = True
+        request.session['demo_role'] = current_role
+        request.session['demo_band_id'] = str(meeting.band_id)
+        request.session['demo_meeting_id'] = str(meeting.id)
+        request.session['demo_user_manager_id'] = str(manager_user.id)
+        request.session['demo_user_member_id'] = str(member_user.id)
+        request.session['demo_user_ids'] = []
     request.session['demo_scenario'] = scenario
     return _redirect_for_scenario(request, meeting, scenario)
 

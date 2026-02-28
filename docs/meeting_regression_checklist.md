@@ -1,5 +1,12 @@
 # Meeting Regression Checklist
 
+선행 읽기:
+1. `docs/project_overview.md`
+2. `docs/ai_working_rules.md`
+3. `docs/ai_task_triage_checklist.md`
+
+이 문서는 회귀 검증 기준 문서다. 기능 SSOT를 먼저 읽고, 변경 결과를 이 체크리스트 기준으로 검증한다.
+
 ## 계정 구성
 - 관리자 1명 + 일반 멤버 1명으로 교차 점검
 

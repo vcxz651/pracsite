@@ -1,11 +1,66 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+  .demo-start-loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.52);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 2000;
+  }
+  .demo-start-loading-overlay.is-open {
+    display: flex;
+  }
+  .demo-start-loading-card {
+    width: min(440px, 92vw);
+    background: #fff;
+    border-radius: 20px;
+    padding: 24px 22px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+    text-align: center;
+  }
+  .demo-start-loading-title {
+    font-size: 1.08rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 10px;
+  }
+  .demo-start-loading-desc {
+    font-size: 0.92rem;
+    color: #475569;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .demo-start-loading-note {
+    font-size: 0.8rem;
+    color: #64748b;
+    line-height: 1.45;
+    margin-bottom: 0;
+  }
+</style>
+
+<div id="demoStartLoadingOverlay" class="demo-start-loading-overlay" aria-hidden="true">
+  <div class="demo-start-loading-card" role="status" aria-live="polite">
+    <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
+    <div class="demo-start-loading-title">데모 데이터를 준비하고 있습니다</div>
+    <p id="demoStartLoadingDesc" class="demo-start-loading-desc mb-0">
+      시나리오를 불러오는 중입니다. 잠시만 기다려주세요.
+    </p>
+    <p class="demo-start-loading-note mt-3">
+      시나리오 A와 C는 첫 실행 시 더 오래 걸릴 수 있습니다. 페이지를 닫거나 새로고침하지 말고 잠시만 기다려주세요.
+    </p>
+  </div>
+</div>
+
 <div class="py-4">
   <div class="p-4 rounded-4 bg-white border shadow-sm mb-4">
     <h2 class="fw-bold mb-2">밴드 합주 일정 자동 조율 데모</h2>
     <p class="text-muted mb-1">회원가입 없이 바로 체험할 수 있습니다. 시나리오를 선택하면 데모 데이터가 자동 생성됩니다.</p>
-    <p class="text-muted mb-0 small">데모 곡은 <strong>demo_songs_rock_80.csv</strong>(없으면 기존 템플릿 CSV fallback)로 생성되며, 합주기간은 <strong>4월 마지막 주 월요일 ~ 6월 첫째 주 금요일</strong>로 고정됩니다.</p>
+    <p class="text-muted mb-0 small">데모 곡은 <strong>김민기_밴드음악_명곡선_선곡템플릿.csv</strong> 기준으로 생성되며, 합주기간은 <strong>4월 마지막 주 월요일 ~ 6월 첫째 주 금요일</strong>로 고정됩니다.</p>
   </div>
 
   <div class="row g-3">
@@ -58,12 +113,74 @@
 <script>
   (function () {
     const forms = document.querySelectorAll('.js-demo-start-form');
-    forms.forEach((form) => {
-      form.addEventListener('submit', function () {
+    const loadingOverlay = document.getElementById('demoStartLoadingOverlay');
+    const loadingDesc = document.getElementById('demoStartLoadingDesc');
+    let navPending = false;
+    const defaultBtnLabel = '시작하기';
+    const scenarioLoadingText = {
+      '1': '시나리오 A를 준비 중입니다. 선곡시트와 합주 보드를 불러오고 있습니다.',
+      '2': '시나리오 B를 준비 중입니다. 대시보드와 예약 현황을 불러오고 있습니다.',
+      '3': '시나리오 C를 준비 중입니다. 최종 일정과 추가합주 흐름을 불러오고 있습니다.'
+    };
+
+    function getCookie(name) {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(name + '='));
+      return cookieValue ? decodeURIComponent(cookieValue.split('=').slice(1).join('=')) : '';
+    }
+
+    function refreshFormState() {
+      navPending = false;
+      document.body.classList.remove('demo-nav-pending');
+      sessionStorage.removeItem('demo_transition_pending');
+      if (loadingOverlay) {
+        loadingOverlay.classList.remove('is-open');
+        loadingOverlay.setAttribute('aria-hidden', 'true');
+      }
+      const csrfToken = getCookie('csrftoken');
+      forms.forEach((form) => {
         const btn = form.querySelector('.js-demo-start-btn');
-        if (!btn) return;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>준비 중...';
+        const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = defaultBtnLabel;
+        }
+        if (csrfInput && csrfToken) {
+          csrfInput.value = csrfToken;
+        }
+      });
+    }
+
+    refreshFormState();
+
+    window.addEventListener('pageshow', function () {
+      refreshFormState();
+    });
+
+    forms.forEach((form) => {
+      form.addEventListener('submit', function (event) {
+        if (navPending) {
+          event.preventDefault();
+          return;
+        }
+        navPending = true;
+        document.body.classList.add('demo-nav-pending');
+        sessionStorage.setItem('demo_transition_pending', '1');
+        const scenarioValue = form.querySelector('input[name="scenario"]')?.value || '';
+        if (loadingOverlay) {
+          if (loadingDesc) {
+            loadingDesc.textContent = scenarioLoadingText[scenarioValue] || '시나리오를 불러오는 중입니다. 잠시만 기다려주세요.';
+          }
+          loadingOverlay.classList.add('is-open');
+          loadingOverlay.setAttribute('aria-hidden', 'false');
+        }
+        forms.forEach((targetForm) => {
+          const btn = targetForm.querySelector('.js-demo-start-btn');
+          if (!btn) return;
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>준비 중...';
+        });
       });
     });
   })();

@@ -1,5 +1,12 @@
 # Meeting Data Integrity Rules
 
+선행 읽기:
+1. `docs/project_overview.md`
+2. `docs/ai_working_rules.md`
+3. `docs/ai_task_triage_checklist.md`
+
+이 문서는 저장 규칙과 무결성 기준 문서다. UI 문구나 화면 상태로 저장 규칙을 추정하지 말고, 관련 코드와 함께 이 문서를 기준으로 본다.
+
 ## 1. 임시 합주실(Temporary Room) 정책
 - 임시 합주실은 "빈값 방지"를 위한 보조 개념이어야 함
 - 임시 합주실 생성/사용이 실제 합주실 모델(`PracticeRoom`)의 의미를 오염하면 안 됨

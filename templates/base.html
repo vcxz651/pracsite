@@ -69,7 +69,7 @@
       }
     </style>
 </head>
-<body class="bg-light" data-is-demo-mode="{% if is_demo %}1{% else %}0{% endif %}">
+<body class="bg-light" data-is-demo-mode="{% if is_demo %}1{% else %}0{% endif %}" data-demo-page-name="{{ demo_page_name|default:'' }}">
 
 {% if debug %}
 <div style="background-color: #ffcc00; text-align: center; font-weight: bold; padding: 5px;">
@@ -101,7 +101,7 @@
 {% endif %}
 
   <div class="container">
-{% if is_demo %}
+{% if show_demo_banner %}
   {% include "pracapp/demo/demo_banner.html" %}
 {% endif %}
 {% if messages and not hide_base_chrome %}
@@ -121,6 +121,51 @@
 {% block content %}
     {% endblock %}
   </div>
+
+{% if is_demo and demo_page_name != 'demo_home' %}
+  <style>
+    .demo-route-loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.52);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 2500;
+    }
+    .demo-route-loading-overlay.is-open {
+      display: flex;
+    }
+    .demo-route-loading-card {
+      width: min(420px, 92vw);
+      background: #fff;
+      border-radius: 18px;
+      padding: 22px 20px;
+      text-align: center;
+      box-shadow: 0 20px 52px rgba(15, 23, 42, 0.24);
+    }
+    .demo-route-loading-title {
+      font-size: 1.04rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .demo-route-loading-desc {
+      font-size: 0.9rem;
+      line-height: 1.45;
+      color: #475569;
+      margin: 0;
+    }
+  </style>
+  <div id="demoRouteLoadingOverlay" class="demo-route-loading-overlay" aria-hidden="true">
+    <div class="demo-route-loading-card" role="status" aria-live="polite">
+      <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
+      <div class="demo-route-loading-title">데모 화면을 불러오는 중입니다</div>
+      <p class="demo-route-loading-desc">잠시만 기다려주세요. 현재 화면을 준비하고 있습니다.</p>
+    </div>
+  </div>
+{% endif %}
 
 {% if is_demo %}
   {% include "pracapp/demo/demo_tour_overlay.html" %}
@@ -145,6 +190,96 @@
         const popup = window.open(finalUrl, 'matchSettingsPopup', features);
         if (popup) popup.focus();
       }
+
+      (function () {
+        if (document.body?.dataset?.isDemoMode !== '1') return;
+
+        let lastDemoLoadNoticeAt = 0;
+
+        function shouldHandleLoadFailureMessage(message) {
+          const text = String(message || '').toLowerCase();
+          return (
+            text.includes('load failed') ||
+            text.includes('failed to fetch') ||
+            text.includes('networkerror when attempting to fetch resource')
+          );
+        }
+
+        function showDemoLoadPendingNotice() {
+          const now = Date.now();
+          if (now - lastDemoLoadNoticeAt < 1500) return;
+          lastDemoLoadNoticeAt = now;
+          alert('잠시만 기다려주세요. 이전 요청을 처리 중입니다.');
+        }
+
+        window.addEventListener('unhandledrejection', function (event) {
+          const reason = event.reason;
+          const message = reason && typeof reason === 'object' ? (reason.message || reason.toString()) : reason;
+          if (!shouldHandleLoadFailureMessage(message)) return;
+          event.preventDefault();
+          showDemoLoadPendingNotice();
+        });
+
+        window.addEventListener('error', function (event) {
+          const message = event && event.message ? event.message : '';
+          if (!shouldHandleLoadFailureMessage(message)) return;
+          event.preventDefault();
+          showDemoLoadPendingNotice();
+        });
+      })();
+
+      (function () {
+        if (document.body?.dataset?.isDemoMode !== '1') return;
+        if (document.body?.dataset?.demoPageName === 'demo_home') return;
+
+        const overlay = document.getElementById('demoRouteLoadingOverlay');
+        if (!overlay) return;
+        const shouldShow = sessionStorage.getItem('demo_transition_pending') === '1';
+        if (!shouldShow) return;
+
+        function hideOverlay() {
+          overlay.classList.remove('is-open');
+          overlay.setAttribute('aria-hidden', 'true');
+          sessionStorage.removeItem('demo_transition_pending');
+        }
+
+        function showOverlay() {
+          overlay.classList.add('is-open');
+          overlay.setAttribute('aria-hidden', 'false');
+        }
+
+        function isPageReady() {
+          if (window.__MATCH_RESULT_RENDER_READY__) return true;
+          if (window.__MEETING_DETAIL_RENDER_READY__) return true;
+          const matchMarker = document.getElementById('matchResultPageMarker');
+          if (matchMarker && matchMarker.dataset.renderReady === '1') return true;
+          const meetingMarker = document.getElementById('meetingDetailPageMarker');
+          if (meetingMarker && meetingMarker.dataset.renderReady === '1') return true;
+          return false;
+        }
+
+        showOverlay();
+
+        let attempts = 0;
+        function waitUntilReady() {
+          attempts += 1;
+          if (isPageReady()) {
+            hideOverlay();
+            return;
+          }
+          if (attempts > 180) {
+            hideOverlay();
+            return;
+          }
+          window.setTimeout(waitUntilReady, 100);
+        }
+
+        if (document.readyState === 'complete') {
+          waitUntilReady();
+        } else {
+          window.addEventListener('load', waitUntilReady, { once: true });
+        }
+      })();
     </script>
 </body>
 </html>

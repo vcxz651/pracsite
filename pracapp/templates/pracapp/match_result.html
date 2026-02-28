@@ -134,9 +134,9 @@
     .timetable-wrapper {
         overflow-x: auto; /* 가로 스크롤 */
         /* overflow-y: visible; 세로로는 팝오버가 잘리지 않게 시도 */
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        background: transparent;
+        border-radius: 0;
+        box-shadow: none;
         margin-bottom: 20px;
         padding-bottom: 50px; /* 하단 팝오버가 잘리지 않게 여유 공간 확보 */
     }
@@ -1418,8 +1418,14 @@
         margin: 0 !important;
     }
     .booking-stage-banner-actions {
-        justify-content: flex-start;
+        justify-content: flex-end;
         margin-top: 0.75rem;
+    }
+    .booking-shift-guide {
+        display: flex;
+        justify-content: flex-start;
+        margin-top: 0.35rem;
+        margin-bottom: 0.5rem;
     }
     .match-settings-card {
         margin-top: 0.75rem;
@@ -1918,7 +1924,6 @@
             ✅ 예약 확정
         </button>
         {% endif %}
-        <span class="text-muted small">Shift+클릭: 불가능 사유 고정</span>
     </div>
     {% endif %}
     {% endif %}
@@ -2112,6 +2117,9 @@
             <div class="week-board-section">
             {% if not is_final_view or is_booking_confirm_view and is_manager_role %}
             <div class="week-room-filter" data-week-room-filter></div>
+            {% if is_booking_confirm_view and is_manager_role %}
+            <div class="booking-shift-guide text-muted small">Shift+클릭: 불가능 사유 고정</div>
+            {% endif %}
             {% endif %}
             <div class="week-board"
                  data-week-id="{{ forloop.counter0 }}"
@@ -2390,6 +2398,9 @@
     const csrfToken = '{{ csrf_token }}';
     let shareWarningNeeded = {{ share_warning_needed|default:False|yesno:"true,false" }};
     let shareActionInProgress = false;
+    let saveResultInProgress = false;
+    let bookingEntryInProgress = false;
+    let workDraftSaveInProgress = false;
     const stripForceRematch = {{ strip_force_rematch|default:False|yesno:"true,false" }};
     let bookingRoomBlocks = JSON.parse('{{ booking_room_blocks_json|default:"[]"|escapejs }}');
     const bookingCompletedEventIds = new Set();
@@ -3799,6 +3810,11 @@
         if (!bookingToolsEnabled()) return;
         const btn = document.getElementById('saveResultBtn');
         if (!btn) return;
+        if (saveResultInProgress) {
+            btn.disabled = true;
+            btn.title = '저장 중입니다.';
+            return;
+        }
         const remain = Number.isFinite(Number(remainingCount))
             ? Number(remainingCount)
             : collectBookingRemainingEvents().length;
@@ -5080,6 +5096,11 @@
         ['goBookingConfirmFromMatchBtn', 'goBookingConfirmBtn'].forEach((id) => {
             const btn = document.getElementById(id);
             if (!btn) return;
+            if (bookingEntryInProgress) {
+                btn.disabled = true;
+                btn.title = '예약 단계로 이동 중입니다.';
+                return;
+            }
             btn.disabled = !state.ok;
             btn.title = state.ok ? '' : String(state.message || '');
         });
@@ -5104,6 +5125,11 @@
         draftButtons.forEach((btn) => {
             const isSaving = String(btn.dataset.saving || '0') === '1';
             if (isSaving) return;
+            if (workDraftSaveInProgress) {
+                btn.disabled = true;
+                btn.title = '저장 중입니다.';
+                return;
+            }
             btn.disabled = !shouldEnable;
             btn.title = shouldEnable ? '' : disabledTitle;
         });
@@ -5271,20 +5297,24 @@
     }
 
     async function goToBookingConfirmPage() {
+        if (bookingEntryInProgress) return;
         const guard = canEnterBookingFromMatch();
         if (!guard.ok) {
             alert(guard.message || '먼저 저장하고 공유를 진행해주세요.');
             refreshBookingEntryButtonsState();
             return;
         }
+        bookingEntryInProgress = true;
+        refreshBookingEntryButtonsState();
         const proceedRisk = await confirmRiskSummaryModal('예약 진행');
-        if (!proceedRisk) return;
+        if (!proceedRisk) {
+            bookingEntryInProgress = false;
+            refreshBookingEntryButtonsState();
+            return;
+        }
         const btns = ['goBookingConfirmBtn', 'goBookingConfirmFromMatchBtn']
             .map((id) => document.getElementById(id))
             .filter(Boolean);
-        btns.forEach((btn) => {
-            btn.disabled = true;
-        });
         try {
             const events = collectCurrentBoardEvents();
             const matchParams = collectCurrentMatchParamsForDraft();
@@ -5309,9 +5339,7 @@
         } catch (_) {
             alert('네트워크 오류가 발생했습니다.');
         } finally {
-            btns.forEach((btn) => {
-                btn.disabled = false;
-            });
+            bookingEntryInProgress = false;
             refreshBookingEntryButtonsState();
         }
     }
@@ -5412,41 +5440,43 @@
     async function saveMatchResult() {
         const btn = document.getElementById('saveResultBtn');
         if (!btn) return;
-
-        if (bookingToolsEnabled()) {
-            const remain = collectBookingRemainingEvents().length;
-            if (remain > 0) {
-                await openMoveConfirmModal({
-                    title: '예약 미완료',
-                    message: `아직 예약이 필요한 타일이 ${remain}개 있습니다.\n전 곡 예약 후 확정할 수 있습니다.`,
-                    reasons: [],
-                    hideForce: true,
-                });
-                return;
-            }
-        }
-
-        const unplacedRiskCount = collectUnplacedSummaryRows().length;
-        const forcedRiskCount = collectForcedSummaryRows().length;
-        const hasRiskSummary = (unplacedRiskCount + forcedRiskCount) > 0;
-        const proceedRisk = await confirmRiskSummaryModal(isBookingConfirmView ? '예약 확정' : '합주 시간표 확정');
-        if (!proceedRisk) return;
-
-        if (isFinalView && canConfirmFinal && !hasRiskSummary) {
-            const finalOk = await openMoveConfirmModal({
-                title: '경고!!',
-                message: '확정 시 모든 개인 멤버 시간표에 현재 합주 일정이 입력됩니다.\n합주 시간표 확정을 진행하겠습니까?',
-                reasons: [],
-                confirmLabel: '합주 시간표 확정',
-            });
-            if (!finalOk) return;
-        }
-
+        if (saveResultInProgress) return;
+        saveResultInProgress = true;
         btn.disabled = true;
         const prevText = btn.textContent;
-        btn.textContent = '저장 중...';
+        btn.textContent = '확인 중...';
 
         try {
+            if (bookingToolsEnabled()) {
+                const remain = collectBookingRemainingEvents().length;
+                if (remain > 0) {
+                    await openMoveConfirmModal({
+                        title: '예약 미완료',
+                        message: `아직 예약이 필요한 타일이 ${remain}개 있습니다.\n전 곡 예약 후 확정할 수 있습니다.`,
+                        reasons: [],
+                        hideForce: true,
+                    });
+                    return;
+                }
+            }
+
+            const unplacedRiskCount = collectUnplacedSummaryRows().length;
+            const forcedRiskCount = collectForcedSummaryRows().length;
+            const hasRiskSummary = (unplacedRiskCount + forcedRiskCount) > 0;
+            const proceedRisk = await confirmRiskSummaryModal(isBookingConfirmView ? '예약 확정' : '합주 시간표 확정');
+            if (!proceedRisk) return;
+
+            if (isFinalView && canConfirmFinal && !hasRiskSummary) {
+                const finalOk = await openMoveConfirmModal({
+                    title: '경고!!',
+                    message: '확정 시 모든 개인 멤버 시간표에 현재 합주 일정이 입력됩니다.\n합주 시간표 확정을 진행하겠습니까?',
+                    reasons: [],
+                    confirmLabel: '합주 시간표 확정',
+                });
+                if (!finalOk) return;
+            }
+
+            btn.textContent = '저장 중...';
             const events = collectCurrentBoardEvents();
             const bookingCompletedKeys = collectBookingCompletedEventKeys();
             const res = await fetch(saveResultUrl, {
@@ -5486,8 +5516,10 @@
         } catch (_) {
             alert('네트워크 오류가 발생했습니다.');
         } finally {
+            saveResultInProgress = false;
             btn.disabled = false;
             btn.textContent = prevText;
+            updateBookingFinalizeButtonState();
         }
     }
 
@@ -5509,17 +5541,31 @@
     async function saveMyWorkDraft(btnEl = null) {
         const btn = btnEl || document.getElementById('saveWorkDraftBtn') || document.getElementById('saveWorkDraftBtnBooking');
         if (!btn) return;
-        btn.dataset.saving = '1';
-        btn.disabled = true;
-        const prevText = btn.textContent;
-        btn.textContent = '저장 중...';
+        if (workDraftSaveInProgress) return;
+        workDraftSaveInProgress = true;
+        const draftButtons = [
+            document.getElementById('saveWorkDraftBtn'),
+            document.getElementById('saveWorkDraftBtnBooking'),
+            document.getElementById('quickSaveDraftBtn'),
+            document.getElementById('quickSaveDraftBtnBooking'),
+        ].filter(Boolean);
+        const labelMap = new Map();
+        draftButtons.forEach((node) => {
+            node.dataset.saving = '1';
+            node.disabled = true;
+            labelMap.set(node, node.textContent);
+            node.textContent = '저장 중...';
+        });
         try {
             await persistMyWorkDraft({ showSavedAlert: true });
         } catch (_) {
             alert('네트워크 오류가 발생했습니다.');
         } finally {
-            btn.dataset.saving = '0';
-            btn.textContent = prevText;
+            workDraftSaveInProgress = false;
+            draftButtons.forEach((node) => {
+                node.dataset.saving = '0';
+                node.textContent = labelMap.get(node) || node.textContent;
+            });
             syncWorkDraftSaveButtonsState();
         }
     }

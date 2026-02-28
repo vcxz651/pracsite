@@ -57,6 +57,17 @@ def _final_lock_state_message(meeting):
     return common_final_lock_state_message(meeting)
 
 
+def _is_demo_meeting(meeting):
+    meeting_title = str(getattr(meeting, 'title', '') or '')
+    band_name = str(getattr(getattr(meeting, 'band', None), 'name', '') or '')
+    return (
+        meeting_title.startswith('[데모WORK]')
+        or meeting_title.startswith('[데모TEMPLATE]')
+        or band_name.startswith('[데모WORK]')
+        or band_name.startswith('[데모TEMPLATE]')
+    )
+
+
 def _youtube_embed_url(raw_url):
     if not raw_url:
         return None
@@ -397,7 +408,6 @@ def _build_session_stats_payload(meeting):
 
     role_assigned = defaultdict(lambda: defaultdict(int))
     role_applied = defaultdict(lambda: defaultdict(int))
-    role_session_total = defaultdict(int)
 
     sessions = (
         Session.objects.filter(song__meeting=meeting)
@@ -408,7 +418,6 @@ def _build_session_stats_payload(meeting):
         label = _role_label_of(sess.name)
         if label is None:
             continue
-        role_session_total[label] += 1
         if sess.assignee_id:
             role_assigned[label][sess.assignee_id] += 1
         for applicant in sess.applicant.all():
@@ -449,45 +458,34 @@ def _build_session_stats_payload(meeting):
             ],
             key=lambda m: m['name']
         )
-        player_count = max(1, len(members))
-        avg_assigned = (role_session_total[label] / player_count) if player_count else 0
-        for m in members:
-            assigned = int(m['assigned'])
-            if assigned == 0:
-                m['load_bg'] = 'rgba(255, 255, 255, 1.0)'
-                continue
-            if avg_assigned <= 0:
-                m['load_bg'] = 'rgba(25, 135, 84, 0.20)'
-                continue
-            avg = max(float(avg_assigned), 0.01)
-            # 평균 배정수에 가장 가까울수록 초록, 멀어질수록 경고색으로 이동
-            deviation = abs(float(assigned) - avg) / avg
+        if members:
+            assigned_values = [int(m['assigned']) for m in members]
+            avg_assigned = sum(assigned_values) / max(1, len(assigned_values))
 
+            white = (255, 255, 255)
             green = (25, 135, 84)
-            amber = (255, 193, 7)
-            orange = (255, 140, 0)
             red = (220, 53, 69)
 
-            if deviation <= 0.18:
-                rgb = green
-                alpha = 0.32
-            elif deviation <= 0.45:
-                t = (deviation - 0.18) / 0.27
-                rgb = _mix_rgb(green, amber, t)
-                alpha = 0.30 - (0.06 * t)
-            elif deviation <= 0.90:
-                t = (deviation - 0.45) / 0.45
-                rgb = _mix_rgb(amber, orange, t)
-                alpha = 0.24 + (0.08 * t)
-            elif deviation <= 1.40:
-                t = (deviation - 0.90) / 0.50
-                rgb = _mix_rgb(orange, red, t)
-                alpha = 0.32 + (0.06 * t)
-            else:
-                rgb = red
-                alpha = 0.38
+            for m in members:
+                assigned = int(m['assigned'])
+                if avg_assigned <= 0 and assigned <= 0:
+                    m['load_bg'] = 'rgba(255, 255, 255, 1.0)'
+                    continue
 
-            m['load_bg'] = _rgba(rgb, alpha)
+                scale_base = max(float(avg_assigned), 1.0)
+                deviation_ratio = min(abs(float(assigned) - float(avg_assigned)) / scale_base, 1.0)
+
+                if assigned < avg_assigned:
+                    rgb = _mix_rgb(green, white, deviation_ratio)
+                    alpha = 0.22 - (0.18 * deviation_ratio)
+                elif assigned > avg_assigned:
+                    rgb = _mix_rgb(green, red, deviation_ratio)
+                    alpha = 0.22 + (0.16 * deviation_ratio)
+                else:
+                    rgb = green
+                    alpha = 0.22
+
+                m['load_bg'] = _rgba(rgb, alpha)
 
         if members:
             session_stats.append({
@@ -565,6 +563,13 @@ class MeetingUpdateView(UserPassesTestMixin, UpdateView):
     model = Meeting
     form_class = MeetingCreateForm
     template_name = 'pracapp/meeting_form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        meeting = self.get_object()
+        if _is_demo_meeting(meeting):
+            messages.info(request, '데모에서는 합주 정보 수정을 지원하지 않습니다.')
+            return redirect('meeting_detail', pk=meeting.id)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         base_url = reverse_lazy('dashboard')
@@ -801,6 +806,7 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
         context['can_participate_meeting'] = can_participate
         context['is_participation_pending'] = bool(participant and participant.status == MeetingParticipant.STATUS_PENDING)
         context['is_participation_rejected'] = bool(participant and participant.status == MeetingParticipant.STATUS_REJECTED)
+        context['is_demo_meeting'] = _is_demo_meeting(meeting)
         context['is_join_policy_approval'] = meeting.join_policy == Meeting.JOIN_POLICY_APPROVAL
         context['is_final_locked'] = _is_final_locked(meeting)
         context['final_lock_hint'] = _final_lock_message(meeting, '변경할 수 없습니다.')
@@ -952,6 +958,9 @@ def meeting_participant_approve(request, meeting_id, user_id):
         return redirect('meeting_detail', pk=meeting_id)
     meeting = get_object_or_404(Meeting.objects.select_related('band'), id=meeting_id)
     target = _meeting_detail_target_with_state(request, meeting_id)
+    if _is_demo_meeting(meeting):
+        messages.info(request, '데모에서는 참가자 관리를 지원하지 않습니다.')
+        return redirect(target)
     membership = _get_meeting_membership(meeting, request.user)
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
         messages.error(request, '권한이 없습니다.')
@@ -971,6 +980,9 @@ def meeting_participant_reject(request, meeting_id, user_id):
         return redirect('meeting_detail', pk=meeting_id)
     meeting = get_object_or_404(Meeting.objects.select_related('band'), id=meeting_id)
     target = _meeting_detail_target_with_state(request, meeting_id)
+    if _is_demo_meeting(meeting):
+        messages.info(request, '데모에서는 참가자 관리를 지원하지 않습니다.')
+        return redirect(target)
     membership = _get_meeting_membership(meeting, request.user)
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
         messages.error(request, '권한이 없습니다.')
@@ -990,6 +1002,12 @@ def meeting_participant_manage(request, meeting_id):
     meeting = get_object_or_404(Meeting.objects.select_related('band'), id=meeting_id)
     membership = _get_meeting_membership(meeting, request.user)
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if _is_demo_meeting(meeting):
+        message = '데모에서는 참가자 관리를 지원하지 않습니다.'
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': message}, status=403)
+        messages.info(request, message)
+        return redirect('meeting_detail', pk=meeting.id)
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
