@@ -43,9 +43,29 @@
 - 데모 시나리오 템플릿(A/B/C)을 미리 생성한다.
 - 운영 서버에서 `/demo/start/` 첫 진입이 lazy create로 timeout 나는 위험을 낮춘다.
 
+### 1-3. 배포 직후 자동 점검 명령
+
+- 단일 기준 스크립트: `scripts/post_deploy_check.sh`
+
+기본 포함 항목:
+1. `railway status`
+2. 최근 배포 로그 확인
+3. `collectstatic` 실행 흔적 + staticfiles 경고 여부 검사
+4. `/` + `/demo/` HTTP 응답 확인
+5. `manage.py check`
+6. 데모 prewarm 실행
+
+옵션:
+- `--skip-prewarm`: 데모 prewarm 없이 배포 상태만 점검
+
 ---
 
 ## 2. 배포 직후 기본 절차
+
+### 2-0. 가장 빠른 권장 경로
+
+1. `bash scripts/post_deploy_check.sh`
+2. 데모 prewarm을 건너뛰고 싶으면 `bash scripts/post_deploy_check.sh --skip-prewarm`
 
 ### 2-1. Railway 재배포 직후
 
@@ -64,6 +84,7 @@
 - `railway logs`는 로그 스트림이다. 그 창에서 다른 명령을 이어 치지 말고, 필요 시 `Ctrl + C`로 먼저 끊는다.
 - `railway run`은 원격 컨테이너 셸이 아니라 **Railway 환경변수로 로컬 명령을 실행**하는 방식이다.
 - 따라서 원격 컨테이너 내부 상태는 `railway logs`와 실제 서비스 응답으로 확인한다.
+- 로컬 셸에서 `python`이 PATH에 없으면 `railway run bash scripts/prewarm_demo.sh`가 실패할 수 있다. 이 경우 `PYTHON_BIN=./.venv/bin/python railway run bash scripts/prewarm_demo.sh`처럼 명시적으로 실행한다.
 
 ---
 
@@ -74,6 +95,10 @@
 1. `curl -I -L --max-time 20 https://pracsite-production.up.railway.app/`
 2. 상태 코드 `200` 확인
 3. 데모 홈(`https://pracsite-production.up.railway.app/demo/`)도 브라우저 또는 `curl`로 확인
+
+현재 확인된 정상 예시:
+- `curl -I -L --max-time 20 https://pracsite-production.up.railway.app/` → `HTTP/2 200`
+- `curl -I -L --max-time 20 https://pracsite-production.up.railway.app/demo/` → `HTTP/2 200`
 
 ### 3-2. Django 기본 점검
 
@@ -94,6 +119,10 @@
 - `WORKER TIMEOUT`이면 요청 자체가 너무 무겁거나 gunicorn timeout이 부족한 것
 - `No directory at: /app/staticfiles/`면 `collectstatic` 미적용 가능성
 - `Missing staticfiles manifest entry`면 정적 파일 수집/배포 누락 가능성
+
+현재 확인된 정상 예시:
+- 새 배포 시작 로그에 `139 static files copied to '/app/staticfiles'`가 보이면 `collectstatic`이 실제 실행된 것
+- 같은 구간에 `No directory at: /app/staticfiles/` 경고가 없으면 static 디렉터리 누락 경고는 해소된 것
 
 ---
 
@@ -121,11 +150,9 @@
 4. 새 배포 리스크가 확인되면 기능 handoff 문서가 아니라 이 문서와 관련 SSOT에 바로 반영한다.
 
 현재 프로젝트에서 AI가 먼저 확인할 기본 순서:
-1. `railway status`
-2. `railway logs --lines 200`
-3. `curl -I -L --max-time 20 https://pracsite-production.up.railway.app/`
-4. `railway run ./.venv/bin/python manage.py check`
-5. 데모 이슈면 `railway run bash scripts/prewarm_demo.sh`
+1. `bash scripts/post_deploy_check.sh`
+2. 세부 추적이 더 필요하면 `railway logs --lines 200`
+3. 데모만 다시 prewarm하려면 `PYTHON_BIN=./.venv/bin/python railway run bash scripts/prewarm_demo.sh`
 
 ---
 

@@ -140,7 +140,8 @@
 1. `Procfile`
 2. `scripts/release_web.sh`
 3. `scripts/prewarm_demo.sh`
-4. 필요 시 `pracsite/settings.py`
+4. `scripts/post_deploy_check.sh`
+5. 필요 시 `pracsite/settings.py`
 
 주의:
 - Railway 대시보드 설정을 감으로 믿지 말고, 저장소의 배포 기준 파일과 먼저 대조한다.
