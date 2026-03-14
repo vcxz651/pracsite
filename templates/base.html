@@ -86,7 +86,11 @@
 {% if not hide_base_chrome %}
   <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container base-navbar-wrap">
-      <a class="navbar-brand nav-brand-trendy" href="{% url 'home' %}">Rock of School</a>
+      {% if user.is_authenticated and not is_demo %}
+        <a class="navbar-brand nav-brand-trendy" href="{% url 'app_home' %}">Rock of School</a>
+      {% else %}
+        <a class="navbar-brand nav-brand-trendy" href="{% url 'home' %}">Rock of School</a>
+      {% endif %}
 
       <div class="d-flex align-items-center base-nav-actions">
         {% if user.is_authenticated and not is_demo %}
