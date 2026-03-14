@@ -38,6 +38,12 @@ class RateLimitedLoginView(auth_views.LoginView):
         return super().form_invalid(form)
 
     def form_valid(self, form):
+        # 레거시 데이터(빈/공백 닉네임)는 로그인 시 자동 보정한다.
+        login_user = form.get_user()
+        if login_user and not str(getattr(login_user, 'nickname', '') or '').strip():
+            login_user.nickname = ''
+            login_user.save(update_fields=['nickname'])
+
         self._clear_failures(self.request)
         response = super().form_valid(form)
 

@@ -64,6 +64,9 @@ class User(AbstractUser):
     ]
 
     def save(self, *args, **kwargs):
+        # 공백만 입력된 닉네임은 미입력으로 간주한다.
+        self.nickname = str(self.nickname or '').strip()
+
         if not self.nickname:
             while True:
                 random_num = str(random.randint(1,99999)) + '번째 '

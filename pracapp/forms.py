@@ -52,6 +52,10 @@ class BandUserCreationForm(UserCreationForm):
             raise ValidationError('이미 사용 중인 아이디입니다.')
         return username
 
+    def clean_nickname(self):
+        # 공백 입력은 빈 값으로 정규화해 랜덤 닉네임 규칙을 타게 한다.
+        return str(self.cleaned_data.get('nickname') or '').strip()
+
 class SongForm(forms.ModelForm):
 
     SESSION_CHOICES = [
