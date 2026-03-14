@@ -3797,7 +3797,17 @@
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <p class="text-muted mb-1">📅 회의 일정 : {{ meeting.schedule|date:"y년 n월 j일 H:i" }}</p>
-                    <p class="text-muted mb-2">📍 회의 장소 : {% if meeting.location|slice:":4" == "http" %}<a href="{{ meeting.location }}" target="_blank" rel="noopener noreferrer">바로가기 →</a>{% else %}{{ meeting.location }}{% endif %}</p>
+                    <p class="text-muted mb-2">📍 회의 장소 :
+                        {% if meeting.location|lower|slice:":4" == "http" or meeting.location|lower|slice:":4" == "www." %}
+                            <a
+                                href="{% if meeting.location|lower|slice:":4" == "www." %}https://{% endif %}{{ meeting.location }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >바로가기 →</a>
+                        {% else %}
+                            {{ meeting.location }}
+                        {% endif %}
+                    </p>
                     {% if meeting.practice_start_date and meeting.practice_end_date %}
                     <p class="text-muted mb-2">🎸 합주 기간: {{ meeting.practice_start_date|date:"y년 n월 j일" }} ~ {% if meeting.practice_start_date|date:"y" == meeting.practice_end_date|date:"y" %}{{ meeting.practice_end_date|date:"n월 j일" }}{% else %}{{ meeting.practice_end_date|date:"y년 n월 j일" }}{% endif %}</p>
                     {% endif %}
