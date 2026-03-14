@@ -557,6 +557,9 @@ class HomeView(TemplateView):
         user = self.request.user
         today_ref, today_override_raw = _resolve_today_override(self.request)
         context['today_override'] = today_override_raw
+        context['show_intro_video_modal'] = bool(
+            user.is_authenticated and self.request.session.pop('show_intro_video_modal', False)
+        )
 
         if user.is_authenticated:
             pending_notice_qs = Membership.objects.filter(

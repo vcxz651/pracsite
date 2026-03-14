@@ -46,10 +46,6 @@
     {% else %}
     <button type="button" id="demoTourReplayBtn" class="btn btn-sm btn-light text-dark">기능 튜토리얼</button>
     {% endif %}
-    <form method="post" action="{% url 'demo_exit' %}" class="m-0 js-demo-nav-form">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-warning text-dark js-demo-nav-btn">체험 종료</button>
-    </form>
   </div>
 </div>
 

@@ -5,6 +5,7 @@
   const DEMO_TUTORIAL_MODE = document.body.dataset.demoTutorialMode === '1';
   const DEMO_MEETING_DETAIL_URL = String(document.body.dataset.demoMeetingDetailUrl || '').trim();
   const DEMO_TUTORIAL_URL = String(document.body.dataset.demoTutorialUrl || '').trim();
+  const TUTORIAL_CHOICE_MODAL_ENABLED = false;
   if (DEMO_PAGE_NAME === 'demo_feature_tutorial') return;
   const OVERLAY = document.getElementById('tutorial-overlay');
   const TOOLTIP = document.getElementById('tutorial-tooltip');
@@ -210,6 +211,7 @@
   });
 
   function maybeOpenChoiceModal() {
+    if (!TUTORIAL_CHOICE_MODAL_ENABLED) return;
     if (!CHOICE_MODAL) return;
     if (choicePromptOpened) return;
     const nextSteps = getSteps();
@@ -233,6 +235,7 @@
   }
 
   function bindBottomPrompt() {
+    if (!TUTORIAL_CHOICE_MODAL_ENABLED) return;
     if (bottomPromptBound) return;
     if (DEMO_PAGE_NAME === 'demo_home') return;
     bottomPromptBound = true;

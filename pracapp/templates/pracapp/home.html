@@ -17,8 +17,8 @@
                 <span class="text-muted small">{{ my_week_board.week_start|date:"n/j" }} ~ {{ my_week_board.week_end|date:"n/j" }}</span>
             {% endif %}
             {% if my_week_board and my_week_board.has_events and my_week_board_event_only and my_week_board_event_only.has_events %}
-                <button type="button" class="btn btn-outline-secondary btn-sm app-btn-pill app-btn-secondary-soft" id="togglePersonalScheduleBtn" aria-pressed="false">
-                    개인 일정 가리기
+                <button type="button" class="btn btn-outline-secondary btn-sm app-btn-pill app-btn-secondary-soft" id="togglePersonalScheduleBtn" aria-pressed="true">
+                    개인 일정 보이기
                 </button>
             {% endif %}
         </div>
@@ -27,11 +27,11 @@
         <div class="card shadow-sm border-0 mb-4 home-card week-board-card app-card-surface">
             <div class="card-body p-2 p-md-3">
                 <div id="homeWeekBoardSwitcher" class="home-week-board-switcher">
-                    <div id="homeWeekBoardFull" class="home-week-board-wrap">
+                    <div id="homeWeekBoardFull" class="home-week-board-wrap is-hidden">
                         {% include 'pracapp/_home_week_board.html' with board=my_week_board %}
                     </div>
                     {% if my_week_board_event_only and my_week_board_event_only.has_events %}
-                        <div id="homeWeekBoardEventOnly" class="home-week-board-wrap is-hidden">
+                        <div id="homeWeekBoardEventOnly" class="home-week-board-wrap">
                             {% include 'pracapp/_home_week_board.html' with board=my_week_board_event_only %}
                         </div>
                     {% endif %}
@@ -98,13 +98,13 @@
                             </div>
                             <div class="d-flex gap-2">
                                 <a href="{% url 'schedule_edit_loader' %}?start={{ card.start_str }}&end={{ card.end_str }}&next=confirm&readonly=1&view_label={{ card.label|urlencode }}" class="btn btn-light border fw-bold btn-sm app-btn-pill app-btn-secondary-soft">조회</a>
-                                <a href="{% url 'schedule_edit_loader' %}?start={{ card.start_str }}&end={{ card.end_str }}" class="btn btn-outline-secondary fw-bold btn-sm app-btn-pill app-btn-secondary-soft">이 기간 수정</a>
+                                <a href="{% url 'schedule_edit_loader' %}?start={{ card.start_str }}&end={{ card.end_str }}" class="btn btn-outline-secondary fw-bold btn-sm app-btn-pill app-btn-secondary-soft">수정</a>
                                 <button
                                     type="button"
                                     class="btn btn-outline-danger fw-bold btn-sm app-btn-pill"
                                     onclick="openDeleteScheduleModal('{{ card.start_str }}','{{ card.end_str }}','{{ card.label|escapejs }}')"
                                 >
-                                    이 기간 삭제
+                                    삭제
                                 </button>
                             </div>
                         </div>
@@ -166,6 +166,42 @@
         </div>
     </div>
 </div>
+
+{% if show_intro_video_modal %}
+<div class="modal fade" id="introModal" tabindex="-1" aria-labelledby="introModalLabel" aria-hidden="true" data-bs-backdrop="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="introModalLabel">앗! 합주짜기짱편해! 머신</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body px-4 py-4">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 intro-step-heading">
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="introStepIcon" class="intro-step-head-item">🎯</span>
+                        <span id="introStepTitle" class="intro-step-head-item fw-bold">1. 자동 매칭</span>
+                    </div>
+                    <span id="introStepLabel" class="small text-muted">1 / 4</span>
+                </div>
+                <div class="intro-video-placeholder rounded mb-3">
+                    <video id="introStepVideo" class="w-100 h-100 rounded" controls autoplay muted playsinline preload="none">
+                        <source id="introStepVideoSource" src="{% static 'pracapp/video/intro_step1_auto_matching.mp4' %}" type="video/mp4">
+                    </video>
+                    <button type="button" class="intro-step-arrow intro-step-arrow-prev" id="introPrevArrow" aria-label="이전 영상" title="이전">
+                        &#10094;
+                    </button>
+                    <button type="button" class="intro-step-arrow intro-step-arrow-next" id="introNextArrow" aria-label="다음 영상" title="다음">
+                        &#10095;
+                    </button>
+                </div>
+                <div class="intro-feature-card rounded p-3">
+                    <p class="text-muted small mb-0" id="introStepDesc">모든 개인 일정과 합주, 사용 가능한 합주실과 정원까지 자동으로 계산해 최적 합주 시간을 배치해줘요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
     .home-wrap {
@@ -413,6 +449,58 @@
             min-height: 40px;
         }
     }
+    .intro-video-placeholder {
+        background: #111;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        overflow: hidden;
+        position: relative;
+    }
+    #introStepVideo {
+        object-fit: cover;
+    }
+    .intro-step-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        font-size: 1.5rem;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+        transition: background-color 180ms ease, opacity 180ms ease;
+    }
+    .intro-step-arrow:hover {
+        background: rgba(0, 0, 0, 0.7);
+    }
+    .intro-step-arrow:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+    .intro-step-arrow-prev {
+        left: 10px;
+    }
+    .intro-step-arrow-next {
+        right: 10px;
+    }
+    .intro-feature-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    .intro-step-heading {
+        font-family: "Space Grotesk", "Noto Sans KR", sans-serif;
+    }
+    .intro-step-head-item {
+        font-size: 1.1rem;
+        line-height: 1.2;
+    }
 </style>
 
 <script>
@@ -546,11 +634,14 @@
         const btn = document.getElementById('togglePersonalScheduleBtn');
         if (!btn) return;
         const storageKey = 'home_week_hide_personal_schedule';
-        let hidden = false;
+        let hidden = true;
         try {
-            hidden = window.localStorage.getItem(storageKey) === '1';
+            const stored = window.localStorage.getItem(storageKey);
+            if (stored === '0' || stored === '1') {
+                hidden = stored === '1';
+            }
         } catch (e) {
-            hidden = false;
+            hidden = true;
         }
         setPersonalScheduleHidden(hidden, false);
         btn.addEventListener('click', () => {
@@ -669,10 +760,143 @@
     }
 </script>
 
+{% if show_intro_video_modal %}
+<script>
+    (function() {
+        const INTRO_STEPS = [
+            {
+                icon: '🎯',
+                title: '1. 자동 매칭',
+                desc: '모든 개인 일정과 합주, 사용 가능한 합주실과 정원까지 자동으로 계산해 최적 합주 시간을 배치해줘요.',
+                desktopVideoUrl: "{% static 'pracapp/video/intro_step1_auto_matching.mp4' %}",
+                mobileVideoUrl: "{% static 'pracapp/video/intro_step1_auto_matching_mobile_720.mp4' %}",
+            },
+            {
+                icon: '📅',
+                title: '2. 불가능 오버레이',
+                desc: '방 예약 충돌, 개인 일정, 타 팀 합주 일정을 한 화면에서 확인하고, 필요하면 강제 배치도 가능해요.',
+                desktopVideoUrl: "{% static 'pracapp/video/intro_step2_conflict_overlay.mp4' %}",
+                mobileVideoUrl: "{% static 'pracapp/video/intro_step2_conflict_overlay_mobile_720.mp4' %}",
+            },
+            {
+                icon: '📌',
+                title: '3. 배정된 일정 확인',
+                desc: '매니저가 일정을 공유하면 멤버들은 본인의 합주 시간표를 확인할 수 있어요(다른 팀의 불가능 사유는 프라이버시를 위해 최소한의 정보만 노출돼요).',
+                desktopVideoUrl: "{% static 'pracapp/video/intro_step3_schedule_view.mp4' %}",
+                mobileVideoUrl: "{% static 'pracapp/video/intro_step3_schedule_view_mobile_720.mp4' %}",
+            },
+            {
+                icon: '🏢',
+                title: '4. 추가합주',
+                desc: '예약 확정 이후에는 일반 멤버가 직접 추가 합주를 잡을 수 있어요',
+                desktopVideoUrl: "{% static 'pracapp/video/intro_step4_extra_rehearsal.mp4' %}",
+                mobileVideoUrl: "{% static 'pracapp/video/intro_step4_extra_rehearsal_mobile_720.mp4' %}",
+            },
+        ];
+
+        function bindIntroStepNavigation(modalEl) {
+            const labelEl = document.getElementById('introStepLabel');
+            const iconEl = document.getElementById('introStepIcon');
+            const titleEl = document.getElementById('introStepTitle');
+            const descEl = document.getElementById('introStepDesc');
+            const prevBtn = document.getElementById('introPrevArrow');
+            const nextBtn = document.getElementById('introNextArrow');
+            const videoEl = document.getElementById('introStepVideo');
+            const videoSourceEl = document.getElementById('introStepVideoSource');
+            if (!labelEl || !iconEl || !titleEl || !descEl || !prevBtn || !nextBtn || !videoEl || !videoSourceEl) return;
+
+            let idx = 0;
+            let currentMobileMode = null;
+
+            function isMobileViewport() {
+                return window.matchMedia('(max-width: 767.98px)').matches;
+            }
+
+            function resolveVideoUrl(step) {
+                const mobile = isMobileViewport();
+                currentMobileMode = mobile;
+                if (mobile && step.mobileVideoUrl) return step.mobileVideoUrl;
+                return step.desktopVideoUrl;
+            }
+
+            function renderStep() {
+                const step = INTRO_STEPS[idx];
+                if (!step) return;
+                labelEl.textContent = `${idx + 1} / ${INTRO_STEPS.length}`;
+                iconEl.textContent = step.icon;
+                titleEl.textContent = step.title;
+                descEl.textContent = step.desc;
+                const videoUrl = resolveVideoUrl(step);
+                if (videoSourceEl.getAttribute('src') !== videoUrl) {
+                    videoSourceEl.setAttribute('src', videoUrl);
+                    videoEl.load();
+                }
+                const playPromise = videoEl.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(() => {});
+                }
+                prevBtn.disabled = idx <= 0;
+                nextBtn.setAttribute('title', idx >= INTRO_STEPS.length - 1 ? '닫기' : '다음');
+            }
+
+            prevBtn.addEventListener('click', function() {
+                if (idx <= 0) return;
+                idx -= 1;
+                renderStep();
+            });
+
+            nextBtn.addEventListener('click', function() {
+                if (idx >= INTRO_STEPS.length - 1) {
+                    if (window.bootstrap && window.bootstrap.Modal) {
+                        window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                    }
+                    return;
+                }
+                idx += 1;
+                renderStep();
+            });
+
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                videoEl.pause();
+                videoEl.currentTime = 0;
+            });
+
+            window.addEventListener('resize', function() {
+                const nextMobileMode = isMobileViewport();
+                if (currentMobileMode === null || nextMobileMode === currentMobileMode) return;
+                renderStep();
+            });
+
+            renderStep();
+        }
+
+        function showIntroModalSafely() {
+            const modalEl = document.getElementById('introModal');
+            if (!modalEl) return;
+            if (!window.bootstrap || !window.bootstrap.Modal) {
+                window.setTimeout(showIntroModalSafely, 50);
+                return;
+            }
+            bindIntroStepNavigation(modalEl);
+            window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showIntroModalSafely, { once: true });
+        } else {
+            showIntroModalSafely();
+        }
+    })();
+</script>
+{% endif %}
+
 {% else %}
 <div class="text-center mt-5 pt-5">
     <h1 class="fw-bold display-4 mb-3">와! 합주하기짱편해! 머신</h1>
-    <a href="{% url 'demo_home' %}" class="btn btn-dark btn-lg px-5 rounded-pill shadow">체험하기</a>
+    <div class="d-flex justify-content-center gap-2">
+        <a href="{% url 'demo_home' %}" class="btn btn-dark btn-lg px-5 rounded-pill shadow">체험하기</a>
+        <a href="{% url 'login' %}" class="btn btn-outline-dark btn-lg px-4 rounded-pill">로그인</a>
+    </div>
 </div>
 {% endif %}
 

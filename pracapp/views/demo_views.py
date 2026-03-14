@@ -1386,6 +1386,9 @@ def demo_home(request):
     intro_users = list(users)[:40]
     member_index_by_id = {str(user.id): idx for idx, user in enumerate(intro_users)}
     base_date = meeting.practice_start_date or timezone.localdate()
+    show_intro_video_modal = bool(
+        request.user.is_authenticated and request.session.pop('show_intro_video_modal', False)
+    )
 
     intro_member_schedules = []
     intro_member_preview_map = {}
@@ -1452,6 +1455,7 @@ def demo_home(request):
         'intro_member_preview_map': intro_member_preview_map,
         'intro_board_template': intro_board_template,
         'intro_song_list': intro_song_list,
+        'show_intro_video_modal': show_intro_video_modal,
     })
 
 
@@ -1628,8 +1632,8 @@ def demo_exit(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
     if not request.session.get('demo_mode'):
-        return redirect('home')
+        return redirect('app_home')
     _cleanup_demo_assets_from_session(request)
     if request.user.is_authenticated:
         logout(request)
-    return redirect('home')
+    return redirect('app_home')

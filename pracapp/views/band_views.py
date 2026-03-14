@@ -12,6 +12,14 @@ from django.db.models import Q
 from ..forms import BandCreateForm, MemberEnlistForm
 from ..models import Band, Membership, MeetingParticipant
 
+DEMO_BAND_NAME_PREFIXES = (
+    '[데모WORK]',
+    '[데모TEMPLATE]',
+    '[데모CACHE]',
+    '[체험DB]',
+    '[데모]',
+)
+
 
 def _build_semester_preset_ranges(base_year: int):
     winter_end_day = calendar.monthrange(base_year + 1, 2)[1]
@@ -87,10 +95,15 @@ class BandListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         q = self.request.GET.get('band_search')
+        queryset = Band.objects.filter(is_public=True)
+        demo_name_q = Q()
+        for prefix in DEMO_BAND_NAME_PREFIXES:
+            demo_name_q |= Q(name__startswith=prefix)
+        if demo_name_q:
+            queryset = queryset.exclude(demo_name_q)
         if q:
-            return Band.objects.filter(name__icontains=q)
-        else:
-            return Band.objects.all()
+            return queryset.filter(name__icontains=q)
+        return queryset
 
 
 class MemberEnlistView(LoginRequiredMixin, CreateView):

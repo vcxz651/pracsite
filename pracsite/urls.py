@@ -22,10 +22,12 @@ from pracapp import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('accounts/login/', views.RateLimitedLoginView.as_view(), name='login'),
     path('accounts/', include('django.contrib.auth.urls')),
     path('signup/', views.UserCreateView.as_view(), name='signup'),
 
-    path('', views.HomeView.as_view(), name='home'),
+    path('', views.demo_home, name='home'),
+    path('home/', views.HomeView.as_view(), name='app_home'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
 
     path('band/create/', views.BandCreateView.as_view(), name='band_create'),

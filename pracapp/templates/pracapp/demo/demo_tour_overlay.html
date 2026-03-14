@@ -4,48 +4,6 @@
     overflow: hidden;
     touch-action: none;
   }
-  #tutorial-choice-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 8998;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background: rgba(15, 23, 42, 0.48);
-  }
-  #tutorial-choice-modal.is-open {
-    display: flex;
-  }
-  .tutorial-choice-card {
-    width: min(420px, 92vw);
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 20px 54px rgba(15, 23, 42, 0.22);
-    padding: 20px 18px;
-  }
-  .tutorial-choice-title {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin-bottom: 6px;
-  }
-  .tutorial-choice-desc {
-    font-size: 0.9rem;
-    line-height: 1.5;
-    color: #475569;
-    margin-bottom: 14px;
-  }
-  .tutorial-choice-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-  }
-  .tutorial-choice-actions .btn {
-    border-radius: 999px;
-    font-weight: 700;
-  }
   #tutorial-overlay {
     position: fixed;
     z-index: 9000;
@@ -84,17 +42,6 @@
     border-radius: 999px;
   }
 </style>
-
-<div id="tutorial-choice-modal" aria-hidden="true">
-  <div class="tutorial-choice-card" role="dialog" aria-live="polite" aria-modal="true" aria-labelledby="tutorialChoiceTitle">
-    <div class="tutorial-choice-title" id="tutorialChoiceTitle">어떻게 둘러볼까요?</div>
-    <div class="tutorial-choice-desc">바로 만져보거나, 핵심 기능 설명부터 볼 수 있습니다.</div>
-    <div class="tutorial-choice-actions">
-      <button type="button" id="tutorialChoiceFreeBtn" class="btn btn-sm btn-outline-secondary">자유롭게 구경</button>
-      <button type="button" id="tutorialChoiceStartBtn" class="btn btn-sm btn-primary">기능 튜토리얼 시작</button>
-    </div>
-  </div>
-</div>
 
 <div id="tutorial-overlay" aria-hidden="true"></div>
 <div id="tutorial-tooltip" role="dialog" aria-live="polite">
