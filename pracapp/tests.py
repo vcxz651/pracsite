@@ -1034,3 +1034,71 @@ class TestExtraPracticeRoomBlockConsistency(TestCase):
             content_type='application/json',
         )
         self.assertEqual(resp.status_code, 403)
+
+
+class TestBandUpdatePermission(TestCase):
+    def setUp(self):
+        self.leader = User.objects.create_user(username='leader_user', password='pw123456', realname='리더')
+        self.manager = User.objects.create_user(username='manager_user', password='pw123456', realname='매니저')
+        self.member = User.objects.create_user(username='member_user', password='pw123456', realname='멤버')
+        self.band = Band.objects.create(name='권한테스트 밴드')
+        Membership.objects.create(user=self.leader, band=self.band, role='LEADER', is_approved=True)
+        Membership.objects.create(user=self.manager, band=self.band, role='MANAGER', is_approved=True)
+        Membership.objects.create(user=self.member, band=self.band, role='MEMBER', is_approved=True)
+
+    def test_leader_can_update_band_info(self):
+        self.client.login(username='leader_user', password='pw123456')
+        url = reverse('band_update', args=[self.band.id])
+        resp = self.client.post(
+            url,
+            data={
+                'name': '권한테스트 밴드(수정)',
+                'school': '테스트학교',
+                'department': 'ETC',
+                'department_detail': '',
+                'introduce': '소개',
+                'description': '설명',
+                'is_public': 'on',
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.band.refresh_from_db()
+        self.assertEqual(self.band.name, '권한테스트 밴드(수정)')
+
+    def test_manager_cannot_update_band_info(self):
+        self.client.login(username='manager_user', password='pw123456')
+        url = reverse('band_update', args=[self.band.id])
+        resp = self.client.post(
+            url,
+            data={
+                'name': '매니저수정시도',
+                'school': '',
+                'department': 'ETC',
+                'department_detail': '',
+                'introduce': '',
+                'description': '',
+                'is_public': 'on',
+            },
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.band.refresh_from_db()
+        self.assertEqual(self.band.name, '권한테스트 밴드')
+
+    def test_member_cannot_update_band_info(self):
+        self.client.login(username='member_user', password='pw123456')
+        url = reverse('band_update', args=[self.band.id])
+        resp = self.client.post(
+            url,
+            data={
+                'name': '멤버수정시도',
+                'school': '',
+                'department': 'ETC',
+                'department_detail': '',
+                'introduce': '',
+                'description': '',
+                'is_public': 'on',
+            },
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.band.refresh_from_db()
+        self.assertEqual(self.band.name, '권한테스트 밴드')

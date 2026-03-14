@@ -603,7 +603,7 @@ class HomeView(TemplateView):
                 Membership.objects.filter(
                     user=user,
                     is_approved=True,
-                    role__in=['LEADER', 'MANAGER'],
+                    role='LEADER',
                 ).values_list('band_id', flat=True)
             )
 

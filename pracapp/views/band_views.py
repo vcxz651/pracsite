@@ -72,6 +72,7 @@ class BandUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Band
     form_class = BandCreateForm
     template_name = 'pracapp/band_form.html'
+    raise_exception = True
 
     def test_func(self):
         band = self.get_object()
@@ -79,7 +80,7 @@ class BandUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             user=self.request.user,
             band=band,
             is_approved=True,
-            role__in=['LEADER', 'MANAGER'],
+            role='LEADER',
         ).exists()
 
     def get_success_url(self):
