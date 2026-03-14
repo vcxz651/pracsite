@@ -7,10 +7,10 @@ from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 
 from ..forms import BandCreateForm, MemberEnlistForm
-from ..models import Band, Membership, MeetingParticipant
+from ..models import Band, Membership, MeetingParticipant, Session
 
 DEMO_BAND_NAME_PREFIXES = (
     '[데모WORK]',
@@ -190,11 +190,20 @@ class DashboardView(LoginRequiredMixin, ListView):
                         Q(visibility='LISTED') |
                         Q(id__in=participant_meeting_ids)
                     ).distinct()
+                meetings_qs = meetings_qs.annotate(
+                    meeting_has_applicants=Exists(
+                        Session.objects.filter(
+                            song__meeting_id=OuterRef('pk'),
+                            applicant__isnull=False,
+                        )
+                    )
+                )
                 meetings = list(meetings_qs)
                 for m in meetings:
                     preset = _resolve_meeting_preset(m)
                     m.schedule_preset_key = preset['key'] if preset else ''
                     m.schedule_preset_label = preset['label'] if preset else ''
+                    m.can_delete_meeting = bool(is_manager and not getattr(m, 'meeting_has_applicants', False))
                 context['meeting'] = meetings
                 if is_manager:
                     context['enlist'] = selected_band.memberships.filter(is_approved=False)

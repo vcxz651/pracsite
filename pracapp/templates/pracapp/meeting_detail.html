@@ -3783,6 +3783,11 @@
     <div class="mb-4">
         <div class="d-flex align-items-center mb-2">
             <h2 class="fw-bold mb-0">{{ meeting.title }}</h2>
+            <button type="button"
+                    class="btn btn-outline-primary btn-sm ms-2 js-copy-meeting-link"
+                    data-meeting-path="{% url 'meeting_detail' meeting.id %}">
+                링크 복사
+            </button>
             <button class="d-md-none border-0 bg-transparent p-1"
                     type="button"
                     data-bs-toggle="collapse"
@@ -3811,13 +3816,6 @@
                     {% if meeting.practice_start_date and meeting.practice_end_date %}
                     <p class="text-muted mb-2">🎸 합주 기간: {{ meeting.practice_start_date|date:"y년 n월 j일" }} ~ {% if meeting.practice_start_date|date:"y" == meeting.practice_end_date|date:"y" %}{{ meeting.practice_end_date|date:"n월 j일" }}{% else %}{{ meeting.practice_end_date|date:"y년 n월 j일" }}{% endif %}</p>
                     {% endif %}
-                    <div class="mb-0">
-                        <button type="button"
-                                class="btn btn-outline-primary btn-sm js-copy-meeting-link"
-                                data-meeting-path="{% url 'meeting_detail' meeting.id %}">
-                            링크 복사
-                        </button>
-                    </div>
                 </div>
                 {% if is_manager and not is_final_locked and not is_demo_meeting %}
                 <div class="d-none d-md-flex gap-2 flex-shrink-0 ms-3">
@@ -4811,24 +4809,6 @@
             <div class="text-muted small">등록된 합주실이 없습니다.</div>
         {% endif %}
     </div>
-</div>
-<div class="d-flex justify-content-end">
-    <form method="post"
-          action="{% url 'meeting_delete' meeting.id %}"
-          data-delete-confirm-message="선곡회의를 삭제하시겠습니까? 곡/세션/일정 데이터가 함께 삭제됩니다."
-          class="m-0">
-        {% csrf_token %}
-        <input type="hidden" name="sort" value="{{ sort_option }}">
-        <input type="hidden" name="list_mode" value="{{ list_mode }}">
-        {% if song_page %}
-        <input type="hidden" name="page" value="{{ song_page.number }}">
-        {% endif %}
-        <button type="submit"
-                class="btn btn-outline-danger btn-sm"
-                {% if not can_delete_meeting %}disabled title="지원자가 있는 선곡회의는 삭제할 수 없습니다."{% endif %}>
-            선곡회의 삭제
-        </button>
-    </form>
 </div>
 {% endif %}
 
