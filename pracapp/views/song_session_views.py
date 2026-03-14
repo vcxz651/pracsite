@@ -630,7 +630,10 @@ def song_applicants_data(request, song_id):
 
 
 def _comment_author_name(user):
-    return str(getattr(user, 'realname', '') or getattr(user, 'username', '') or '알 수 없음')
+    nickname = str(getattr(user, 'nickname', '') or '').strip()
+    if nickname:
+        return nickname
+    return str(getattr(user, 'username', '') or '알 수 없음')
 
 
 def _serialize_song_comment(comment, *, can_delete=False):

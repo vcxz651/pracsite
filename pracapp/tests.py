@@ -21,6 +21,7 @@ from .models import (
     OneOffBlock,
     Session,
     Song,
+    SongComment,
     User,
     MemberAvailability,
 )
@@ -1102,3 +1103,56 @@ class TestBandUpdatePermission(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.band.refresh_from_db()
         self.assertEqual(self.band.name, '권한테스트 밴드')
+
+
+class TestSongCommentDisplayName(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username='comment_manager',
+            password='pw123456',
+            realname='댓글매니저',
+            nickname='닉네임매니저',
+        )
+        self.member = User.objects.create_user(
+            username='comment_member',
+            password='pw123456',
+            realname='댓글멤버',
+            nickname='닉네임멤버',
+        )
+        self.band = Band.objects.create(name='댓글테스트밴드')
+        Membership.objects.create(user=self.manager, band=self.band, role='MANAGER', is_approved=True)
+        Membership.objects.create(user=self.member, band=self.band, role='MEMBER', is_approved=True)
+        self.meeting = Meeting.objects.create(
+            band=self.band,
+            title='댓글테스트미팅',
+            practice_start_date=datetime.date(2026, 3, 2),
+            practice_end_date=datetime.date(2026, 3, 8),
+        )
+        self.song = Song.objects.create(
+            meeting=self.meeting,
+            author=self.manager,
+            title='댓글테스트곡',
+            artist='아티스트',
+        )
+        self.url = reverse('song_comments_data', args=[self.song.id])
+
+    def test_song_comments_data_uses_author_nickname(self):
+        SongComment.objects.create(song=self.song, author=self.member, content='테스트 댓글')
+        self.client.login(username='comment_manager', password='pw123456')
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body['status'], 'success')
+        self.assertEqual(len(body['comments']), 1)
+        self.assertEqual(body['comments'][0]['author_name'], '닉네임멤버')
+
+    def test_song_comments_data_falls_back_to_username_when_nickname_missing(self):
+        User.objects.filter(id=self.member.id).update(nickname='')
+        SongComment.objects.create(song=self.song, author=self.member, content='닉네임 없는 댓글')
+        self.client.login(username='comment_manager', password='pw123456')
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body['status'], 'success')
+        self.assertEqual(len(body['comments']), 1)
+        self.assertEqual(body['comments'][0]['author_name'], 'comment_member')
