@@ -11,9 +11,49 @@
         --session-chip-bg: #f7fbff;
         --session-chip-border: #dbe7f3;
         --session-stats-panel-w: 255px;
+        --meeting-surface-soft: #f8fafc;
+        --meeting-surface-muted: #eef3f8;
+        --meeting-surface-panel: #ffffff;
+        --meeting-border-soft: #dbe3ea;
+        --meeting-border-faint: #e7edf3;
+        --meeting-border-strong: #a8b2bd;
+        --meeting-border-dashed: #d4dce4;
+        --meeting-shadow-soft: 0 10px 24px rgba(31, 41, 55, 0.06);
+        --meeting-shadow-press: 0 1px 0 rgba(0, 0, 0, 0.03), inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+        --meeting-shadow-card: 0 12px 28px rgba(148, 163, 184, 0.10);
+        --meeting-text-strong: #1f2937;
+        --meeting-text-muted: #5c6770;
+        --meeting-text-soft: #6b7280;
+        --meeting-text-body: #2f3a45;
+        --meeting-text-subtle: #8693a0;
+        --meeting-hover-neutral: rgba(100, 116, 139, 0.10);
+        --meeting-hover-neutral-strong: rgba(100, 116, 139, 0.14);
+        --meeting-hover-ring: rgba(100, 116, 139, 0.24);
+        --meeting-hover-ring-strong: rgba(100, 116, 139, 0.30);
+        --meeting-neutral-btn-bg: #ffffff;
+        --meeting-neutral-btn-border: #cfd8e3;
+        --meeting-neutral-btn-border-hover: #bac7d6;
+        --meeting-neutral-btn-bg-hover: #f6f9fc;
+        --meeting-neutral-btn-text: #4b5563;
+        --meeting-neutral-btn-text-strong: #374151;
+        --meeting-success-bg: #e8f5e9;
+        --meeting-success-strong: #198754;
+        --meeting-success-accent: #8fd3a2;
+        --meeting-success-accent-border: #74c58f;
+        --meeting-success-accent-hover: #82ca97;
+        --meeting-success-accent-hover-border: #68bc84;
+        --meeting-success-text: #143823;
+        --meeting-success-text-strong: #102f1d;
+        --meeting-applied-bg: #dff3e6;
+        --meeting-applied-border: #b9dfc6;
+        --meeting-applied-hover: #cfead9;
+        --meeting-applied-hover-border: #a8d4b7;
+        --meeting-warning-bg: #fff8d8;
+        --meeting-warning-strong: #ffe2b3;
+        --meeting-danger-bg: #f4b8bf;
     }
     .bg-orange {
-        background-color: #ffe2b3 !important;
+        background-color: var(--meeting-warning-strong) !important;
     }
 
     .session-grid {
@@ -155,16 +195,16 @@
     }
 
     .applicant-hover-btn.is-assigned {
-        background-color: #8fd3a2;
-        border-color: #74c58f;
-        color: #143823;
+        background-color: var(--meeting-success-accent);
+        border-color: var(--meeting-success-accent-border);
+        color: var(--meeting-success-text);
     }
     .applicant-hover-btn.is-assigned:hover,
     .applicant-hover-btn.is-assigned:focus,
     .applicant-hover-btn.is-assigned:active {
-        background-color: #82ca97;
-        border-color: #68bc84;
-        color: #102f1d;
+        background-color: var(--meeting-success-accent-hover);
+        border-color: var(--meeting-success-accent-hover-border);
+        color: var(--meeting-success-text-strong);
     }
 
     .applicant-stack {
@@ -287,6 +327,8 @@
         display: flex;
         flex-direction: column;
         position: relative;
+        border: 1px solid rgba(219, 227, 234, 0.9);
+        box-shadow: var(--meeting-shadow-soft);
     }
     .session-stats-panel-head {
         cursor: move;
@@ -427,10 +469,11 @@
         flex: 0 0 auto;
     }
     .coverage-summary-box {
-        border: 1px solid #e3e8ef;
-        border-radius: 8px;
-        background: #f8fafc;
+        border: 1px solid var(--meeting-border-soft);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #fbfdff 0%, var(--meeting-surface-soft) 100%);
         padding: 8px 10px;
+        box-shadow: 0 8px 20px rgba(148, 163, 184, 0.08);
     }
     .coverage-summary-row {
         display: flex;
@@ -439,8 +482,8 @@
         gap: 8px;
         font-size: 0.74rem;
         line-height: 1.35;
-        border-radius: 6px;
-        padding: 3px 6px;
+        border-radius: 8px;
+        padding: 4px 7px;
         cursor: pointer;
         transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
     }
@@ -448,36 +491,36 @@
         margin-top: 2px;
     }
     .coverage-summary-label {
-        color: #5c6770;
+        color: var(--meeting-text-muted);
         font-weight: 600;
     }
     .coverage-summary-value {
-        color: #1f2937;
+        color: var(--meeting-text-strong);
         font-weight: 700;
         white-space: nowrap;
     }
     .coverage-summary-row.state-full {
-        background-color: #e8f5e9;
+        background-color: var(--meeting-success-bg);
     }
     .coverage-summary-row.state-fully-assigned {
-        background-color: #198754;
+        background-color: var(--meeting-success-strong);
     }
     .coverage-summary-row.state-fully-assigned .coverage-summary-label,
     .coverage-summary-row.state-fully-assigned .coverage-summary-value {
         color: #f8fffb;
     }
     .coverage-summary-row.state-one-missing {
-        background-color: #fff8d8;
+        background-color: var(--meeting-warning-bg);
     }
     .coverage-summary-row.state-two-missing {
-        background-color: #ffe2b3;
+        background-color: var(--meeting-warning-strong);
     }
     .coverage-summary-row.state-three-plus {
-        background-color: #f4b8bf;
+        background-color: var(--meeting-danger-bg);
     }
     .coverage-summary-row:hover {
         transform: translateY(-1px);
-        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03), inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+        box-shadow: var(--meeting-shadow-press);
         filter: saturate(1.05);
     }
     .coverage-summary-row.is-active {
@@ -485,44 +528,88 @@
         filter: saturate(1.08);
     }
     a[data-filter="assigned"].btn-success {
-        --bs-btn-color: #143823;
-        --bs-btn-bg: #8fd3a2;
-        --bs-btn-border-color: #74c58f;
-        --bs-btn-hover-color: #102f1d;
-        --bs-btn-hover-bg: #82ca97;
-        --bs-btn-hover-border-color: #68bc84;
-        --bs-btn-active-color: #102f1d;
-        --bs-btn-active-bg: #82ca97;
-        --bs-btn-active-border-color: #68bc84;
-        color: #143823 !important;
-        background-color: #8fd3a2 !important;
-        border-color: #74c58f !important;
+        --bs-btn-color: var(--meeting-success-text);
+        --bs-btn-bg: var(--meeting-success-accent);
+        --bs-btn-border-color: var(--meeting-success-accent-border);
+        --bs-btn-hover-color: var(--meeting-success-text-strong);
+        --bs-btn-hover-bg: var(--meeting-success-accent-hover);
+        --bs-btn-hover-border-color: var(--meeting-success-accent-hover-border);
+        --bs-btn-active-color: var(--meeting-success-text-strong);
+        --bs-btn-active-bg: var(--meeting-success-accent-hover);
+        --bs-btn-active-border-color: var(--meeting-success-accent-hover-border);
+        color: var(--meeting-success-text) !important;
+        background-color: var(--meeting-success-accent) !important;
+        border-color: var(--meeting-success-accent-border) !important;
     }
     a[data-filter="applied"].btn-primary {
-        --bs-btn-color: #143823;
-        --bs-btn-bg: #dff3e6;
-        --bs-btn-border-color: #b9dfc6;
+        --bs-btn-color: var(--meeting-success-text);
+        --bs-btn-bg: var(--meeting-applied-bg);
+        --bs-btn-border-color: var(--meeting-applied-border);
         --bs-btn-hover-color: #163f26;
-        --bs-btn-hover-bg: #cfead9;
-        --bs-btn-hover-border-color: #a8d4b7;
+        --bs-btn-hover-bg: var(--meeting-applied-hover);
+        --bs-btn-hover-border-color: var(--meeting-applied-hover-border);
         --bs-btn-active-color: #163f26;
-        --bs-btn-active-bg: #cfead9;
-        --bs-btn-active-border-color: #a8d4b7;
-        color: #143823 !important;
-        background-color: #dff3e6 !important;
-        border-color: #b9dfc6 !important;
+        --bs-btn-active-bg: var(--meeting-applied-hover);
+        --bs-btn-active-border-color: var(--meeting-applied-hover-border);
+        color: var(--meeting-success-text) !important;
+        background-color: var(--meeting-applied-bg) !important;
+        border-color: var(--meeting-applied-border) !important;
     }
     a[data-filter="assigned"].btn-outline-secondary,
     a[data-filter="applied"].btn-outline-secondary {
-        color: #5c6770;
-        border-color: #ced4da;
-        background-color: #fff;
+        color: var(--meeting-neutral-btn-text);
+        border-color: var(--meeting-neutral-btn-border);
+        background-color: var(--meeting-neutral-btn-bg);
     }
     a[data-filter="assigned"].btn-outline-secondary:hover,
     a[data-filter="applied"].btn-outline-secondary:hover {
-        color: #495057;
-        border-color: #c6cdd4;
-        background-color: #f8f9fa;
+        color: var(--meeting-neutral-btn-text-strong);
+        border-color: var(--meeting-neutral-btn-border-hover);
+        background-color: var(--meeting-neutral-btn-bg-hover);
+    }
+    .meeting-body .btn-outline-secondary {
+        --bs-btn-color: var(--meeting-neutral-btn-text);
+        --bs-btn-border-color: var(--meeting-neutral-btn-border);
+        --bs-btn-hover-color: var(--meeting-neutral-btn-text-strong);
+        --bs-btn-hover-bg: var(--meeting-neutral-btn-bg-hover);
+        --bs-btn-hover-border-color: var(--meeting-neutral-btn-border-hover);
+        --bs-btn-active-color: var(--meeting-neutral-btn-text-strong);
+        --bs-btn-active-bg: #eef4f9;
+        --bs-btn-active-border-color: var(--meeting-neutral-btn-border-hover);
+        --bs-btn-disabled-color: var(--meeting-neutral-btn-text);
+        --bs-btn-disabled-border-color: var(--meeting-neutral-btn-border);
+        color: var(--meeting-neutral-btn-text);
+        border-color: var(--meeting-neutral-btn-border);
+        background-color: var(--meeting-neutral-btn-bg);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+    .meeting-body .btn-outline-secondary:hover,
+    .meeting-body .btn-outline-secondary:focus-visible,
+    .meeting-body .btn-outline-secondary:active {
+        color: var(--meeting-neutral-btn-text-strong);
+        border-color: var(--meeting-neutral-btn-border-hover);
+        background-color: var(--meeting-neutral-btn-bg-hover);
+    }
+    .meeting-body .form-select.form-select-sm,
+    .meeting-body .page-link {
+        border-color: var(--meeting-neutral-btn-border);
+        background-color: var(--meeting-neutral-btn-bg);
+        color: var(--meeting-neutral-btn-text);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+    .meeting-body .form-select.form-select-sm:focus,
+    .meeting-body .page-link:focus {
+        border-color: var(--meeting-neutral-btn-border-hover);
+        box-shadow: 0 0 0 0.2rem rgba(186, 199, 214, 0.24);
+    }
+    .meeting-body .page-item.active .page-link {
+        color: var(--meeting-neutral-btn-text-strong);
+        background-color: #eef4f9;
+        border-color: var(--meeting-neutral-btn-border-hover);
+    }
+    .meeting-body .page-item.disabled .page-link {
+        background-color: #f8fafc;
+        color: #9aa4b2;
     }
     .js-song-card {
         transition: background-color 220ms ease, --bs-bg-opacity 220ms ease;
@@ -531,19 +618,19 @@
         box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.45);
     }
     .js-song-card.bg-success.bg-opacity-10 {
-        background-color: #e8f5e9 !important;
+        background-color: var(--meeting-success-bg) !important;
     }
     .js-song-card.bg-warning.bg-opacity-10 {
-        background-color: #fff8d8 !important;
+        background-color: var(--meeting-warning-bg) !important;
     }
     .js-song-card.bg-orange.bg-opacity-10 {
-        background-color: #ffe2b3 !important;
+        background-color: var(--meeting-warning-strong) !important;
     }
     .js-song-card.bg-danger.bg-opacity-10 {
-        background-color: #f4b8bf !important;
+        background-color: var(--meeting-danger-bg) !important;
     }
     .js-song-card.song-card-fully-assigned {
-        background-color: #e8f5e9 !important;
+        background-color: var(--meeting-success-bg) !important;
         color: inherit;
     }
     .js-song-card.song-card-fully-assigned .text-muted,
@@ -552,10 +639,10 @@
     }
     .js-song-card.song-card-fully-assigned .song-title-text,
     .js-song-card.song-card-fully-assigned .song-order-badge {
-        color: #143823 !important;
+        color: var(--meeting-success-text) !important;
     }
     .js-song-card.song-card-fully-assigned .song-order-badge {
-        background-color: #198754;
+        background-color: var(--meeting-success-strong);
         color: #ffffff !important;
         border-right: 0;
     }
@@ -567,80 +654,80 @@
         background-color: #fff !important;
     }
     .meeting-body:not(.manager-page) .js-song-card.song-card-fully-assigned {
-        background-color: #e8f5e9 !important;
+        background-color: var(--meeting-success-bg) !important;
     }
     .js-song-card .js-session-slot-btn {
         transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease, box-shadow 240ms ease;
     }
     .js-song-card .js-session-slot-btn.btn-success {
-        background-color: #8fd3a2;
-        border-color: #74c58f;
-        color: #143823;
+        background-color: var(--meeting-success-accent);
+        border-color: var(--meeting-success-accent-border);
+        color: var(--meeting-success-text);
     }
     .js-song-card .js-session-slot-btn.btn-primary {
-        --bs-btn-color: #143823;
-        --bs-btn-bg: #dff3e6;
-        --bs-btn-border-color: #b9dfc6;
+        --bs-btn-color: var(--meeting-success-text);
+        --bs-btn-bg: var(--meeting-applied-bg);
+        --bs-btn-border-color: var(--meeting-applied-border);
         --bs-btn-hover-color: #163f26;
-        --bs-btn-hover-bg: #cfead9;
-        --bs-btn-hover-border-color: #a8d4b7;
+        --bs-btn-hover-bg: var(--meeting-applied-hover);
+        --bs-btn-hover-border-color: var(--meeting-applied-hover-border);
         --bs-btn-active-color: #163f26;
-        --bs-btn-active-bg: #cfead9;
-        --bs-btn-active-border-color: #a8d4b7;
-        --bs-btn-disabled-color: #143823;
-        --bs-btn-disabled-bg: #dff3e6;
-        --bs-btn-disabled-border-color: #b9dfc6;
-        background-color: #dff3e6 !important;
-        border-color: #b9dfc6 !important;
-        color: #143823 !important;
+        --bs-btn-active-bg: var(--meeting-applied-hover);
+        --bs-btn-active-border-color: var(--meeting-applied-hover-border);
+        --bs-btn-disabled-color: var(--meeting-success-text);
+        --bs-btn-disabled-bg: var(--meeting-applied-bg);
+        --bs-btn-disabled-border-color: var(--meeting-applied-border);
+        background-color: var(--meeting-applied-bg) !important;
+        border-color: var(--meeting-applied-border) !important;
+        color: var(--meeting-success-text) !important;
     }
     .js-song-card .js-session-slot-btn.btn-success:hover,
     .js-song-card .js-session-slot-btn.btn-success:focus,
     .js-song-card .js-session-slot-btn.btn-success:active {
-        background-color: #82ca97;
-        border-color: #68bc84;
-        color: #102f1d;
+        background-color: var(--meeting-success-accent-hover);
+        border-color: var(--meeting-success-accent-hover-border);
+        color: var(--meeting-success-text-strong);
     }
     .js-song-card .js-session-slot-btn.btn-primary:hover,
     .js-song-card .js-session-slot-btn.btn-primary:focus,
     .js-song-card .js-session-slot-btn.btn-primary:active {
-        background-color: #cfead9 !important;
-        border-color: #a8d4b7 !important;
+        background-color: var(--meeting-applied-hover) !important;
+        border-color: var(--meeting-applied-hover-border) !important;
         color: #163f26 !important;
     }
     #sessionManageModal .btn-success {
-        background-color: #8fd3a2;
-        border-color: #74c58f;
-        color: #143823;
+        background-color: var(--meeting-success-accent);
+        border-color: var(--meeting-success-accent-border);
+        color: var(--meeting-success-text);
     }
     #sessionManageModal .btn-success:hover,
     #sessionManageModal .btn-success:focus,
     #sessionManageModal .btn-success:active {
-        background-color: #82ca97;
-        border-color: #68bc84;
-        color: #102f1d;
+        background-color: var(--meeting-success-accent-hover);
+        border-color: var(--meeting-success-accent-hover-border);
+        color: var(--meeting-success-text-strong);
     }
     #sessionManageModal .js-modal-applicant-toggle.btn-primary {
-        --bs-btn-color: #143823;
-        --bs-btn-bg: #dff3e6;
-        --bs-btn-border-color: #b9dfc6;
+        --bs-btn-color: var(--meeting-success-text);
+        --bs-btn-bg: var(--meeting-applied-bg);
+        --bs-btn-border-color: var(--meeting-applied-border);
         --bs-btn-hover-color: #163f26;
-        --bs-btn-hover-bg: #cfead9;
-        --bs-btn-hover-border-color: #a8d4b7;
+        --bs-btn-hover-bg: var(--meeting-applied-hover);
+        --bs-btn-hover-border-color: var(--meeting-applied-hover-border);
         --bs-btn-active-color: #163f26;
-        --bs-btn-active-bg: #cfead9;
-        --bs-btn-active-border-color: #a8d4b7;
-        --bs-btn-disabled-color: #143823;
-        --bs-btn-disabled-bg: #dff3e6;
-        --bs-btn-disabled-border-color: #b9dfc6;
-        background-color: #dff3e6 !important;
-        border-color: #b9dfc6 !important;
-        color: #143823 !important;
+        --bs-btn-active-bg: var(--meeting-applied-hover);
+        --bs-btn-active-border-color: var(--meeting-applied-hover-border);
+        --bs-btn-disabled-color: var(--meeting-success-text);
+        --bs-btn-disabled-bg: var(--meeting-applied-bg);
+        --bs-btn-disabled-border-color: var(--meeting-applied-border);
+        background-color: var(--meeting-applied-bg) !important;
+        border-color: var(--meeting-applied-border) !important;
+        color: var(--meeting-success-text) !important;
     }
     #sessionManageModal .js-modal-applicant-badge {
-        color: #143823 !important;
-        background-color: #dff3e6 !important;
-        border: 1px solid #b9dfc6;
+        color: var(--meeting-success-text) !important;
+        background-color: var(--meeting-applied-bg) !important;
+        border: 1px solid var(--meeting-applied-border);
     }
     .session-assignee-name {
         font-weight: 700;
@@ -683,9 +770,12 @@
         justify-content: center;
         font-size: 1.12rem;
         font-weight: 700;
-        color: #6c757d;
+        color: var(--meeting-text-soft);
         user-select: none;
-        border-right: 1px solid #a8b2bd;
+        border-right: 1px solid var(--meeting-border-strong);
+        border-top-left-radius: inherit;
+        border-bottom-left-radius: inherit;
+        overflow: hidden;
     }
     .song-meta-col {
         flex: 0 0 260px;
@@ -764,9 +854,10 @@
     .song-comments-panel {
         margin-top: 8px;
         padding: 8px 10px;
-        border: 1px solid #dbe3ea;
-        border-radius: 8px;
-        background: #f8fafc;
+        border: 1px solid var(--meeting-border-soft);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #fbfdff 0%, var(--meeting-surface-soft) 100%);
+        box-shadow: var(--meeting-shadow-card);
     }
     .song-comments-list {
         display: grid;
@@ -775,9 +866,9 @@
         overflow-y: auto;
     }
     .song-comment-item {
-        background: #fff;
-        border: 1px solid #e7edf3;
-        border-radius: 7px;
+        background: var(--meeting-surface-panel);
+        border: 1px solid var(--meeting-border-faint);
+        border-radius: 10px;
         padding: 6px 8px;
     }
     .song-comment-head {
@@ -790,34 +881,36 @@
     .song-comment-author {
         font-size: 0.8rem;
         font-weight: 700;
-        color: #2f3a45;
+        color: var(--meeting-text-body);
     }
     .song-comment-time {
         font-size: 0.72rem;
-        color: #8693a0;
+        color: var(--meeting-text-subtle);
     }
     .song-comment-content {
         font-size: 0.82rem;
         line-height: 1.35;
-        color: #2f3a45;
+        color: var(--meeting-text-body);
         white-space: pre-wrap;
         word-break: break-word;
     }
     .song-comment-empty {
         font-size: 0.8rem;
-        color: #6c757d;
+        color: var(--meeting-text-muted);
         text-align: center;
         padding: 6px;
-        border: 1px dashed #d4dce4;
-        border-radius: 6px;
-        background: #fff;
+        border: 1px dashed var(--meeting-border-dashed);
+        border-radius: 8px;
+        background: var(--meeting-surface-panel);
     }
     .js-song-card {
         position: relative;
         padding-top: 0.6rem !important;
         padding-bottom: 0.6rem !important;
         padding-left: 45px !important;
-        border-color: #a8b2bd !important;
+        border-color: var(--meeting-border-strong) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7), 0 8px 18px rgba(148, 163, 184, 0.06);
     }
     .js-song-card.song-card-collapsible {
         padding-top: 0 !important;
@@ -828,18 +921,19 @@
         padding: 0.6rem 0 0.6rem 2px;
         margin: 0 -1rem 0 -2px;
         padding-right: 1rem;
-        border-radius: 0;
-        transition: background-color 180ms ease, box-shadow 180ms ease;
+        border-radius: 10px;
+        transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
         cursor: pointer;
     }
     .song-main-interactive:hover {
-        background-color: rgba(108, 117, 125, 0.14);
-        box-shadow: inset 0 0 0 1px rgba(108, 117, 125, 0.30);
+        background-color: var(--meeting-hover-neutral-strong);
+        box-shadow: inset 0 0 0 1px var(--meeting-hover-ring);
+        transform: translateY(-1px);
     }
     .song-main-interactive:focus-visible {
         outline: none;
-        background-color: rgba(108, 117, 125, 0.18);
-        box-shadow: inset 0 0 0 2px rgba(108, 117, 125, 0.34);
+        background-color: var(--meeting-hover-neutral);
+        box-shadow: inset 0 0 0 2px var(--meeting-hover-ring-strong);
     }
     .song-footer-collapsible {
         overflow: hidden;
@@ -1689,6 +1783,10 @@
         return !!slots.length && slots.every((btn) => String(btn.dataset.assigneeId || '').trim() !== '');
     }
 
+    function isSongApplicantCoverageComplete(songCard) {
+        return getSongMissingApplicantSessionCount(songCard) <= 0;
+    }
+
     function renderCoverageSummary() {
         const cards = Array.from(document.querySelectorAll('.js-song-card'));
         let fullyAssigned = 0;
@@ -1697,17 +1795,22 @@
         let twoMissing = 0;
         let threePlusMissing = 0;
         cards.forEach((card) => {
-            if (isSongFullyAssigned(card)) fullyAssigned += 1;
-            const missing = getSongMissingApplicantSessionCount(card);
-            if (missing <= 0) full += 1;
-            else if (missing === 1) oneMissing += 1;
-            else if (missing === 2) twoMissing += 1;
-            else threePlusMissing += 1;
+            const fullyAssignedForCard = isSongFullyAssigned(card);
+            if (fullyAssignedForCard) {
+                fullyAssigned += 1;
+            } else if (isSongApplicantCoverageComplete(card)) {
+                full += 1;
+            } else {
+                const missing = getSongMissingApplicantSessionCount(card);
+                if (missing === 1) oneMissing += 1;
+                else if (missing === 2) twoMissing += 1;
+                else threePlusMissing += 1;
+            }
         });
 
         const html = `
             <div class="coverage-summary-row state-fully-assigned js-coverage-summary-row" data-coverage-filter="fully_assigned">
-                <span class="coverage-summary-label">선곡 확정</span>
+                <span class="coverage-summary-label">전 세션 배정</span>
                 <span class="coverage-summary-value">${fullyAssigned}곡</span>
             </div>
             <div class="coverage-summary-row state-full js-coverage-summary-row" data-coverage-filter="full">
@@ -1737,7 +1840,7 @@
     function coverageFilterMatches(songCard, missingCount, mode) {
         if (!mode) return true;
         if (mode === 'fully_assigned') return isSongFullyAssigned(songCard);
-        if (mode === 'full') return missingCount <= 0;
+        if (mode === 'full') return !isSongFullyAssigned(songCard) && isSongApplicantCoverageComplete(songCard);
         if (mode === 'one') return missingCount === 1;
         if (mode === 'two') return missingCount === 2;
         if (mode === 'three_plus') return missingCount >= 3;

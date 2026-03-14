@@ -486,6 +486,7 @@ def schedule_match_settings(request, meeting_id):
             weekend_param = '1' if form.cleaned_data.get('exclude_weekends') else '0'
             room_eff_param = '1' if form.cleaned_data.get('room_efficiency_priority') else '0'
             hour_start_param = '1' if form.cleaned_data.get('hour_start_only') else '0'
+            separate_days_param = '1' if form.cleaned_data.get('separate_days_for_multi_sessions') else '0'
             limit_start_param = int(form.cleaned_data.get('time_limit_start', 18))
             limit_end_param = int(form.cleaned_data.get('time_limit_end', 48))
             ack_unassigned = request.POST.get('ack_unassigned') == '1'
@@ -503,11 +504,12 @@ def schedule_match_settings(request, meeting_id):
                     'room_efficiency_priority': bool(form.cleaned_data.get('room_efficiency_priority')),
                     'maximize_feasibility': False,
                     'hour_start_only': bool(form.cleaned_data.get('hour_start_only')),
+                    'separate_days_for_multi_sessions': bool(form.cleaned_data.get('separate_days_for_multi_sessions')),
                     'time_limit_start': limit_start_param,
                     'time_limit_end': limit_end_param,
                 }
 
-                run_url = f"{reverse('schedule_match_run', args=[meeting_id])}?d={duration}&c={count}&p={priority_param}&r={room_param}&rp={room_pref_param}&w={weekend_param}&re={room_eff_param}&h={hour_start_param}&ts={limit_start_param}&te={limit_end_param}"
+                run_url = f"{reverse('schedule_match_run', args=[meeting_id])}?d={duration}&c={count}&p={priority_param}&r={room_param}&rp={room_pref_param}&w={weekend_param}&re={room_eff_param}&h={hour_start_param}&sd={separate_days_param}&ts={limit_start_param}&te={limit_end_param}"
                 run_url += "&force_rematch=1"
                 if is_simulation:
                     run_url += '&simulation=1'
@@ -534,6 +536,7 @@ def schedule_match_settings(request, meeting_id):
                 'room_efficiency_priority': saved_settings.get('room_efficiency_priority', False),
                 'maximize_feasibility': False,
                 'hour_start_only': saved_settings.get('hour_start_only', False),
+                'separate_days_for_multi_sessions': saved_settings.get('separate_days_for_multi_sessions', False),
                 'time_limit_start': saved_settings.get('time_limit_start', 18),
                 'time_limit_end': saved_settings.get('time_limit_end', 48),
             }
@@ -655,6 +658,7 @@ def schedule_match_run(request, meeting_id):
         'w': '1' if saved_settings.get('exclude_weekends') else '0',
         're': '1' if saved_settings.get('room_efficiency_priority') else '0',
         'h': '1' if saved_settings.get('hour_start_only') else '0',
+        'sd': '1' if saved_settings.get('separate_days_for_multi_sessions') else '0',
         'ts': saved_settings.get('time_limit_start'),
         'te': saved_settings.get('time_limit_end'),
     }
@@ -703,6 +707,7 @@ def schedule_match_run(request, meeting_id):
     room_efficiency_priority = str(_param_with_saved('re', '0')) == '1'
     maximize_feasibility = False
     hour_start_only = str(_param_with_saved('h', '0')) == '1'
+    separate_days_for_multi_sessions = str(_param_with_saved('sd', '0')) == '1'
     time_limit_start = int(_param_with_saved('ts', 18))
     time_limit_end = int(_param_with_saved('te', 48))
     duration_slots = max(1, duration // 30)
@@ -717,10 +722,11 @@ def schedule_match_run(request, meeting_id):
         'w': '1' if exclude_weekends else '0',
         're': '1' if room_efficiency_priority else '0',
         'h': '1' if hour_start_only else '0',
+        'sd': '1' if separate_days_for_multi_sessions else '0',
         'ts': str(time_limit_start),
         'te': str(time_limit_end),
     }
-    advanced_param_keys = ('w', 're', 'h', 'ts', 'te')
+    advanced_param_keys = ('w', 're', 'h', 'sd', 'ts', 'te')
     match_advanced_used = bool(saved_settings.get('advanced_options_used')) or any(
         request.GET.get(k) is not None for k in advanced_param_keys
     ) or any(
@@ -850,6 +856,7 @@ def schedule_match_run(request, meeting_id):
             room_efficiency_priority=room_efficiency_priority,
             maximize_feasibility=maximize_feasibility,
             hour_start_only=hour_start_only,
+            separate_days_for_multi_sessions=separate_days_for_multi_sessions,
             time_limit_start=time_limit_start,
             time_limit_end=time_limit_end,
             song_ids=confirmed_song_ids,
@@ -1183,6 +1190,7 @@ def schedule_match_run(request, meeting_id):
         'exclude_weekends': str(effective_match_params.get('w', '0')) == '1',
         'room_efficiency_priority': str(effective_match_params.get('re', '0')) == '1',
         'hour_start_only': str(effective_match_params.get('h', '0')) == '1',
+        'separate_days_for_multi_sessions': str(effective_match_params.get('sd', '0')) == '1',
         'time_limit_start': _safe_int(effective_match_params.get('ts'), time_limit_start),
         'time_limit_end': _safe_int(effective_match_params.get('te'), time_limit_end),
     }
@@ -1193,6 +1201,8 @@ def schedule_match_run(request, meeting_id):
         advanced_option_labels.append('예약 효율 우선')
     if display_advanced_flags['hour_start_only']:
         advanced_option_labels.append('정시 시작만 허용')
+    if display_advanced_flags['separate_days_for_multi_sessions']:
+        advanced_option_labels.append('주 2회 이상은 다른 날짜 강제')
     if (
         display_advanced_flags['time_limit_start'] != 18
         or display_advanced_flags['time_limit_end'] != 48
@@ -1236,6 +1246,7 @@ def schedule_match_run(request, meeting_id):
         'room_count': active_rooms_qs.count(),
         'is_simulation': is_simulation,
         'hide_base_chrome': is_simulation,
+        'show_demo_banner': False if request.session.get('demo_mode') else None,
         'excluded_song_count': excluded_song_count,
         'is_booking_in_progress': bool(meeting.is_booking_in_progress),
         'share_warning_needed': bool(meeting.is_final_schedule_released),
@@ -1264,7 +1275,7 @@ def schedule_match_run(request, meeting_id):
         context['strip_force_rematch'] = True
 
     # 비시뮬레이션 매칭 결과(저장본 로드 제외)는 현재 사용자 작업 draft를 최신화한다.
-    if (not is_simulation) and (not load_saved):
+    if (not is_simulation) and (not load_saved) and (not request.session.get('demo_mode')):
         serialized_events = []
         for item in full_schedule:
             room_obj = item.get('room')
@@ -1301,6 +1312,8 @@ def schedule_match_work_draft_save(request, meeting_id):
         return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
     meeting = get_object_or_404(Meeting, id=meeting_id)
+    if request.session.get('demo_mode'):
+        return JsonResponse({'status': 'error', 'message': '체험 버전에서는 저장할 수 없습니다.'}, status=403)
     if _is_final_locked(meeting):
         return JsonResponse({'status': 'error', 'message': _final_lock_state_message(meeting)}, status=409)
     membership = _get_approved_membership(meeting, request.user)
@@ -1380,6 +1393,7 @@ def schedule_match_resume(request, meeting_id):
     weekend_param = '1' if saved.get('exclude_weekends') else '0'
     room_eff_param = '1' if saved.get('room_efficiency_priority', False) else '0'
     hour_start_param = '1' if saved.get('hour_start_only') else '0'
+    separate_days_param = '1' if saved.get('separate_days_for_multi_sessions') else '0'
     limit_start_param = int(saved.get('time_limit_start', 18))
     limit_end_param = int(saved.get('time_limit_end', 48))
 
@@ -1387,7 +1401,7 @@ def schedule_match_resume(request, meeting_id):
     run_url = (
         f"{reverse('schedule_match_run', args=[meeting_id])}"
         f"?d={duration}&c={count}&p={priority_param}&r={room_param}&rp={room_pref_param}"
-        f"&w={weekend_param}&re={room_eff_param}&h={hour_start_param}"
+        f"&w={weekend_param}&re={room_eff_param}&h={hour_start_param}&sd={separate_days_param}"
         f"&ts={limit_start_param}&te={limit_end_param}&{resume_mode_param}"
     )
     return redirect(run_url)
@@ -1426,6 +1440,8 @@ def schedule_booking_start(request, meeting_id):
         return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
     meeting = get_object_or_404(Meeting, id=meeting_id)
+    if request.session.get('demo_mode'):
+        return JsonResponse({'status': 'error', 'message': '체험 버전에서는 예약 단계로 이동할 수 없습니다.'}, status=403)
     membership = _get_approved_membership(meeting, request.user)
     if not _has_meeting_manager_permission(meeting, request.user, membership=membership):
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
@@ -2345,6 +2361,8 @@ def schedule_save_result(request, meeting_id):
         return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
     meeting = get_object_or_404(Meeting, id=meeting_id)
+    if request.session.get('demo_mode'):
+        return JsonResponse({'status': 'error', 'message': '체험 버전에서는 저장할 수 없습니다.'}, status=403)
     if meeting.is_final_schedule_confirmed:
         return JsonResponse({
             'status': 'already',

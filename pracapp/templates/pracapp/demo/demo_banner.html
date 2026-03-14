@@ -28,9 +28,9 @@
 <div class="demo-role-banner {% if demo_role == 'member' %}member{% else %}manager{% endif %}">
   <div class="fw-bold">
     {% if demo_role == 'member' %}
-      👤 [데모 중] 일반 멤버가 보는 화면입니다
+      👤 [체험 중] 일반 멤버가 보는 화면입니다
     {% else %}
-      🎛️ [데모 중] 매니저가 보는 화면입니다
+      🎛️ [체험 중] 매니저가 보는 화면입니다
     {% endif %}
     {% if demo_scenario_label %}<span class="ms-2 badge bg-light text-dark">시나리오 {{ demo_scenario_label }}</span>{% endif %}
     {% if demo_scenario == 1 and demo_role == 'member' %}
@@ -41,17 +41,14 @@
     {% endif %}
   </div>
   <div class="banner-actions">
-    <form method="post" action="{% url 'demo_switch_role' %}" class="m-0 js-demo-nav-form">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <button type="submit" class="btn btn-sm btn-outline-light js-demo-nav-btn">
-        {% if demo_role == 'member' %}매니저 뷰로 전환{% else %}멤버 뷰로 전환{% endif %}
-      </button>
-    </form>
-    <button type="button" id="demoTourReplayBtn" class="btn btn-sm btn-light text-dark">투어 다시 보기</button>
+    {% if demo_page_name == 'demo_feature_tutorial' and demo_scenario_url %}
+    <a href="{{ demo_scenario_url }}" class="btn btn-sm btn-light text-dark" data-demo-nav-link>자유 체험으로 돌아가기</a>
+    {% else %}
+    <button type="button" id="demoTourReplayBtn" class="btn btn-sm btn-light text-dark">기능 튜토리얼</button>
+    {% endif %}
     <form method="post" action="{% url 'demo_exit' %}" class="m-0 js-demo-nav-form">
       {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-warning text-dark js-demo-nav-btn">데모 종료</button>
+      <button type="submit" class="btn btn-sm btn-warning text-dark js-demo-nav-btn">체험 종료</button>
     </form>
   </div>
 </div>

@@ -1,7 +1,16 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <style>
+  html {
+    scrollbar-gutter: stable;
+  }
+  .demo-intro-wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 14px 0 40px;
+  }
   .demo-start-loading-overlay {
     position: fixed;
     inset: 0;
@@ -30,98 +39,521 @@
     margin-bottom: 10px;
   }
   .demo-start-loading-desc {
-    font-size: 0.92rem;
-    color: #475569;
+    font-size: 0.95rem;
+    color: #1f2937;
     line-height: 1.5;
+    font-weight: 800;
     margin-bottom: 14px;
   }
   .demo-start-loading-note {
-    font-size: 0.8rem;
+    font-size: 0.84rem;
     color: #64748b;
     line-height: 1.45;
     margin-bottom: 0;
+  }
+  .demo-hero {
+    background:
+      radial-gradient(circle at top right, rgba(251, 146, 60, 0.24), transparent 34%),
+      radial-gradient(circle at top left, rgba(96, 165, 250, 0.24), transparent 36%),
+      linear-gradient(145deg, #020617 0%, #0f172a 45%, #111827 100%);
+    color: #fff;
+    position: relative;
+    overflow: visible;
+    border-radius: 30px;
+    padding: 34px 24px 22px;
+    box-shadow: 0 28px 72px rgba(15, 23, 42, 0.28);
+  }
+  .demo-hero-form {
+    margin: 0;
+  }
+  .demo-hero-title {
+    margin: 0;
+    font-size: clamp(1.9rem, 4.4vw, 3.6rem);
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .demo-hero-copy {
+    display: none;
+  }
+  .demo-hero-copy.is-active {
+    display: block;
+  }
+  .demo-hero-copy.is-compact {
+    font-size: 0.86em;
+    line-height: 1.26;
+  }
+  .demo-hero-line {
+    display: block;
+  }
+  .demo-hero-subline {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.22em;
+    line-height: 1.1;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.78);
+    letter-spacing: 0;
+    text-align: right;
+  }
+  .demo-hero-emphasis {
+    font-weight: 900;
+  }
+  .demo-inline-click {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 142px;
+    min-height: 60px;
+    margin: 0 4px;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 18px;
+    background: linear-gradient(120deg, #f97316 0%, #fb923c 100%);
+    color: #fff;
+    font-size: 0.7em;
+    font-weight: 700;
+    box-shadow: 0 18px 36px rgba(249, 115, 22, 0.28);
+    vertical-align: middle;
+  }
+  .demo-inline-click:hover {
+    filter: brightness(1.04);
+  }
+  .demo-stack-section + .demo-stack-section {
+    margin-top: 18px;
+  }
+  .demo-card {
+    border: 0;
+    border-radius: 26px;
+    background: #fff;
+    box-shadow: 0 18px 52px rgba(15, 23, 42, 0.08);
+  }
+  .demo-global-toggle-bar {
+    display: flex;
+    justify-content: center;
+    margin-top: 60px;
+    margin-bottom: 30px;
+  }
+  .demo-global-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 164px;
+    min-height: 52px;
+    padding: 11px 22px;
+    border: 1px solid #f59e0b;
+    border-radius: 999px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 1rem;
+    font-weight: 800;
+    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.16);
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  }
+  .demo-global-toggle-btn.is-danger {
+    border-color: #f87171;
+    background: #fef2f2;
+    color: #b91c1c;
+    box-shadow: 0 10px 24px rgba(248, 113, 113, 0.16);
+  }
+  .demo-collapsible-shell {
+    overflow: hidden;
+    max-height: 2400px;
+    opacity: 1;
+    transform: translateY(0);
+    transition: max-height 220ms ease, opacity 180ms ease, transform 180ms ease, margin-top 180ms ease;
+  }
+  .demo-collapsible-shell.is-collapsed {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-8px);
+    margin-top: 0 !important;
+    pointer-events: none;
+  }
+  .demo-card-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+  .demo-card-copy {
+    font-size: 0.94rem;
+    line-height: 1.65;
+    color: #64748b;
+    margin-bottom: 18px;
+  }
+  .demo-schedule-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .demo-schedule-name {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #0f172a;
+  }
+  .demo-schedule-summary {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    text-align: right;
+  }
+  .demo-schedule-panel {
+    display: none;
+  }
+  .demo-schedule-panel.is-active {
+    display: block;
+  }
+  .demo-schedule-panel.is-hidden-by-preview {
+    display: none !important;
+  }
+  .demo-schedule-preview-panel {
+    display: none;
+  }
+  .demo-schedule-preview-panel.is-active {
+    display: block;
+  }
+  .demo-schedule-board-wrap .home-week-board {
+    --home-slot-h: 11.52px;
+    display: grid;
+    grid-template-columns: 48px repeat(7, minmax(92px, 1fr));
+    border: 1px solid #dbe2ea;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .demo-schedule-board-wrap {
+    overflow-x: auto;
+  }
+  .demo-schedule-board-wrap .home-week-head {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #495057;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    text-align: center;
+    padding: 6px 2px;
+  }
+  .demo-schedule-board-wrap .home-week-head.time-head {
+    background: #f1f3f5;
+  }
+  .demo-schedule-board-wrap .home-week-time-col {
+    border-right: 1px solid #e9ecef;
+  }
+  .demo-schedule-board-wrap .home-week-time-row {
+    height: var(--home-slot-h);
+    font-size: 0.68rem;
+    color: #868e96;
+    padding: 2px 3px;
+    border-bottom: 1px solid #f1f3f5;
+    box-sizing: border-box;
+    text-align: right;
+  }
+  .demo-schedule-board-wrap .home-week-time-row.half {
+    color: transparent;
+    border-bottom-color: #f8f9fa;
+  }
+  .demo-schedule-board-wrap .home-week-day-col {
+    position: relative;
+    border-right: 1px solid #f1f3f5;
+  }
+  .demo-schedule-board-wrap .home-week-day-col:last-child {
+    border-right: none;
+  }
+  .demo-schedule-board-wrap .home-week-day-grid {
+    position: relative;
+  }
+  .demo-schedule-board-wrap .home-week-slot-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-bottom: 1px solid #f1f3f5;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .demo-schedule-board-wrap .home-week-slot-line.half {
+    border-bottom-color: #f8f9fa;
+  }
+  .demo-schedule-board-wrap .home-week-personal-block {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    background: rgba(108, 117, 125, 0.22);
+    border: 1px solid rgba(73, 80, 87, 0.35);
+    border-radius: 4px;
+    z-index: 1;
+    pointer-events: auto;
+    cursor: default;
+  }
+  .demo-schedule-board-wrap .home-week-personal-block .personal-reason {
+    font-size: 0.62rem;
+    line-height: 1.2;
+    color: #495057;
+    font-weight: 700;
+    padding: 2px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .demo-preview-day-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .demo-preview-block {
+    position: absolute;
+    border-radius: 4px;
+    padding: 2px 3px;
+    font-size: 0.58rem;
+    line-height: 1.2;
+    font-weight: 800;
+    color: #0f172a;
+    overflow: hidden;
+  }
+  .demo-preview-block-name {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .demo-name-board {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .demo-name-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 4px 5px;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #eff6ff 0%, #ffffff 100%);
+    border: 1px solid #dbeafe;
+    color: #1e3a8a;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .demo-name-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(37, 99, 235, 0.1);
+  }
+  .demo-name-chip.is-active {
+    border-color: #2563eb;
+    background: linear-gradient(145deg, #dbeafe 0%, #ffffff 100%);
+    box-shadow: 0 12px 20px rgba(37, 99, 235, 0.14);
+  }
+  .demo-name-chip.is-preview {
+    border-color: #f97316;
+    background: linear-gradient(145deg, #ffedd5 0%, #ffffff 100%);
+    box-shadow: 0 10px 18px rgba(249, 115, 22, 0.14);
+    color: #9a3412;
+  }
+  .demo-name-chip.is-active.is-preview {
+    border-color: #ea580c;
+    box-shadow: 0 12px 20px rgba(234, 88, 12, 0.2);
+  }
+  .demo-song-board {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .demo-song-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 4px 5px;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .demo-song-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+  }
+  .demo-song-chip.is-preview {
+    border-color: #f97316;
+    background: linear-gradient(145deg, #fff7ed 0%, #ffffff 100%);
+    box-shadow: 0 10px 18px rgba(249, 115, 22, 0.12);
+  }
+  @media (max-width: 991.98px) {
+    .demo-name-board {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .demo-song-board {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 767.98px) {
+    .demo-hero {
+      border-radius: 24px;
+      padding: 28px 18px 18px;
+    }
+    .demo-inline-click {
+      min-width: 120px;
+      min-height: 54px;
+    }
+    .demo-name-board {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .demo-song-board {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
   }
 </style>
 
 <div id="demoStartLoadingOverlay" class="demo-start-loading-overlay" aria-hidden="true">
   <div class="demo-start-loading-card" role="status" aria-live="polite">
     <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
-    <div class="demo-start-loading-title">데모 데이터를 준비하고 있습니다</div>
-    <p id="demoStartLoadingDesc" class="demo-start-loading-desc mb-0">
-      시나리오를 불러오는 중입니다. 잠시만 기다려주세요.
-    </p>
-    <p class="demo-start-loading-note mt-3">
-      시나리오 A와 C는 첫 실행 시 더 오래 걸릴 수 있습니다. 페이지를 닫거나 새로고침하지 말고 잠시만 기다려주세요.
-    </p>
+    <p class="demo-start-loading-desc mb-0">합주 시간, 합주 횟수는 나중에 직접 변경 가능합니다!</p>
+    <p class="demo-start-loading-note mt-3">120분 주 4회 합주도 가능...은 해요...</p>
   </div>
 </div>
 
-<div class="py-4">
-  <div class="p-4 rounded-4 bg-white border shadow-sm mb-4">
-    <h2 class="fw-bold mb-2">밴드 합주 일정 자동 조율 데모</h2>
-    <p class="text-muted mb-1">회원가입 없이 바로 체험할 수 있습니다. 시나리오를 선택하면 데모 데이터가 자동 생성됩니다.</p>
-    <p class="text-muted mb-0 small">데모 곡은 <strong>김민기_밴드음악_명곡선_선곡템플릿.csv</strong> 기준으로 생성되며, 합주기간은 <strong>4월 마지막 주 월요일 ~ 6월 첫째 주 금요일</strong>로 고정됩니다.</p>
+<div class="demo-intro-wrap">
+  <section class="demo-hero">
+    <form method="post" action="{% url 'demo_start' %}" class="demo-hero-form js-demo-start-form">
+      {% csrf_token %}
+      <input type="hidden" name="scenario" value="1" id="demoScenarioInput">
+      <h1 class="demo-hero-title">
+        <span class="demo-hero-copy is-active">
+          <span class="demo-hero-line">뭐?</span>
+          <span class="demo-hero-line"><span class="demo-hero-emphasis">40명</span> 이</span>
+          <span class="demo-hero-line"><span class="demo-hero-emphasis">50곡</span> 을 합주하는데</span>
+          <span class="demo-hero-line"><span class="demo-hero-emphasis">60분</span> 주 1회 시간표 제작이</span>
+          <span class="demo-hero-line"><button type="submit" class="demo-inline-click js-demo-start-btn">딸깍</button>이라고?</span>
+        </span>
+      </h1>
+    </form>
+  </section>
+
+  <div class="demo-global-toggle-bar">
+    <button type="button" class="demo-global-toggle-btn" id="demoSectionToggleBtn" aria-expanded="true">이걸 수동으로 한다면..</button>
   </div>
 
-  <div class="row g-3">
-    <div class="col-12 col-lg-4">
-      <div class="card h-100 border-0 shadow-sm">
-        <div class="card-body d-flex flex-column">
-          <h5 class="fw-bold">시나리오 A: 혼자서 40명 25곡 합주 잡기</h5>
-          <p class="text-muted small flex-grow-1 mb-3">선곡시트(80곡/25곡 배정)에서 시작해 매칭 설정과 결과 보드 조율을 체험합니다.</p>
-          <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
-            {% csrf_token %}
-            <input type="hidden" name="scenario" value="1">
-            <button type="submit" class="btn btn-primary w-100 js-demo-start-btn">시작하기</button>
-          </form>
+  <div class="demo-collapsible-shell" id="demoCollapsibleSections">
+  <div class="row demo-stack-section g-4 align-items-stretch">
+    <div class="col-12 col-lg-5">
+      <section class="card demo-card h-100">
+        <div class="card-body p-3 p-md-4">
+          <h2 class="demo-card-title">40명의 이름 전광판</h2>
+          <div class="demo-name-board">
+            {% for member in intro_member_schedules %}
+              <button type="button" class="demo-name-chip{% if forloop.first %} is-active{% endif %} js-member-chip" data-member-index="{{ member.index }}">{{ member.name }}</button>
+            {% endfor %}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
-    <div class="col-12 col-lg-4">
-      <div class="card h-100 border-0 shadow-sm">
-        <div class="card-body d-flex flex-column">
-          <h5 class="fw-bold">시나리오 B: 6명 중 팀 A 합주 잡기</h5>
-          <p class="text-muted small flex-grow-1 mb-3">대시보드에서 팀 B~F 예약 현황을 확인하고, 우리 팀 A 선곡시트(20곡/4곡 배정)로 이동합니다.</p>
-          <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
-            {% csrf_token %}
-            <input type="hidden" name="scenario" value="2">
-            <button type="submit" class="btn btn-primary w-100 js-demo-start-btn">시작하기</button>
-          </form>
+    <div class="col-12 col-lg-7">
+      <section class="card demo-card h-100">
+        <div class="card-body p-3 p-md-4">
+          <h2 class="demo-card-title">배정 확정된 50곡</h2>
+          <div class="demo-song-board">
+            {% for song in intro_song_list %}
+              <button
+                type="button"
+                class="demo-song-chip js-song-chip"
+                data-assignee-indices="{% for idx in song.assignee_indices %}{{ idx }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                title="{% for assignee in song.assignees %}{{ assignee }}{% if not forloop.last %} / {% endif %}{% endfor %}"
+              >{{ song.title }}</button>
+            {% endfor %}
+          </div>
         </div>
-      </div>
-    </div>
-    <div class="col-12 col-lg-4">
-      <div class="card h-100 border-0 shadow-sm">
-        <div class="card-body d-flex flex-column">
-          <h5 class="fw-bold">시나리오 C: 추가합주 잡기</h5>
-          <p class="text-muted small flex-grow-1 mb-3">최종 확정 시간표에서 +합주 버튼으로 추가합주 보드를 열어 기존 일정 회피 배치를 체험합니다.</p>
-          <form method="post" action="{% url 'demo_start' %}" class="js-demo-start-form">
-            {% csrf_token %}
-            <input type="hidden" name="scenario" value="3">
-            <button type="submit" class="btn btn-primary w-100 js-demo-start-btn">시작하기</button>
-          </form>
-        </div>
-      </div>
+      </section>
     </div>
   </div>
 
-  <div class="mt-4 small text-muted">
-    튜토리얼은 데모 시작 후 상단 <strong>투어 다시 보기</strong> 버튼에서 실행할 수 있습니다.
+  <section class="demo-stack-section card demo-card">
+    <div class="card-body p-3 p-md-4">
+      <h2 class="demo-card-title">악! 머리가빠질것같애! 시간표</h2>
+      <div class="demo-schedule-preview-panel" id="demoSongPreviewPanel">
+        <div class="demo-schedule-head">
+          <div class="demo-schedule-name" id="demoSongPreviewTitle">곡 배정 멤버 프리뷰</div>
+          <div class="demo-schedule-summary" id="demoSongPreviewSummary">해당 곡의 배정자 일정이 한 그리드에 겹쳐집니다.</div>
+        </div>
+        <div class="demo-schedule-board-wrap">
+          <div class="home-week-board">
+            <div class="home-week-head time-head"></div>
+            {% for day in intro_board_template.days %}
+              <div class="home-week-head{% if day.is_today %} today{% endif %}">{{ day.date_text }}</div>
+            {% endfor %}
+
+            <div class="home-week-time-col">
+              {% for row in intro_board_template.time_rows %}
+                <div class="home-week-time-row{% if row.slot|divisibleby:2 %}{% else %} half{% endif %}">{{ row.label }}</div>
+              {% endfor %}
+            </div>
+
+            {% for day in intro_board_template.days %}
+              <div class="home-week-day-col">
+                <div class="home-week-day-grid" style="height: calc({{ intro_board_template.slot_count }} * var(--home-slot-h));">
+                  {% for row in intro_board_template.time_rows %}
+                    <div class="home-week-slot-line{% if row.slot|divisibleby:2 %}{% else %} half{% endif %}" style="top: calc({{ forloop.counter0 }} * var(--home-slot-h));"></div>
+                  {% endfor %}
+                  <div class="demo-preview-day-layer" data-preview-day-index="{{ forloop.counter0 }}"></div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% for member in intro_member_schedules %}
+        <div class="demo-schedule-panel{% if forloop.first %} is-active{% endif %}" data-member-panel="{{ member.index }}">
+          <div class="demo-schedule-head">
+            <div class="demo-schedule-name">{{ member.name }}</div>
+          </div>
+          <div class="demo-schedule-board-wrap">
+            {% include 'pracapp/_home_week_board.html' with board=member.board %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
   </div>
 </div>
+
+{{ intro_member_preview_map|json_script:"demoMemberPreviewMap" }}
 
 <script>
   (function () {
-    const forms = document.querySelectorAll('.js-demo-start-form');
+    const form = document.querySelector('.js-demo-start-form');
     const loadingOverlay = document.getElementById('demoStartLoadingOverlay');
-    const loadingDesc = document.getElementById('demoStartLoadingDesc');
+    const startButtons = document.querySelectorAll('.js-demo-start-btn');
+    const scenarioInput = document.getElementById('demoScenarioInput');
+    const loadingDesc = document.querySelector('.demo-start-loading-desc');
+    const memberChips = document.querySelectorAll('.js-member-chip');
+    const memberPanels = document.querySelectorAll('[data-member-panel]');
+    const songChips = document.querySelectorAll('.js-song-chip');
+    const previewPanel = document.getElementById('demoSongPreviewPanel');
+    const previewTitle = document.getElementById('demoSongPreviewTitle');
+    const previewSummary = document.getElementById('demoSongPreviewSummary');
+    const previewDayLayers = document.querySelectorAll('[data-preview-day-index]');
+    const previewDataNode = document.getElementById('demoMemberPreviewMap');
+    const sectionToggleBtn = document.getElementById('demoSectionToggleBtn');
+    const collapsibleSections = document.getElementById('demoCollapsibleSections');
+    const memberPreviewMap = previewDataNode ? JSON.parse(previewDataNode.textContent || '{}') : {};
     let navPending = false;
-    const defaultBtnLabel = '시작하기';
-    const scenarioLoadingText = {
-      '1': '시나리오 A를 준비 중입니다. 선곡시트와 합주 보드를 불러오고 있습니다.',
-      '2': '시나리오 B를 준비 중입니다. 대시보드와 예약 현황을 불러오고 있습니다.',
-      '3': '시나리오 C를 준비 중입니다. 최종 일정과 추가합주 흐름을 불러오고 있습니다.'
-    };
+    let pinnedMemberIndex = '';
+    let sectionsCollapsed = true;
 
     function getCookie(name) {
       const cookieValue = document.cookie
@@ -138,27 +570,166 @@
         loadingOverlay.classList.remove('is-open');
         loadingOverlay.setAttribute('aria-hidden', 'true');
       }
+      startButtons.forEach((button) => {
+        button.disabled = false;
+        button.textContent = '딸깍';
+      });
+      const csrfInput = form?.querySelector('input[name="csrfmiddlewaretoken"]');
       const csrfToken = getCookie('csrftoken');
-      forms.forEach((form) => {
-        const btn = form.querySelector('.js-demo-start-btn');
-        const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = defaultBtnLabel;
-        }
-        if (csrfInput && csrfToken) {
-          csrfInput.value = csrfToken;
+      if (csrfInput && csrfToken) {
+        csrfInput.value = csrfToken;
+      }
+    }
+
+    window.addEventListener('pageshow', refreshFormState);
+
+    function setActiveMember(memberIndex, pinSelection) {
+      if (pinSelection) {
+        pinnedMemberIndex = memberIndex;
+      }
+      memberChips.forEach((item) => {
+        item.classList.toggle('is-active', item.dataset.memberIndex === memberIndex);
+      });
+      memberPanels.forEach((panel) => {
+        panel.classList.toggle('is-active', panel.dataset.memberPanel === memberIndex);
+      });
+    }
+
+    const initialActiveChip = document.querySelector('.js-member-chip.is-active');
+    if (initialActiveChip) {
+      pinnedMemberIndex = initialActiveChip.dataset.memberIndex || '';
+    }
+
+    function syncCollapsibleState() {
+      if (!collapsibleSections || !sectionToggleBtn) return;
+      collapsibleSections.classList.toggle('is-collapsed', sectionsCollapsed);
+      sectionToggleBtn.textContent = sectionsCollapsed ? '이걸 수동으로 한다면..' : '많이 끔찍할거에요,,';
+      sectionToggleBtn.setAttribute('aria-expanded', sectionsCollapsed ? 'false' : 'true');
+      sectionToggleBtn.classList.toggle('is-danger', !sectionsCollapsed);
+    }
+
+    function clearPreviewMembers() {
+      memberChips.forEach((item) => item.classList.remove('is-preview'));
+      songChips.forEach((item) => item.classList.remove('is-preview'));
+    }
+
+    function showPinnedMemberView() {
+      if (previewPanel) {
+        previewPanel.classList.remove('is-active');
+      }
+      memberPanels.forEach((panel) => panel.classList.remove('is-hidden-by-preview'));
+      previewDayLayers.forEach((layer) => {
+        layer.innerHTML = '';
+      });
+    }
+
+    function renderSongPreview(songChip) {
+      if (!previewPanel) return;
+      const indices = (songChip.dataset.assigneeIndices || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (!indices.length) {
+        showPinnedMemberView();
+        return;
+      }
+      clearPreviewMembers();
+      songChip.classList.add('is-preview');
+      memberPanels.forEach((panel) => panel.classList.add('is-hidden-by-preview'));
+      previewPanel.classList.add('is-active');
+      if (previewTitle) {
+        previewTitle.textContent = songChip.textContent || '곡 배정 멤버 프리뷰';
+      }
+      if (previewSummary) {
+        previewSummary.textContent = `배정자 ${indices.length}명의 일정이 한 그리드에 겹쳐집니다.`;
+      }
+
+      const colors = [
+        'rgba(254, 215, 170, 0.9)',
+        'rgba(191, 219, 254, 0.9)',
+        'rgba(220, 252, 231, 0.9)',
+        'rgba(233, 213, 255, 0.9)',
+        'rgba(254, 205, 211, 0.9)',
+        'rgba(254, 240, 138, 0.9)',
+      ];
+
+      previewDayLayers.forEach((layer, dayIndex) => {
+        const laneCount = indices.length;
+        const html = [];
+        indices.forEach((memberIndex, laneIndex) => {
+          const memberData = memberPreviewMap[memberIndex];
+          const dayData = memberData && Array.isArray(memberData.days) ? memberData.days[dayIndex] : null;
+          const blocks = dayData && Array.isArray(dayData.personal_blocks) ? dayData.personal_blocks : [];
+          blocks.forEach((block) => {
+            const color = colors[laneIndex % colors.length];
+            html.push(
+              `<div class="demo-preview-block" style="top: calc(${block.top_slots} * var(--home-slot-h)); height: calc(${block.span_slots} * var(--home-slot-h) - 2px); left: calc(${laneIndex} * (100% / ${laneCount})); width: calc((100% / ${laneCount}) - 3px); background: ${color}; border: 1px solid rgba(15, 23, 42, 0.08);">` +
+              `<span class="demo-preview-block-name">${memberData.name}</span>` +
+              `</div>`
+            );
+          });
+        });
+        layer.innerHTML = html.join('');
+      });
+
+      memberChips.forEach((item) => {
+        if (indices.includes(item.dataset.memberIndex || '')) {
+          item.classList.add('is-preview');
         }
       });
     }
 
-    refreshFormState();
+    function previewSongAssignments(songChip) {
+      if (!songChip) return;
+      renderSongPreview(songChip);
+    }
 
-    window.addEventListener('pageshow', function () {
-      refreshFormState();
+    memberChips.forEach((chip) => {
+      chip.addEventListener('pointerenter', function () {
+        const memberIndex = chip.dataset.memberIndex || '';
+        if (!memberIndex) return;
+        setActiveMember(memberIndex, false);
+      });
+      chip.addEventListener('pointerleave', function () {
+        if (!pinnedMemberIndex) return;
+        setActiveMember(pinnedMemberIndex, false);
+      });
+      chip.addEventListener('focus', function () {
+        const memberIndex = chip.dataset.memberIndex || '';
+        if (!memberIndex) return;
+        setActiveMember(memberIndex, false);
+      });
+      chip.addEventListener('blur', function () {
+        if (!pinnedMemberIndex) return;
+        setActiveMember(pinnedMemberIndex, false);
+      });
+      chip.addEventListener('click', function () {
+        const memberIndex = chip.dataset.memberIndex || '';
+        if (!memberIndex) return;
+        clearPreviewMembers();
+        showPinnedMemberView();
+        setActiveMember(memberIndex, true);
+      });
     });
 
-    forms.forEach((form) => {
+    songChips.forEach((chip) => {
+      chip.addEventListener('pointerenter', function () {
+        previewSongAssignments(chip);
+      });
+      chip.addEventListener('pointerleave', function () {
+        clearPreviewMembers();
+        showPinnedMemberView();
+      });
+      chip.addEventListener('focus', function () {
+        previewSongAssignments(chip);
+      });
+      chip.addEventListener('blur', function () {
+        clearPreviewMembers();
+        showPinnedMemberView();
+      });
+    });
+
+    if (form) {
       form.addEventListener('submit', function (event) {
         if (navPending) {
           event.preventDefault();
@@ -167,22 +738,36 @@
         navPending = true;
         document.body.classList.add('demo-nav-pending');
         sessionStorage.setItem('demo_transition_pending', '1');
-        const scenarioValue = form.querySelector('input[name="scenario"]')?.value || '';
         if (loadingOverlay) {
-          if (loadingDesc) {
-            loadingDesc.textContent = scenarioLoadingText[scenarioValue] || '시나리오를 불러오는 중입니다. 잠시만 기다려주세요.';
-          }
           loadingOverlay.classList.add('is-open');
           loadingOverlay.setAttribute('aria-hidden', 'false');
         }
-        forms.forEach((targetForm) => {
-          const btn = targetForm.querySelector('.js-demo-start-btn');
-          if (!btn) return;
-          btn.disabled = true;
-          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>준비 중...';
+        startButtons.forEach((button) => {
+          button.disabled = true;
+          button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>준비 중...';
         });
       });
-    });
+    }
+
+    if (sectionToggleBtn) {
+      sectionToggleBtn.addEventListener('click', function () {
+        sectionsCollapsed = !sectionsCollapsed;
+        syncCollapsibleState();
+      });
+    }
+
+    if (scenarioInput) {
+      scenarioInput.value = '1';
+    }
+    if (loadingDesc) {
+      loadingDesc.textContent = '합주 시간, 합주 횟수는 나중에 직접 변경 가능합니다!';
+    }
+    const loadingNote = document.querySelector('.demo-start-loading-note');
+    if (loadingNote) {
+      loadingNote.textContent = '120분 주 4회 합주도 가능...은 해요...';
+    }
+    syncCollapsibleState();
+    refreshFormState();
   })();
 </script>
 {% endblock %}

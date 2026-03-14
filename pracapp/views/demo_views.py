@@ -3,6 +3,7 @@ import csv
 import random
 import uuid
 import re
+from urllib.parse import urlencode
 from collections import defaultdict
 from pathlib import Path
 
@@ -29,6 +30,9 @@ from ..models import (
     PracticeSchedule,
     Session,
     Song,
+    RecurringBlock,
+    OneOffBlock,
+    RecurringException,
 )
 from create_dummy import (
     _create_weekly_schedule_for_user,
@@ -63,7 +67,7 @@ DEMO_MEMBER_NAMES = [
 DEMO_TEMPLATE_CSV = Path(__file__).resolve().parents[2] / '김민기_밴드음악_명곡선_선곡템플릿.csv'
 
 SCENARIO_CONFIG = {
-    1: {'label': 'A', 'member_count': 40, 'total_songs': 80, 'assigned_songs': 25},
+    1: {'label': 'A', 'member_count': 40, 'total_songs': 50, 'assigned_songs': 50},
     2: {'label': 'B', 'member_count': 6, 'total_songs': 20, 'assigned_songs': 4},
     3: {'label': 'C', 'member_count': 40, 'total_songs': 80, 'assigned_songs': 25},
 }
@@ -78,6 +82,14 @@ DEMO_TEMPLATE_BAND_PREFIX = '[데모TEMPLATE]'
 DEMO_TEMPLATE_MEETING_PREFIX = '[데모TEMPLATE]'
 DEMO_WORK_BAND_PREFIX = '[데모WORK]'
 DEMO_WORK_MEETING_PREFIX = '[데모WORK]'
+
+DEMO_TUTORIAL_TARGET_TITLES = [
+    'ㄷㅅㅎㅅ',
+    "Can't We Start It All Over Again",
+    '비구름',
+    'A',
+    '마냥 걷는다',
+]
 
 
 def _normalize_cache_scope(raw_scope):
@@ -113,13 +125,171 @@ def _ensure_demo_cache_scope(request):
         if normalized != existing:
             request.session['demo_cache_scope'] = normalized
         return normalized
-
-    if not request.session.session_key:
-        request.session.save()
-    base = str(request.session.session_key or uuid.uuid4().hex)
-    scope = _normalize_cache_scope(base[:12])
+    scope = _normalize_cache_scope(uuid.uuid4().hex[:8])
     request.session['demo_cache_scope'] = scope
     return scope
+
+
+def _tutorial_song_status_class(song):
+    sessions = list(song.sessions.all())
+    applicant_counts = [sess.applicant.count() for sess in sessions]
+    all_assigned = bool(sessions) and all(sess.assignee_id for sess in sessions)
+    missing_applicant_session_count = sum(1 for cnt in applicant_counts if cnt <= 0)
+    if all_assigned:
+        return 'song-card-fully-assigned'
+    if missing_applicant_session_count <= 0:
+        return 'bg-success bg-opacity-10'
+    if missing_applicant_session_count == 1:
+        return 'bg-warning bg-opacity-10'
+    if missing_applicant_session_count == 2:
+        return 'bg-orange bg-opacity-10'
+    return 'bg-danger bg-opacity-10'
+
+
+def _tutorial_song_coverage_key(song):
+    sessions = list(song.sessions.all())
+    applicant_counts = [sess.applicant.count() for sess in sessions]
+    all_assigned = bool(sessions) and all(sess.assignee_id for sess in sessions)
+    missing_applicant_session_count = sum(1 for cnt in applicant_counts if cnt <= 0)
+    if all_assigned:
+        return 'fully_assigned'
+    if missing_applicant_session_count <= 0:
+        return 'full'
+    if missing_applicant_session_count == 1:
+        return 'one'
+    if missing_applicant_session_count == 2:
+        return 'two'
+    return 'three_plus'
+
+
+def _serialize_demo_tutorial_song(song, order_index):
+    slots = []
+    assigned_names = []
+    for item in list(song.get_ordered_sessions())[:6]:
+        session = item.get('obj')
+        assignee_name = str(getattr(getattr(session, 'assignee', None), 'realname', '') or '') if session else ''
+        applicant_names = []
+        if session:
+            applicant_names = [
+                str(getattr(user, 'realname', '') or getattr(user, 'username', '') or '').strip()
+                for user in session.applicant.all()
+                if str(getattr(user, 'realname', '') or getattr(user, 'username', '') or '').strip()
+            ]
+        if assignee_name:
+            assigned_names.append(assignee_name)
+        slots.append({
+            'label': str(item.get('abbr') or item.get('role') or ''),
+            'assignee_name': assignee_name,
+            'applicant_names': applicant_names,
+            'is_empty': session is None,
+        })
+    while len(slots) < 6:
+        slots.append({'label': '', 'assignee_name': '', 'applicant_names': [], 'is_empty': True})
+    return {
+        'title': str(song.title or ''),
+        'artist': str(song.artist or '-'),
+        'order': int(order_index),
+        'status_class': _tutorial_song_status_class(song),
+        'coverage_key': _tutorial_song_coverage_key(song),
+        'assigned_names': assigned_names,
+        'slots': slots,
+    }
+
+
+def _build_demo_tutorial_song_cards(meeting):
+    songs = list(
+        meeting.songs.prefetch_related('sessions__applicant', 'sessions__assignee').order_by('created_at', 'title', 'id')
+    )
+    by_title = {str(song.title or ''): song for song in songs}
+    selected = []
+    used_ids = set()
+    for title in DEMO_TUTORIAL_TARGET_TITLES:
+        song = by_title.get(title)
+        if song:
+            selected.append(song)
+            used_ids.add(str(song.id))
+    for song in songs:
+        if len(selected) >= 5:
+            break
+        if str(song.id) in used_ids:
+            continue
+        selected.append(song)
+        used_ids.add(str(song.id))
+    cards = [
+        _serialize_demo_tutorial_song(song, idx + 1)
+        for idx, song in enumerate(selected[:5])
+    ]
+    while len(cards) < 5:
+        cards.append({
+            'title': '곡 정보 없음',
+            'artist': '-',
+            'order': len(cards) + 1,
+            'status_class': 'bg-warning bg-opacity-10',
+            'coverage_key': 'one',
+            'assigned_names': [],
+            'slots': [{'label': '', 'assignee_name': '', 'applicant_names': [], 'is_empty': True} for _ in range(6)],
+        })
+    member_counts = defaultdict(int)
+    for card in cards:
+        for name in card.get('assigned_names', []):
+            member_counts[name] += 1
+    for card in cards:
+        card['assigned_names_csv'] = '|'.join(card.get('assigned_names', []))
+    return cards, dict(member_counts)
+
+
+def _tutorial_status_from_counts(non_empty_slots):
+    all_assigned = bool(non_empty_slots) and all(str(slot.get('assignee_name') or '').strip() for slot in non_empty_slots)
+    missing_applicant_session_count = sum(
+        1
+        for slot in non_empty_slots
+        if not str(slot.get('assignee_name') or '').strip() and not list(slot.get('applicant_names') or [])
+    )
+    if all_assigned:
+        return 'song-card-fully-assigned', 'fully_assigned'
+    if missing_applicant_session_count <= 0:
+        return 'bg-success bg-opacity-10', 'full'
+    if missing_applicant_session_count == 1:
+        return 'bg-warning bg-opacity-10', 'one'
+    if missing_applicant_session_count == 2:
+        return 'bg-orange bg-opacity-10', 'two'
+    return 'bg-danger bg-opacity-10', 'three_plus'
+
+
+def _inflate_tutorial_display_applicants(cards, fallback_names, minimum_per_slot=3):
+    unique_pool = []
+    seen_pool = set()
+    for raw_name in fallback_names or []:
+        name = str(raw_name or '').strip()
+        if not name or name in seen_pool:
+            continue
+        unique_pool.append(name)
+        seen_pool.add(name)
+
+    for card in cards:
+        for slot in card.get('slots', []):
+            if slot.get('is_empty'):
+                continue
+            existing_names = []
+            seen_names = set()
+            for raw_name in slot.get('applicant_names') or []:
+                name = str(raw_name or '').strip()
+                if not name or name in seen_names:
+                    continue
+                existing_names.append(name)
+                seen_names.add(name)
+            while len(existing_names) < int(minimum_per_slot):
+                next_name = next((name for name in unique_pool if name not in seen_names), '')
+                if not next_name:
+                    break
+                existing_names.append(next_name)
+                seen_names.add(next_name)
+            slot['applicant_names'] = existing_names
+
+        non_empty_slots = [slot for slot in card.get('slots', []) if not slot.get('is_empty')]
+        status_class, coverage_key = _tutorial_status_from_counts(non_empty_slots)
+        card['status_class'] = status_class
+        card['coverage_key'] = coverage_key
 
 
 def _clear_demo_session(request):
@@ -145,6 +315,31 @@ def _cleanup_demo_assets_from_session(request):
     _clear_demo_session(request)
 
 
+def _begin_demo_scenario(request, scenario):
+    scenario = int(scenario or 1)
+    if scenario not in (1, 2, 3):
+        scenario = 1
+
+    if request.session.get('demo_mode'):
+        _cleanup_demo_assets_from_session(request)
+
+    band, template_meeting, _rooms, _songs, demo_users, manager_user, member_user = _ensure_demo_template_dataset(scenario)
+    meeting = template_meeting if scenario == 1 else _clone_demo_working_meeting(template_meeting, manager_user)
+    if scenario == 1:
+        MeetingWorkDraft.objects.filter(meeting=meeting, user=manager_user).delete()
+
+    login(request, manager_user, backend='django.contrib.auth.backends.ModelBackend')
+    request.session['demo_mode'] = True
+    request.session['demo_role'] = 'manager'
+    request.session['demo_scenario'] = scenario
+    request.session['demo_band_id'] = str(meeting.band_id)
+    request.session['demo_meeting_id'] = str(meeting.id)
+    request.session['demo_user_manager_id'] = str(manager_user.id)
+    request.session['demo_user_member_id'] = str(member_user.id)
+    request.session['demo_user_ids'] = []
+    return redirect('demo_scenario', scenario=scenario)
+
+
 def _build_match_params(rooms):
     room_ids = [str(r.id) for r in rooms]
     room_csv = ",".join(room_ids)
@@ -157,6 +352,7 @@ def _build_match_params(rooms):
         'w': '0',
         're': '1',
         'h': '0',
+        'sd': '0',
         'ts': '18',
         'te': '48',
     }
@@ -312,13 +508,13 @@ def _ensure_cached_demo_dataset(scenario, cache_scope):
     manager_user = User.objects.create_user(
         username=f"{cache_prefix}manager",
         password=uuid.uuid4().hex,
-        realname='데모 캐시 매니저',
+        realname='체험 캐시 매니저',
         instrument='Guitar',
     )
     member_user = User.objects.create_user(
         username=f"{cache_prefix}member",
         password=uuid.uuid4().hex,
-        realname='데모 캐시 멤버',
+        realname='체험 캐시 멤버',
         instrument='Vocal',
     )
     band, meeting, rooms, songs, demo_users = _seed_demo_meeting_data(
@@ -330,7 +526,7 @@ def _ensure_cached_demo_dataset(scenario, cache_scope):
     )
     band.name = cache_band_name
     band.save(update_fields=['name'])
-    meeting.title = f"[데모CACHE] 시나리오 {cfg['label']}"
+    meeting.title = f"[체험CACHE] 시나리오 {cfg['label']}"
     meeting.save(update_fields=['title'])
     _backfill_assignee_to_applicant(meeting)
     return band, meeting, rooms, songs, demo_users, manager_user, member_user
@@ -351,9 +547,46 @@ def _ensure_demo_template_dataset(scenario):
         member_user = next((u for u in users if u != manager_user), None)
         template_user_count_ok = len(users) >= int(cfg['member_count'])
         template_participant_count_ok = bool(meeting and meeting.participants.count() >= int(cfg['member_count']))
-        template_song_count_ok = bool(meeting and meeting.songs.count() >= int(cfg['total_songs']))
-        if meeting and manager_user and member_user and template_user_count_ok and template_participant_count_ok and template_song_count_ok:
+        template_song_count_ok = bool(meeting and meeting.songs.count() == int(cfg['total_songs']))
+        template_assigned_song_count_ok = False
+        template_song_session_count_ok = False
+        template_song_complexity_ok = True
+        template_extra_session_assignment_ok = True
+        if meeting:
+            songs_with_required_sessions = [
+                song for song in meeting.songs.all()
+                if song.sessions.filter(is_extra=False).exists()
+            ]
+            template_song_session_count_ok = len(songs_with_required_sessions) == int(cfg['total_songs'])
+            fully_assigned_song_count = sum(
+                1 for song in songs_with_required_sessions
+                if all(sess.assignee_id for sess in song.sessions.filter(is_extra=False))
+            )
+            template_assigned_song_count_ok = fully_assigned_song_count >= int(cfg['assigned_songs'])
+            if scenario == 1:
+                template_song_complexity_ok = all(song.sessions.count() <= 6 for song in meeting.songs.all())
+                extra_sessions = [
+                    sess
+                    for song in meeting.songs.all()
+                    for sess in song.sessions.all()
+                    if sess.is_extra
+                ]
+                template_extra_session_assignment_ok = all(sess.assignee_id for sess in extra_sessions)
+        if (
+            meeting
+            and manager_user
+            and member_user
+            and template_user_count_ok
+            and template_participant_count_ok
+            and template_song_count_ok
+            and template_song_session_count_ok
+            and template_assigned_song_count_ok
+            and template_song_complexity_ok
+            and template_extra_session_assignment_ok
+        ):
             _backfill_assignee_to_applicant(meeting)
+            if scenario == 1:
+                MeetingWorkDraft.objects.filter(meeting=meeting, user=manager_user).delete()
             rooms = list(band.rooms.filter(is_temporary=False).order_by('name'))
             songs = list(meeting.songs.order_by('created_at', 'title', 'id'))
             return band, meeting, rooms, songs, users, manager_user, member_user
@@ -363,13 +596,13 @@ def _ensure_demo_template_dataset(scenario):
     manager_user = User.objects.create_user(
         username=f"{user_prefix}manager",
         password=uuid.uuid4().hex,
-        realname='데모 템플릿 매니저',
+        realname='체험 템플릿 매니저',
         instrument='Guitar',
     )
     member_user = User.objects.create_user(
         username=f"{user_prefix}member",
         password=uuid.uuid4().hex,
-        realname='데모 템플릿 멤버',
+        realname='체험 템플릿 멤버',
         instrument='Vocal',
     )
     band, meeting, rooms, songs, demo_users = _seed_demo_meeting_data(
@@ -436,6 +669,183 @@ def _remap_booking_completed_keys(keys, room_map):
         else:
             remapped.append(raw)
     return remapped
+
+
+def _build_intro_personal_board(user, base_date):
+    monday = base_date - datetime.timedelta(days=base_date.weekday())
+    sunday = monday + datetime.timedelta(days=6)
+    weekday_kor = ['월', '화', '수', '목', '금', '토', '일']
+
+    personal_ranges_by_date = defaultdict(list)
+    personal_reasons_by_date_slot = defaultdict(lambda: defaultdict(set))
+
+    recurring_qs = (
+        RecurringBlock.objects.filter(
+            user=user,
+            start_date__lte=sunday,
+            end_date__gte=monday,
+        )
+        .order_by('day_of_week', 'start_index', 'end_index')
+    )
+    oneoff_qs = (
+        OneOffBlock.objects.filter(
+            user=user,
+            date__range=[monday, sunday],
+            is_generated=False,
+        )
+        .order_by('date', 'start_index', 'end_index')
+    )
+    exc_qs = (
+        RecurringException.objects.filter(
+            user=user,
+            date__range=[monday, sunday],
+        )
+        .order_by('date', 'start_index', 'end_index')
+    )
+
+    exc_payload_by_date = defaultdict(lambda: {'slots': set(), 'targeted': []})
+    for ex in exc_qs:
+        d_key = ex.date
+        target_payload = ex.target_payload or {}
+        if isinstance(target_payload, dict) and target_payload:
+            exc_payload_by_date[d_key]['targeted'].append({
+                'start': int(ex.start_index),
+                'end': int(ex.end_index),
+                'target': target_payload,
+            })
+        else:
+            for slot in range(int(ex.start_index), int(ex.end_index)):
+                exc_payload_by_date[d_key]['slots'].add(int(slot))
+
+    recurring_by_weekday = defaultdict(list)
+    for rb in recurring_qs:
+        recurring_by_weekday[int(rb.day_of_week)].append(rb)
+
+    def _target_matches_block(target, block):
+        if not isinstance(target, dict):
+            return False
+        try:
+            t_day = int(target.get('day_of_week'))
+            t_start = int(target.get('start'))
+            t_end = int(target.get('end'))
+        except (TypeError, ValueError):
+            return False
+        t_reason = str(target.get('reason') or '').strip()
+        t_scope_start = str(target.get('scope_start') or '')
+        t_scope_end = str(target.get('scope_end') or '')
+        return (
+            t_day == int(block.day_of_week)
+            and t_start == int(block.start_index)
+            and t_end == int(block.end_index)
+            and t_reason == str(block.reason or '').strip()
+            and t_scope_start == str((block.start_date or '').isoformat() if block.start_date else '')
+            and t_scope_end == str((block.end_date or '').isoformat() if block.end_date else '')
+        )
+
+    def _is_recurring_slot_cancelled(date_value, block, slot):
+        payload = exc_payload_by_date.get(date_value, {'slots': set(), 'targeted': []})
+        if int(slot) in payload['slots']:
+            return True
+        for row in payload['targeted']:
+            start = int(row.get('start', -1))
+            end = int(row.get('end', -1))
+            if not (start <= int(slot) < end):
+                continue
+            if _target_matches_block(row.get('target') or {}, block):
+                return True
+        return False
+
+    for i in range(7):
+        d = monday + datetime.timedelta(days=i)
+        day_idx = int(d.weekday())
+        for rb in recurring_by_weekday.get(day_idx, []):
+            if not (rb.start_date and rb.end_date and rb.start_date <= d <= rb.end_date):
+                continue
+            reason_text = str(rb.reason or '').strip() or '개인 일정'
+            for slot in range(int(rb.start_index), int(rb.end_index)):
+                if _is_recurring_slot_cancelled(d, rb, slot):
+                    continue
+                personal_reasons_by_date_slot[d][int(slot)].add(reason_text)
+
+    for ob in oneoff_qs:
+        reason_text = str(ob.reason or '').strip() or '개인 일정'
+        for slot in range(int(ob.start_index), int(ob.end_index)):
+            personal_reasons_by_date_slot[ob.date][int(slot)].add(reason_text)
+
+    for d_key, slot_reason_map in personal_reasons_by_date_slot.items():
+        sorted_slots = sorted(set(int(s) for s in slot_reason_map.keys()))
+        if not sorted_slots:
+            continue
+
+        def _slot_reason_text(slot_value):
+            reasons = sorted(
+                set(str(r).strip() for r in slot_reason_map.get(int(slot_value), set()) if str(r).strip())
+            )
+            if not reasons:
+                return '개인 일정'
+            return ', '.join(reasons)
+
+        start = sorted_slots[0]
+        prev = start
+        current_reason_text = _slot_reason_text(start)
+        for s in sorted_slots[1:]:
+            next_reason_text = _slot_reason_text(s)
+            if s == prev + 1 and next_reason_text == current_reason_text:
+                prev = s
+                continue
+            personal_ranges_by_date[d_key].append((start, prev + 1, current_reason_text))
+            start = s
+            prev = s
+            current_reason_text = next_reason_text
+        personal_ranges_by_date[d_key].append((start, prev + 1, current_reason_text))
+
+    # 인트로 프리뷰는 멤버마다 시간축이 흔들리면 비교가 어려우므로 고정 범위로 유지한다.
+    slot_start = 18  # 09:00
+    slot_end = 48    # 24:00
+    slot_count = slot_end - slot_start
+
+    time_rows = []
+    for slot in range(slot_start, slot_end + 1):
+        label = ''
+        if slot % 2 == 0:
+            h = slot // 2
+            label = f'{h:02d}:00'
+        time_rows.append({'slot': slot, 'label': label})
+
+    days = []
+    total_personal_blocks = 0
+    for i in range(7):
+        d = monday + datetime.timedelta(days=i)
+        personal_blocks = []
+        for p_start, p_end, p_reason_text in personal_ranges_by_date.get(d, []):
+            start = max(slot_start, min(slot_end, int(p_start)))
+            end = max(start + 1, min(slot_end, int(p_end)))
+            if end <= slot_start or start >= slot_end:
+                continue
+            personal_blocks.append({
+                'top_slots': start - slot_start,
+                'span_slots': max(1, end - start),
+                'reason_text': str(p_reason_text or '').strip() or '개인 일정',
+            })
+        total_personal_blocks += len(personal_blocks)
+        days.append({
+            'date': d,
+            'date_text': f"{d.month}/{d.day}({weekday_kor[d.weekday()]})",
+            'is_today': d == base_date,
+            'events': [],
+            'personal_blocks': personal_blocks,
+        })
+
+    return {
+        'week_start': monday,
+        'week_end': sunday,
+        'slot_start': slot_start,
+        'slot_end': slot_end,
+        'slot_count': slot_count,
+        'time_rows': time_rows,
+        'days': days,
+        'has_events': total_personal_blocks > 0,
+    }
 
 
 def _clone_demo_working_meeting(template_meeting, manager_user):
@@ -586,7 +996,7 @@ def _clone_demo_working_meeting(template_meeting, manager_user):
 
     ghost_meeting_map = {}
     template_ghosts = list(
-        template_band.meetings.filter(title__startswith='[데모B]').exclude(id=template_meeting.id).order_by('created_at', 'id')
+        template_band.meetings.filter(title__startswith='[체험B]').exclude(id=template_meeting.id).order_by('created_at', 'id')
     )
     for ghost in template_ghosts:
         cloned_ghost = Meeting.objects.create(
@@ -629,12 +1039,12 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
     random.seed(20260225)
     suffix = uuid.uuid4().hex[:8]
     band = Band.objects.create(
-        name=f"[데모DB] 락스타즈-{suffix}",
+        name=f"[체험DB] 락스타즈-{suffix}",
         school='Demo School',
         department='ETC',
-        department_detail='데모 전용',
-        introduce='데모 전용 밴드',
-        description='데모 전용 데이터',
+        department_detail='체험 전용',
+        introduce='체험 전용 밴드',
+        description='체험 전용 데이터',
         is_public=False,
     )
 
@@ -667,8 +1077,8 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
     practice_start_date, practice_end_date = _resolve_demo_practice_range()
     meeting = Meeting.objects.create(
         band=band,
-        title='[데모] 합주 일정 시뮬레이션',
-        description='데모 시나리오용 선곡회의',
+        title='[체험] 합주 일정 시뮬레이션',
+        description='체험 시나리오용 선곡회의',
         practice_start_date=practice_start_date,
         practice_end_date=practice_end_date,
     )
@@ -714,14 +1124,19 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
         _sync_member_availability_from_blocks(user, practice_start_date, practice_end_date)
 
     songs = []
-    template_rows = _load_demo_song_template_rows(limit=max(1, int(total_songs)))
-    for song_idx, row in enumerate(template_rows):
+    template_rows = _load_demo_song_template_rows(limit=None)
+    created_song_count = 0
+    for row in template_rows:
+        if created_song_count >= int(total_songs):
+            break
         title = str(row.get('title') or '').strip()
         artist = str(row.get('artist') or '').strip()
         needed = [s.strip() for s in str(row.get('needed_session') or '').split(',') if s.strip()]
         extras = [s.strip() for s in str(row.get('extra_session') or '').split(',') if s.strip()]
 
-        if not title:
+        if (not title) or (not needed):
+            continue
+        if len(needed) + len(extras) > 6:
             continue
         song = Song.objects.create(
             meeting=meeting,
@@ -732,7 +1147,8 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
             author_note=str(row.get('author_note') or '').strip(),
         )
         songs.append(song)
-        should_assign = song_idx < int(assigned_songs)
+        should_assign = created_song_count < int(assigned_songs)
+        created_song_count += 1
         for sess_name in needed:
             sess = Session.objects.create(song=song, name=sess_name, is_extra=False)
             if should_assign:
@@ -757,12 +1173,31 @@ def _seed_demo_meeting_data(manager_user, member_user, member_count=40, total_so
                     if applicants:
                         sess.applicant.add(*applicants)
         for sess_name in extras:
-            Session.objects.create(song=song, name=sess_name, is_extra=True)
+            extra_sess = Session.objects.create(song=song, name=sess_name, is_extra=True)
+            if should_assign:
+                extra_assignee = _pick_seed_assignee_for_session(
+                    sess_name=sess_name,
+                    instrument_users=instrument_users,
+                    manager_user=manager_user,
+                    seeded_role_counts=seeded_role_counts,
+                )
+                extra_sess.assignee = extra_assignee
+                extra_sess.save(update_fields=['assignee'])
+                extra_sess.applicant.add(extra_assignee)
+            else:
+                extra_applicants = _pick_session_applicants(
+                    sess_name=sess_name,
+                    instrument_users=instrument_users,
+                    fallback_users=demo_users,
+                    count=(2 if random.random() < 0.35 else 1),
+                )
+                if extra_applicants:
+                    extra_sess.applicant.add(*extra_applicants)
 
     return band, meeting, rooms, songs, demo_users
 
 
-def _build_events_for_songs(songs, rooms, start_date, max_events=None):
+def _build_events_for_songs(songs, rooms, start_date, max_events=None, fixed_duration_slots=None):
     events = []
     duration_cycle = [2, 3, 2, 2, 3]
     start_cycle = [34, 36, 38, 40, 42]
@@ -774,7 +1209,7 @@ def _build_events_for_songs(songs, rooms, start_date, max_events=None):
         day_offset = idx % 5
         day = start_date + datetime.timedelta(days=(week * 7) + day_offset)
         start = start_cycle[(idx // room_count) % len(start_cycle)]
-        duration = duration_cycle[idx % len(duration_cycle)]
+        duration = int(fixed_duration_slots) if fixed_duration_slots is not None else duration_cycle[idx % len(duration_cycle)]
         room = rooms[idx % room_count]
         events.append(_serialize_event(
             song=song,
@@ -790,7 +1225,7 @@ def _build_events_for_songs(songs, rooms, start_date, max_events=None):
 
 
 def _inject_scenario_b_roomblocks(band, rooms, start_date):
-    Meeting.objects.filter(band=band, title__startswith='[데모B]').delete()
+    Meeting.objects.filter(band=band, title__startswith='[체험B]').delete()
     team_specs = [
         ('팀 B', [('A', 0, 36, 42), ('B', 1, 38, 44)]),
         ('팀 C', [('A', 1, 34, 40), ('B', 0, 34, 39)]),
@@ -802,8 +1237,8 @@ def _inject_scenario_b_roomblocks(band, rooms, start_date):
     for team_name, blocks in team_specs:
         ghost = Meeting.objects.create(
             band=band,
-            title=f'[데모B] {team_name} 예약',
-            description='데모 시나리오 B 유령 미팅',
+            title=f'[체험B] {team_name} 예약',
+            description='체험 시나리오 B 보조 미팅',
             practice_start_date=start_date,
             practice_end_date=start_date + datetime.timedelta(days=60),
             is_schedule_coordinating=False,
@@ -828,13 +1263,20 @@ def _apply_scenario_state(meeting, manager_user, rooms, songs, scenario, assigne
     MeetingFinalDraft.objects.filter(meeting=meeting).delete()
     MeetingWorkDraft.objects.filter(meeting=meeting).delete()
     MeetingScheduleConfirmation.objects.filter(meeting=meeting).delete()
-    RoomBlock.objects.filter(source_meeting__band=meeting.band, source_meeting__title__startswith='[데모B]').delete()
-    Meeting.objects.filter(band=meeting.band, title__startswith='[데모B]').delete()
+    RoomBlock.objects.filter(source_meeting__band=meeting.band, source_meeting__title__startswith='[체험B]').delete()
+    Meeting.objects.filter(band=meeting.band, title__startswith='[체험B]').delete()
 
     start_date = meeting.practice_start_date or (datetime.date.today() + datetime.timedelta(days=1))
     match_params = _build_match_params(rooms)
     schedulable_songs = [song for song in songs if song.is_session_full]
-    base_events = _build_events_for_songs(schedulable_songs, rooms, start_date, max_events=assigned_songs)
+    fixed_duration_slots = 2 if scenario == 1 else None
+    base_events = _build_events_for_songs(
+        schedulable_songs,
+        rooms,
+        start_date,
+        max_events=assigned_songs,
+        fixed_duration_slots=fixed_duration_slots,
+    )
     _backfill_assignee_to_applicant(meeting)
 
     if scenario == 1:
@@ -916,20 +1358,107 @@ def _apply_scenario_state(meeting, manager_user, rooms, songs, scenario, assigne
 
 def _redirect_for_scenario(request, meeting, scenario):
     if scenario == 1:
-        return redirect('meeting_detail', pk=meeting.id)
+        rooms = list(PracticeRoom.objects.filter(band=meeting.band, is_temporary=False).order_by('name', 'id'))
+        match_params = _build_match_params(rooms)
+        query = {
+            'd': str(match_params.get('d') or '60'),
+            'c': str(match_params.get('c') or '1'),
+            'p': str(match_params.get('p') or ''),
+            'r': str(match_params.get('r') or ''),
+            'rp': str(match_params.get('rp') or ''),
+            'w': str(match_params.get('w') or '0'),
+            're': str(match_params.get('re') or '0'),
+            'h': str(match_params.get('h') or '0'),
+            'sd': str(match_params.get('sd') or '0'),
+            'ts': str(match_params.get('ts') or '18'),
+            'te': str(match_params.get('te') or '48'),
+            'force_rematch': '1',
+        }
+        run_url = f"{reverse('schedule_match_run', args=[meeting.id])}?{urlencode(query)}"
+        return redirect(run_url)
     if scenario == 2:
         return redirect('demo_dashboard')
     return redirect('schedule_final', meeting_id=meeting.id)
 
 
 def demo_home(request):
-    return render(request, 'pracapp/demo/demo_home.html')
+    band, meeting, rooms, songs, users, manager_user, member_user = _ensure_demo_template_dataset(1)
+    intro_users = list(users)[:40]
+    member_index_by_id = {str(user.id): idx for idx, user in enumerate(intro_users)}
+    base_date = meeting.practice_start_date or timezone.localdate()
+
+    intro_member_schedules = []
+    intro_member_preview_map = {}
+    intro_board_template = None
+    for idx, user in enumerate(intro_users):
+        board = _build_intro_personal_board(user, base_date)
+        if intro_board_template is None:
+            intro_board_template = {
+                'slot_count': board['slot_count'],
+                'time_rows': list(board['time_rows']),
+                'days': [
+                    {
+                        'date_text': day['date_text'],
+                        'is_today': day['is_today'],
+                        'personal_blocks': [],
+                        'events': [],
+                    }
+                    for day in board['days']
+                ],
+            }
+        intro_member_schedules.append({
+            'index': idx,
+            'name': str(getattr(user, 'realname', '') or getattr(user, 'username', '') or f'멤버 {idx + 1}'),
+            'summary': f"실제 create_dummy 규칙으로 생성된 개인 일정",
+            'board': board,
+        })
+        intro_member_preview_map[str(idx)] = {
+            'name': str(getattr(user, 'realname', '') or getattr(user, 'username', '') or f'멤버 {idx + 1}'),
+            'days': [
+                {
+                    'personal_blocks': [
+                        {
+                            'top_slots': int(pb.get('top_slots', 0)),
+                            'span_slots': int(pb.get('span_slots', 1)),
+                            'reason_text': str(pb.get('reason_text', '') or ''),
+                        }
+                        for pb in day.get('personal_blocks', [])
+                    ]
+                }
+                for day in board['days']
+            ],
+        }
+
+    intro_song_list = []
+    actual_songs = list(songs)[:50]
+    for idx, song in enumerate(actual_songs, start=1):
+        assignees = []
+        assignee_indices = []
+        for sess in song.sessions.filter(assignee__isnull=False).select_related('assignee').order_by('is_extra', 'name', 'id'):
+            assignee_name = str(getattr(sess.assignee, 'realname', '') or getattr(sess.assignee, 'username', '') or '-')
+            assignees.append(f"{sess.name}: {assignee_name}")
+            member_index = member_index_by_id.get(str(sess.assignee_id))
+            if member_index is not None and member_index not in assignee_indices:
+                assignee_indices.append(member_index)
+        intro_song_list.append({
+            'order': idx,
+            'title': song.title,
+            'artist': song.artist,
+            'assignees': assignees,
+            'assignee_indices': assignee_indices,
+        })
+    return render(request, 'pracapp/demo/demo_home.html', {
+        'intro_member_schedules': intro_member_schedules,
+        'intro_member_preview_map': intro_member_preview_map,
+        'intro_board_template': intro_board_template,
+        'intro_song_list': intro_song_list,
+    })
 
 
 @login_required
 def demo_dashboard(request):
     if not request.session.get('demo_mode'):
-        messages.info(request, '먼저 데모를 시작해주세요.')
+        messages.info(request, '먼저 체험을 시작해주세요.')
         return redirect('demo_home')
     scenario = int(request.session.get('demo_scenario') or 1)
     if scenario != 2:
@@ -938,13 +1467,13 @@ def demo_dashboard(request):
     meeting = get_object_or_404(Meeting, id=meeting_id)
     room_blocks = RoomBlock.objects.filter(
         source_meeting__band=meeting.band,
-        source_meeting__title__startswith='[데모B]',
+        source_meeting__title__startswith='[체험B]',
     ).select_related('room', 'source_meeting').order_by('date', 'start_index')
 
     team_map = {}
     for rb in room_blocks:
         title = str(getattr(rb.source_meeting, 'title', '') or '')
-        team_name = title.replace('[데모B] ', '').replace(' 예약', '').strip() or '팀'
+        team_name = title.replace('[체험B] ', '').replace(' 예약', '').strip() or '팀'
         team_map.setdefault(team_name, []).append(rb)
 
     team_rows = [{
@@ -975,38 +1504,75 @@ def demo_dashboard(request):
     })
 
 
+@login_required
+def demo_feature_tutorial(request):
+    if not request.session.get('demo_mode'):
+        messages.info(request, '먼저 체험을 시작해주세요.')
+        return redirect('demo_home')
+
+    meeting_id = request.session.get('demo_meeting_id')
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    match_settings_url = reverse('schedule_match_settings', kwargs={'meeting_id': meeting.id})
+    tutorial_cards, tutorial_member_counts = _build_demo_tutorial_song_cards(meeting)
+    tutorial_member_rows = sorted(
+        (
+            {'name': name, 'count': count}
+            for name, count in tutorial_member_counts.items()
+        ),
+        key=lambda row: (-int(row['count']), str(row['name'])),
+    )
+    participant_names = [
+        str(getattr(part.user, 'realname', '') or getattr(part.user, 'username', '') or '').strip()
+        for part in meeting.participants.select_related('user').all()
+        if str(getattr(part.user, 'realname', '') or getattr(part.user, 'username', '') or '').strip()
+    ]
+    _inflate_tutorial_display_applicants(tutorial_cards, participant_names, minimum_per_slot=3)
+    step1_slot = None
+    step2_slot = None
+    if tutorial_cards:
+        primary_slots = tutorial_cards[0].get('slots', [])
+        step1_slot = next((slot for slot in primary_slots if str(slot.get('label') or '') == 'G1'), None)
+        step2_slot = next((slot for slot in primary_slots if not slot.get('is_empty')), None)
+    step1_applicants = list((step1_slot or {}).get('applicant_names') or [])
+    step2_assign_choices = list((step2_slot or {}).get('applicant_names') or [])
+    if not step1_applicants:
+        step1_applicants = participant_names[:3]
+    if not step2_assign_choices:
+        step2_assign_choices = participant_names[:3]
+    manage_primary_names = list(step2_assign_choices[:3])
+    manage_secondary_names = [name for name in participant_names if name not in manage_primary_names][:3]
+    if not manage_primary_names:
+        manage_primary_names = participant_names[:2]
+    if not manage_secondary_names:
+        manage_secondary_names = participant_names[2:4]
+    demo_user_name = str(
+        getattr(request.user, 'realname', '') or getattr(request.user, 'username', '') or '체험 매니저'
+    ).strip() or '체험 매니저'
+
+    return render(request, 'pracapp/demo/demo_feature_tutorial.html', {
+        'meeting': meeting,
+        'match_settings_url': match_settings_url,
+        'tutorial_cards': tutorial_cards,
+        'tutorial_member_rows': tutorial_member_rows[:10],
+        'tutorial_step1_applicants': step1_applicants[:5],
+        'tutorial_step2_assign_choices': step2_assign_choices[:5],
+        'tutorial_manage_primary_names': manage_primary_names,
+        'tutorial_manage_secondary_names': manage_secondary_names,
+        'tutorial_demo_user_name': demo_user_name,
+    })
+
+
 @transaction.atomic
 def demo_start(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
-
-    scenario = int(request.POST.get('scenario') or 1)
-    if scenario not in (1, 2, 3):
-        scenario = 1
-
-    if request.session.get('demo_mode'):
-        _cleanup_demo_assets_from_session(request)
-
-    band, template_meeting, _rooms, _songs, demo_users, manager_user, member_user = _ensure_demo_template_dataset(scenario)
-    meeting = _clone_demo_working_meeting(template_meeting, manager_user)
-
-    login(request, manager_user, backend='django.contrib.auth.backends.ModelBackend')
-    request.session['demo_mode'] = True
-    request.session['demo_role'] = 'manager'
-    request.session['demo_scenario'] = scenario
-    request.session['demo_band_id'] = str(meeting.band_id)
-    request.session['demo_meeting_id'] = str(meeting.id)
-    request.session['demo_user_manager_id'] = str(manager_user.id)
-    request.session['demo_user_member_id'] = str(member_user.id)
-    request.session['demo_user_ids'] = []
-
-    return redirect('demo_scenario', scenario=scenario)
+    return _begin_demo_scenario(request, request.POST.get('scenario') or 1)
 
 
 @login_required
 def demo_scenario(request, scenario):
     if not request.session.get('demo_mode'):
-        messages.info(request, '먼저 데모를 시작해주세요.')
+        messages.info(request, '먼저 체험을 시작해주세요.')
         return redirect('demo_home')
     if scenario not in (1, 2, 3):
         scenario = 1

@@ -280,6 +280,16 @@
                     </div>
 
                     <div class="mt-4">
+                        <div class="form-check">
+                            {{ form.separate_days_for_multi_sessions }}
+                            <label class="form-check-label fw-bold" for="{{ form.separate_days_for_multi_sessions.id_for_label }}">
+                                {{ form.separate_days_for_multi_sessions.label }}
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-1">{{ form.separate_days_for_multi_sessions.help_text }}</div>
+                    </div>
+
+                    <div class="mt-4">
                         <div class="fw-bold mb-2">합주시간 제한</div>
                         <div class="row g-2">
                             <div class="col-6">
@@ -554,6 +564,7 @@
         const excludeWeekends = !!document.querySelector('input[name="exclude_weekends"]')?.checked;
         const roomEfficiencyPriority = !!document.querySelector('input[name="room_efficiency_priority"]')?.checked;
         const hourStartOnly = !!document.querySelector('input[name="hour_start_only"]')?.checked;
+        const separateDaysForMultiSessions = !!document.querySelector('input[name="separate_days_for_multi_sessions"]')?.checked;
         const timeStart = String(document.getElementById('id_time_limit_start')?.value || '');
         const timeEnd = String(document.getElementById('id_time_limit_end')?.value || '');
         return {
@@ -561,6 +572,7 @@
             excludeWeekends,
             roomEfficiencyPriority,
             hourStartOnly,
+            separateDaysForMultiSessions,
             timeStart,
             timeEnd,
         };
@@ -593,6 +605,9 @@
         }
         if (cur.hourStartOnly !== advancedInitialSnapshot.hourStartOnly) {
             changes.push(`정시 시작만 허용: ${cur.hourStartOnly ? 'ON' : 'OFF'}`);
+        }
+        if (cur.separateDaysForMultiSessions !== advancedInitialSnapshot.separateDaysForMultiSessions) {
+            changes.push(`주 2회 이상은 다른 날짜 강제: ${cur.separateDaysForMultiSessions ? 'ON' : 'OFF'}`);
         }
         if (cur.timeStart !== advancedInitialSnapshot.timeStart || cur.timeEnd !== advancedInitialSnapshot.timeEnd) {
             changes.push(`합주시간 제한: ${toHourLabel(cur.timeStart)} ~ ${toHourLabel(cur.timeEnd)}`);

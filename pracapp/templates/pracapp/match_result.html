@@ -13,6 +13,20 @@
 </div>
 {% else %}
 <style>
+    {% if is_demo %}
+    #saveWorkDraftBtn,
+    #saveWorkDraftBtnBooking,
+    #quickSaveDraftBtn,
+    #quickSaveDraftBtnBooking,
+    #saveResultBtn,
+    #quickFinalSaveBtn,
+    #matchRematchBtn,
+    #goBookingConfirmFromMatchBtn,
+    #shareCurrentScheduleBtnInline,
+    #bookingEntryStatusTop {
+        display: none !important;
+    }
+    {% endif %}
     :root {
         --booking-panel-w-fixed: 200px;
         --booking-panel-w: calc(var(--booking-panel-w-fixed) * 2 + 0.35rem);
@@ -387,8 +401,11 @@
     .week-board {
         --slot-h: 32px;
         --ep-primary: #5b4fcf;
+        --board-time-w: 52px;
+        --board-day-w: 130px;
         display: grid;
-        grid-template-columns: 52px repeat(7, minmax(130px, 1fr));
+        grid-template-columns: var(--board-time-w) repeat(7, minmax(var(--board-day-w), 1fr));
+        width: max(100%, calc(var(--board-time-w) + (7 * var(--board-day-w))));
         background: #ddd;
         gap: 1px;
         border: 1px solid #ddd;
@@ -396,7 +413,8 @@
         overflow: hidden;
     }
     .match-weekend-hidden .week-board {
-        grid-template-columns: 52px repeat(5, minmax(130px, 1fr));
+        grid-template-columns: var(--board-time-w) repeat(5, minmax(var(--board-day-w), 1fr));
+        width: max(100%, calc(var(--board-time-w) + (5 * var(--board-day-w))));
     }
     .match-weekend-hidden .board-head-day.weekend-sat,
     .match-weekend-hidden .board-head-day.weekend-sun,
@@ -1297,7 +1315,8 @@
         border-color: #ffa8a8 !important;
     }
     .failed-summary-week {
-        min-width: 220px;
+        width: 100%;
+        min-width: 0;
     }
     .failed-summary-week-title {
         font-weight: 700;
@@ -1306,8 +1325,10 @@
     }
     .failed-summary-week-cards {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 2px;
     }
     .drag-target-warn1 {
         box-shadow: 0 0 0 2px rgba(173, 181, 189, 0.95), 0 8px 18px rgba(0, 0, 0, 0.22) !important;
@@ -1651,10 +1672,14 @@
             overflow-x: hidden;
         }
         .booking-split-main .week-board {
-            grid-template-columns: 64px repeat(7, minmax(104px, 1fr));
+            --board-time-w: 64px;
+            --board-day-w: 104px;
+            grid-template-columns: var(--board-time-w) repeat(7, minmax(var(--board-day-w), 1fr));
+            width: max(100%, calc(var(--board-time-w) + (7 * var(--board-day-w))));
         }
         .match-weekend-hidden .booking-split-main .week-board {
-            grid-template-columns: 64px repeat(5, minmax(104px, 1fr));
+            grid-template-columns: var(--board-time-w) repeat(5, minmax(var(--board-day-w), 1fr));
+            width: max(100%, calc(var(--board-time-w) + (5 * var(--board-day-w))));
         }
         .booking-split-shell .booking-tools-panel-head {
             cursor: default;
@@ -1687,11 +1712,14 @@
         }
         .week-board {
             --slot-h: 52px;
-            grid-template-columns: 52px repeat(7, minmax(0, 1fr));
-            width: 100%;
+            --board-time-w: 52px;
+            --board-day-w: 92px;
+            grid-template-columns: var(--board-time-w) repeat(7, minmax(var(--board-day-w), 1fr));
+            width: max(100%, calc(var(--board-time-w) + (7 * var(--board-day-w))));
         }
         .match-weekend-hidden .week-board {
-            grid-template-columns: 52px repeat(5, minmax(0, 1fr));
+            grid-template-columns: var(--board-time-w) repeat(5, minmax(var(--board-day-w), 1fr));
+            width: max(100%, calc(var(--board-time-w) + (5 * var(--board-day-w))));
         }
         .week-board.is-full-view {
             --slot-h: 16px;
@@ -1779,7 +1807,7 @@
 
     <div class="result-header">
         <div class="result-header-title w-100">
-            {% if not is_final_view %}
+            {% if not is_final_view and not is_demo %}
             <div class="result-back-link">
                 <a href="{% url 'meeting_detail' meeting.id %}" class="btn btn-outline-secondary mb-3 btn-sm">
                     ← 선곡회의로 돌아가기
@@ -1801,7 +1829,7 @@
                     {% endif %}
                 </h1>
             </div>
-            {% if not is_simulation and match_duration_minutes and match_required_count %}
+            {% if not is_simulation and not is_demo and match_duration_minutes and match_required_count %}
             <div class="match-settings-card mb-2">
                 <div class="match-settings-title">{{ meeting.title }}</div>
                 <div class="match-settings-item"><span class="label">합주 기간</span>{{ meeting.practice_start_date|date:"Y-m-d" }} ~ {{ meeting.practice_end_date|date:"Y-m-d" }}</div>
@@ -1984,9 +2012,9 @@
     {% if failed_total_instances > 0 and not is_final_view %}
     <div class="mb-5 p-4 failed-box">
         <h5 class="text-danger fw-bold mb-3">
-            <i class="bi bi-exclamation-triangle-fill"></i> 배치 불가 목록 (<span id="failedTotalInstances">{{ failed_total_instances }}</span>건)
+            <i class="bi bi-exclamation-triangle-fill"></i> 직접 배치 필요 목록 (<span id="failedTotalInstances">{{ failed_total_instances }}</span>건)
         </h5>
-        <div class="d-flex flex-wrap gap-2" id="failedSongSummaryList">
+        <div class="d-flex flex-column gap-2" id="failedSongSummaryList">
             {% for week in weeks %}
                 {% if week.failed_items %}
                 <div class="failed-summary-week">
@@ -2396,6 +2424,7 @@
     const acknowledgeFinalUrl = "{% url 'schedule_final_acknowledge' meeting.id %}";
     const currentMeetingTitle = String('{{ meeting.title|default:""|escapejs }}').trim();
     const csrfToken = '{{ csrf_token }}';
+    const isDemoMode = {{ is_demo|default:False|yesno:"true,false" }};
     let shareWarningNeeded = {{ share_warning_needed|default:False|yesno:"true,false" }};
     let shareActionInProgress = false;
     let saveResultInProgress = false;
@@ -5157,7 +5186,7 @@
     }
 
     function hasUnsavedWorkDraftChanges() {
-        const draftGuardEnabled = (!isFinalView || bookingToolsEnabled()) && !isSimulation;
+        const draftGuardEnabled = (!isFinalView || bookingToolsEnabled()) && !isSimulation && !isDemoMode;
         if (!draftGuardEnabled || allowPageLeave) return false;
         const workDraftChanged = (() => {
             if (!hasSavedWorkDraft) {
@@ -5236,8 +5265,21 @@
         }
     }
 
+    window.addEventListener('load', function () {
+        if (isDemoMode) return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('open_settings') !== '1') return;
+        window.setTimeout(function () {
+            openMatchSettingsPopup(
+                '{% url "schedule_match_settings" meeting.id %}{% if is_simulation %}?simulation=1{% endif %}',
+                {{ room_count }},
+                '{% url "meeting_room_create" meeting.id %}',
+            );
+        }, 180);
+    });
+
     function setupLeaveGuardForUnsavedDraft() {
-        const draftGuardEnabled = (!isFinalView || bookingToolsEnabled()) && !isSimulation;
+        const draftGuardEnabled = (!isFinalView || bookingToolsEnabled()) && !isSimulation && !isDemoMode;
         if (!draftGuardEnabled) return;
 
         window.addEventListener('beforeunload', (ev) => {

@@ -100,6 +100,7 @@ urlpatterns = [
 
     path('demo/', views.demo_home, name='demo_home'),
     path('demo/dashboard/', views.demo_dashboard, name='demo_dashboard'),
+    path('demo/tutorial/', views.demo_feature_tutorial, name='demo_feature_tutorial'),
     path('demo/start/', views.demo_start, name='demo_start'),
     path('demo/scenario/<int:scenario>/', views.demo_scenario, name='demo_scenario'),
     path('demo/switch-role/', views.demo_switch_role, name='demo_switch_role'),

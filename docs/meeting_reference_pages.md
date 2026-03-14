@@ -93,6 +93,7 @@
   - `demo/dashboard/` -> `demo_dashboard`
   - `demo/start/` -> `demo_start`
   - `demo/scenario/<int:scenario>/` -> `demo_scenario`
+  - `demo/tutorial/` -> `demo_feature_tutorial`
   - `demo/switch-role/` -> `demo_switch_role`
   - `demo/exit/` -> `demo_exit`
 - 주요 뷰:
@@ -100,11 +101,12 @@
 - 주요 모델/데이터:
   - 데모 전용 세션 격리 데이터
 - 먼저 볼 때의 질문:
-  - 시나리오 선택 모달 문제인가?
-  - A/B/C 시나리오 흐름 문제인가?
-  - 투어 안내/자유 탐색 문제인가?
+  - 인트로 CTA/로딩/진입 흐름 문제인가?
+  - 시나리오 A 자동 매칭 보드 진입 문제인가?
+  - `/demo/tutorial/` 인터랙티브 튜토리얼 문제인가?
 - 빠른 착수 팁:
-  - 모달 문구/배치/첫 진입 노출 순서 수정이면 데모 템플릿과 `tutorial_demo.js`를 먼저 본다.
+  - 인트로 문구/배치/첫 진입 노출 순서 수정이면 `demo_home.html`과 `demo_views.py`를 먼저 본다.
+  - `/demo/tutorial/` 동작 수정이면 `demo_feature_tutorial.html`과 `demo_views.py`를 먼저 본다.
   - 시나리오 데이터 세팅, 역할 전환, 세션 격리 규칙이 바뀌면 `demo_views.py`를 바로 함께 본다.
 
 ### 5. 추가 합주

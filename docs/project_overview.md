@@ -94,13 +94,14 @@
 ### 3-4. 데모 페이지
 
 목적:
-- 튜토리얼성 시나리오와 데모 흐름 제공
-- 시나리오 선택 모달 + A/B/C + 자유 탐색 + 투어 안내
+- 공개 체험용 시나리오 A 진입과 기능 설명 흐름 제공
+- 인트로 페이지 + 자동 매칭 보드 + `/demo/tutorial/` 인터랙티브 튜토리얼
 
 주요 코드:
 - `pracapp/views/demo_views.py`
 - `pracapp/templates/pracapp/demo/`
 - `pracapp/static/pracapp/js/tutorial_demo.js`
+- `pracapp/templates/pracapp/demo/demo_feature_tutorial.html`
 
 상세 기준 문서:
 - `docs/demo_page_plan.md`
@@ -182,3 +183,22 @@
 4. 코드 진입점은 `docs/meeting_reference_pages.md`로 확인한다.
 
 이 문서만으로 구현 판단을 내리지 말고, 반드시 기능별 문서까지 내려가서 작업한다.
+
+---
+
+## 8. 현재 로드맵 메모
+
+### 8-1. 배포 후 바로 할 일
+
+- 대형 소스파일 리팩토링
+- 특히 `match_result.html`, `meeting_detail.html`, 관련 대형 view 파일의 역할 분리와 구조 정리를 우선 검토한다.
+
+### 8-2. 중장기 목표
+
+- 커뮤니티 기능 추가
+- `연합공연` 기능 추가
+- 합주실 독립 모델을 본격 가동할 수 있는 구조로 정리
+
+### 8-3. 장기 목표
+
+- 실제 합주실 페이지/시스템과 연동

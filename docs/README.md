@@ -90,9 +90,11 @@
 4. `templates/base.html`
 
 주의:
-- 현재 기준은 **시나리오 선택 모달 + A/B/C + 자유 탐색 + 투어 안내 전용**이다.
+- 현재 기준은 **인트로 페이지 + 시나리오 A 단일 진입 + 기능 설명 투어 안내**다.
 - 과거 `시나리오 1/2/3 + /tutorial/ 연계` 방향으로 되돌리지 않는다.
-- 데모 데이터는 세션 단위 격리가 기본이다.
+- 데모 데이터는 기본적으로 템플릿 복제 기반이지만, 시나리오 A는 현재 단일 공유 템플릿 직행 예외다.
+- 시나리오 A는 `load_saved` 초안 재생이 아니라 실제 자동 매칭 재실행으로 봐야 한다.
+- `/demo/tutorial/` 작업이면 `tutorial_demo.js`만 보지 말고, 실제 런타임은 `pracapp/templates/pracapp/demo/demo_feature_tutorial.html` + `demo_views.py` 기준으로 본다.
 
 ### 2-4. 추가합주
 
@@ -115,7 +117,8 @@
 
 먼저 읽을 문서:
 1. `docs/meeting_handover.md` §27~29 (홈 보드 UX 변경 이력)
-2. 필요 시 `docs/large_files_overview.md` (home_views.py, schedule_views.py 항목)
+2. 공통 카드/버튼 스타일 분리 작업이면 `docs/css_refactor_plan.md`
+3. 필요 시 `docs/large_files_overview.md` (home_views.py, schedule_views.py 항목)
 
 먼저 볼 코드:
 1. `pracapp/templates/pracapp/home.html` (~900줄, 홈 주간보드)
@@ -226,8 +229,9 @@ git diff -- docs
 
 1. `docs/demo_page_plan.md` 먼저 읽기
 2. 필요 시 `docs/archive/demo_feedback_acceptance_2026-02-25.md` 참고
-3. `pracapp/views/demo_views.py`, `pracapp/templates/pracapp/demo/`, `tutorial_demo.js` 순서로 확인
-4. 시나리오 기준이 바뀌면 `demo_page_plan.md`를 먼저 갱신
+3. 인트로/시나리오 진입이면 `pracapp/views/demo_views.py`, `pracapp/templates/pracapp/demo/`, `tutorial_demo.js` 순서로 확인
+4. `/demo/tutorial/`이면 `pracapp/views/demo_views.py`와 `pracapp/templates/pracapp/demo/demo_feature_tutorial.html`를 먼저 확인
+5. 시나리오 기준이 바뀌면 `demo_page_plan.md`를 먼저 갱신
 
 ---
 
@@ -353,13 +357,15 @@ git diff -- docs
 12. 정기 정합성 점검 대상(SSOT, URL, 상태 코드, 테스트 경로)에 새 변경이 생겼으면 `5-5. 정기 정합성 점검 루틴` 기준으로 재점검한다.
 13. **이번 세션의 실제 작업 기록 기준으로, 현재 문서 체계가 무맥락 AI에게 비효율적이거나 헷갈렸던 지점이 있었는지 먼저 판단한다.**
 14. 문서 체계 피드백이 있으면 handoff에만 남기지 말고, 기존 SSOT/인덱스 문서에 흡수할지 먼저 결정한다.
-15. 다음 AI에게 넘겨야 하는 작업이면 `docs/session_handoff_template.md` 형식으로 handoff를 정리한다.
+15. **이번 수정이 막은 실패 경로가 있다면, "무엇이 바뀌었는가"뿐 아니라 "왜 그 경로가 위험했고 다시 하면 안 되는가"를 관련 SSOT에 남긴다.**
+16. 다음 AI에게 넘겨야 하는 작업이면 `docs/session_handoff_template.md` 형식으로 handoff를 정리한다.
 
 문서 체계 피드백 판단 기준:
 - SSOT를 찾는 데 문서 왕복이 2회 이상 필요했는가
 - 스타팅 맵이 실제 코드 진입점과 달라서 추가 탐색이 필요했는가
 - 같은 주제를 설명하는 문서가 둘 이상처럼 느껴졌는가
 - 이번 세션에서 새로 알게 된 반복 위험/운영 절차가 있는데, 현재 문서 구조상 놓치기 쉬운가
+- 이번 세션에서 해결한 버그의 원인/금지 패턴이 있는데, 현재 문서 규칙만 따르면 결과만 남기고 원인은 빠질 수 있는가
 
 원칙:
 - 문서 체계가 충분히 작동했다면 “문제 없음”으로 끝내도 된다.

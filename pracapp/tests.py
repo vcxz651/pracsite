@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .views.matching_views import _build_events_signature
+from .utils import auto_schedule_match
 from .models import (
     Band,
     ExtraPracticeSchedule,
@@ -224,6 +225,34 @@ class TestMatchResultFlow(TestCase):
         self.assertEqual(schedules[0].room.location, '위치 A')
         self.assertEqual(schedules[1].room.name, '임시 B')
         self.assertEqual(schedules[1].room.location, '위치 B')
+
+    def test_auto_schedule_match_separate_days_option_uses_distinct_dates(self):
+        Session.objects.create(song=self.song_1, name='Vocal', assignee=self.user_a)
+        MemberAvailability.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 3, 2),
+            available_slot=[18, 19, 20, 21],
+        )
+        MemberAvailability.objects.create(
+            user=self.user_a,
+            date=datetime.date(2026, 3, 3),
+            available_slot=[18, 19],
+        )
+
+        result = auto_schedule_match(
+            self.meeting,
+            60,
+            2,
+            allowed_room_ids=[str(self.room.id)],
+            separate_days_for_multi_sessions=True,
+            song_ids=[self.song_1.id],
+        )
+
+        self.assertEqual(result.get('status'), 'success')
+        schedule = result.get('schedule') or []
+        self.assertEqual(len(schedule), 2)
+        scheduled_dates = {row['date'] for row in schedule}
+        self.assertEqual(scheduled_dates, {'2026-03-02', '2026-03-03'})
 
     def test_schedule_move_event_member_overlap_conflict_then_force(self):
         Session.objects.create(song=self.song_1, name='Vocal', assignee=self.user_a)
@@ -765,8 +794,8 @@ class TestDemoFlowExtreme(TestCase):
         self.assertFalse(meeting.is_booking_in_progress)
         self.assertFalse(meeting.is_final_schedule_confirmed)
         self.assertEqual(meeting.participants.count(), 40)
-        self.assertEqual(meeting.songs.count(), 80)
-        self.assertTrue(meeting.title.startswith('[데모WORK]'))
+        self.assertEqual(meeting.songs.count(), 50)
+        self.assertTrue(meeting.title.startswith('[데모TEMPLATE]'))
 
         s2_resp = self._get(reverse('demo_scenario', args=[2]))
         self.assertEqual(s2_resp.status_code, 302)
@@ -774,7 +803,7 @@ class TestDemoFlowExtreme(TestCase):
 
         second_meeting_id = self.client.session.get('demo_meeting_id')
         self.assertNotEqual(meeting_id, second_meeting_id)
-        self.assertFalse(Meeting.objects.filter(id=meeting_id).exists())
+        self.assertTrue(Meeting.objects.filter(id=meeting_id).exists())
         meeting = Meeting.objects.get(id=second_meeting_id)
         meeting.refresh_from_db()
         self.assertTrue(meeting.is_schedule_coordinating)
@@ -845,8 +874,9 @@ class TestDemoFlowExtreme(TestCase):
         second_meeting_id = self.client.session.get('demo_meeting_id')
 
         self.assertNotEqual(first_meeting_id, second_meeting_id)
-        self.assertFalse(Meeting.objects.filter(id=first_meeting_id).exists())
-        self.assertFalse(Band.objects.filter(id=first_band_id).exists())
+        # 시나리오 A는 공유 템플릿을 직접 사용하므로, 재시작해도 원본 템플릿은 유지된다.
+        self.assertTrue(Meeting.objects.filter(id=first_meeting_id).exists())
+        self.assertTrue(Band.objects.filter(id=first_band_id).exists())
         self.assertTrue(Band.objects.filter(id=second_band_id).exists())
         self.assertTrue(Meeting.objects.filter(id=second_meeting_id).exists())
 
@@ -859,7 +889,8 @@ class TestDemoFlowExtreme(TestCase):
 
         resp = self._get(reverse('demo_scenario', args=[1]))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp['Location'], reverse('meeting_detail', kwargs={'pk': meeting_id}))
+        self.assertIn(reverse('schedule_match_run', args=[meeting_id]), resp['Location'])
+        self.assertIn('force_rematch=1', resp['Location'])
 
     def test_demo_data_cleans_up_immediately_when_leaving_demo_scope(self):
         self._post(reverse('demo_start'), {'scenario': '2'})

@@ -110,10 +110,10 @@
 ### 2-4. 데모/튜토리얼 수정
 
 이 범주로 본다:
-- 시나리오 선택 모달
-- A/B/C 시나리오
-- 자유 탐색
-- 투어 안내
+- 인트로 CTA/로딩 문구/첫 진입 UX
+- 시나리오 A 자동 매칭 보드 진입
+- `/demo/tutorial/` 인터랙티브 튜토리얼
+- 데모 배너/튜토리얼 안내
 
 먼저 읽을 문서:
 1. `docs/demo_page_plan.md`
@@ -123,14 +123,17 @@
 1. `pracapp/views/demo_views.py`
 2. `pracapp/templates/pracapp/demo/`
 3. `pracapp/static/pracapp/js/tutorial_demo.js`
+4. `/demo/tutorial/`이면 `pracapp/templates/pracapp/demo/demo_feature_tutorial.html`
 
 빠른 판단:
-- 모달 문구, 배치, 투어 노출 순서 수정이면 데모 템플릿과 `tutorial_demo.js`를 먼저 본다.
+- 인트로 문구/배치/로딩/CTA 수정이면 `demo_home.html`과 `demo_views.py`를 먼저 본다.
+- `/demo/tutorial/` 단계/카드/spotlight 수정이면 `demo_feature_tutorial.html`과 `demo_views.py`를 먼저 본다.
 - 시나리오 진입 결과나 역할 전환, 세션 데이터가 바뀌면 `demo_views.py`의 세팅 로직도 같이 본다.
 
 금지 추정:
 - 과거 `/tutorial/` 독립 흐름이 현재 기준이라고 추정하지 않는다.
 - 과거 시나리오 번호 체계가 그대로 유효하다고 추정하지 않는다.
+- `tutorial_demo.js` 하나만 보면 데모 튜토리얼 전체가 다 보인다고 추정하지 않는다.
 
 ### 2-5. 추가 합주 수정
 

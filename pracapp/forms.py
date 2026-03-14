@@ -388,6 +388,12 @@ class MatchSettingsForm(forms.Form):
         initial=False,
         help_text="체크하면 :00 시작만 배치하고 :30 시작은 배치하지 않습니다."
     )
+    separate_days_for_multi_sessions = forms.BooleanField(
+        required=False,
+        label="주 2회 이상은 다른 날짜 강제",
+        initial=False,
+        help_text="체크하면 주간 합주 횟수가 2회 이상인 곡은 같은 주차에 같은 날짜로 중복 배치하지 않습니다. 다른 날짜가 없으면 해당 주차는 실패 처리됩니다."
+    )
     time_limit_start = forms.TypedChoiceField(
         label="합주 가능 시작",
         choices=TIME_START_CHOICES,
@@ -413,6 +419,7 @@ class MatchSettingsForm(forms.Form):
         self.fields['room_efficiency_priority'].widget.attrs.update({'class': 'form-check-input'})
         self.fields['maximize_feasibility'].widget.attrs.update({'class': 'form-check-input'})
         self.fields['hour_start_only'].widget.attrs.update({'class': 'form-check-input'})
+        self.fields['separate_days_for_multi_sessions'].widget.attrs.update({'class': 'form-check-input'})
 
     def clean_priority_order(self):
         raw = (self.cleaned_data.get('priority_order') or '').strip()

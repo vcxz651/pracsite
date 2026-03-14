@@ -1264,12 +1264,24 @@ def _apply_exception_to_block(block, exception_slots):
     return merged_events
 
 
+def _song_unique_assignee_ids(song):
+    return set(
+        song.sessions.filter(assignee__isnull=False).values_list('assignee_id', flat=True)
+    )
+
+
 def analyze_song_schedule(song, valid_rooms, start_date, end_date):
     """
     [Helper] 특정 곡의 멤버들과 합주실 상황을 고려하여 '합주 가능 슬롯'을 추출
     """
-    active_sessions = song.sessions.filter(assignee__isnull=False)
-    users = [s.assignee for s in active_sessions]
+    users = []
+    seen_user_ids = set()
+    for sess in song.sessions.select_related('assignee').filter(assignee__isnull=False):
+        uid = sess.assignee_id
+        if uid in seen_user_ids:
+            continue
+        seen_user_ids.add(uid)
+        users.append(sess.assignee)
 
     if not users:
         return {'status': 'error', 'message': '배정된 멤버 없음'}
@@ -1351,6 +1363,7 @@ def auto_schedule_match(
     room_efficiency_priority=False,
     maximize_feasibility=False,
     hour_start_only=False,
+    separate_days_for_multi_sessions=False,
     time_limit_start=18,
     time_limit_end=48,
     song_ids=None,
@@ -1445,7 +1458,7 @@ def auto_schedule_match(
     for sch in existing_schedules:
         d_str = sch.date.strftime('%Y-%m-%d')
         # 해당 스케줄의 멤버들 가져오기
-        active_members = [s.assignee.id for s in sch.song.sessions.filter(assignee__isnull=False)]
+        active_members = list(_song_unique_assignee_ids(sch.song))
 
         for t in range(sch.start_index, sch.end_index):
             runtime_busy[d_str][t].add(f'room_{sch.room.id}')
@@ -1462,7 +1475,7 @@ def auto_schedule_match(
     song_analysis_map = {}
     for song in songs:
         # 멤버가 꽉 찼는지 확인하거나, 있는 멤버끼리라도 진행
-        member_cnt = song.sessions.filter(assignee__isnull=False).count()
+        member_cnt = len(_song_unique_assignee_ids(song))
         if member_cnt == 0:
             failed_songs.append({'song': song, 'reason': '멤버 없음'})
             continue
@@ -1476,7 +1489,7 @@ def auto_schedule_match(
         analysis = analyze_song_schedule(song, valid_rooms, start_date, end_date)
 
         # 멤버 ID 집합 (중복 체크용)
-        m_ids = set(s.assignee.id for s in song.sessions.filter(assignee__isnull=False))
+        m_ids = _song_unique_assignee_ids(song)
 
         song_analysis_map[song.id] = {
             'obj': song,
@@ -1575,6 +1588,9 @@ def auto_schedule_match(
 
     def _ranges_overlap(a_start, a_end, b_start, b_end):
         return a_start < b_end and a_end > b_start
+
+    def _date_already_used(selected_ranges, candidate_date):
+        return any(r.get('date') == candidate_date for r in selected_ranges)
 
     def _pick_room_for_slot(d_str, start_slot, temp_assignments, members, rooms):
         """
@@ -1850,6 +1866,153 @@ def auto_schedule_match(
 
     ordered_song_items.sort(key=lambda x: (x.get('candidate_count', 0), x['obj'].title))
 
+    def _schedule_missing_weeks_for_song(item, missing_week_indices):
+        analysis = item['analysis']
+        if analysis.get('status') != 'success':
+            return list(missing_week_indices or [])
+
+        song = item['obj']
+        members = item['members']
+        rooms = item['rooms']
+        source_map = analysis.get('available') or {}
+        if not source_map:
+            return list(missing_week_indices or [])
+
+        still_failed = []
+
+        for w_idx in missing_week_indices or []:
+            if w_idx < 0 or w_idx >= len(week_ranges):
+                continue
+
+            w_start, w_end = week_ranges[w_idx]
+            w_start_str = w_start.strftime('%Y-%m-%d')
+            w_end_str = w_end.strftime('%Y-%m-%d')
+
+            selected_in_week = []
+            for ev in final_schedule:
+                if ev.get('song') != song:
+                    continue
+                d_str = str(ev.get('date') or '')
+                if not (w_start_str <= d_str <= w_end_str):
+                    continue
+                selected_in_week.append({
+                    'date': d_str,
+                    'start': int(ev.get('start', 0)),
+                    'end': int(ev.get('end', 0)),
+                    'room': ev.get('room'),
+                })
+
+            assigned_in_week = len(selected_in_week)
+            all_week_candidates = []
+            for d_str, slots in source_map.items():
+                if not (w_start_str <= d_str <= w_end_str):
+                    continue
+                if exclude_weekends:
+                    d_obj = datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+                    if d_obj.weekday() >= 5:
+                        continue
+                if not slots:
+                    continue
+                ordered_slots = sorted(slots)
+                for i in range(len(ordered_slots) - slots_needed + 1):
+                    chunk = ordered_slots[i:i + slots_needed]
+                    if chunk[-1] - chunk[0] != slots_needed - 1:
+                        continue
+                    if chunk[0] < time_limit_start or (chunk[0] + slots_needed) > time_limit_end:
+                        continue
+                    all_week_candidates.append((d_str, chunk[0]))
+
+            week_candidates = [c for c in all_week_candidates if (not hour_start_only) or c[1] % 2 == 0]
+
+            def _same_song_adjacent_room_switch_penalty(d_str, start_slot, room_obj):
+                if room_obj is None:
+                    return 0
+                room_id = str(getattr(room_obj, 'id', '') or '')
+                end_slot = start_slot + slots_needed
+                penalty = 0
+                for r in selected_in_week:
+                    if r.get('date') != d_str:
+                        continue
+                    if r.get('end') == start_slot or r.get('start') == end_slot:
+                        prev_room = str(getattr(r.get('room'), 'id', '') or '')
+                        if prev_room and prev_room != room_id:
+                            penalty += SAME_SONG_ROOM_SWITCH_WEIGHT
+                return penalty
+
+            while assigned_in_week < required_count:
+                best_slot = None
+                best_room = None
+                best_score = None
+
+                for d_str, start_slot in week_candidates:
+                    if (
+                        separate_days_for_multi_sessions
+                        and required_count > 1
+                        and _date_already_used(selected_in_week, d_str)
+                    ):
+                        continue
+                    slot_range = range(start_slot, start_slot + slots_needed)
+
+                    member_conflict = False
+                    for t in slot_range:
+                        if not runtime_busy[d_str][t].isdisjoint(members):
+                            member_conflict = True
+                            break
+                    if member_conflict:
+                        continue
+
+                    target_room = _pick_room_for_slot(d_str, start_slot, selected_in_week, members, rooms)
+                    if not target_room:
+                        continue
+
+                    score = (
+                        _same_song_adjacent_room_switch_penalty(d_str, start_slot, target_room),
+                        *_priority_tuple(d_str, start_slot, selected_in_week, members),
+                        d_str,
+                        start_slot,
+                        room_preference_rank.get(str(target_room.id), 10 ** 6),
+                    )
+                    if best_score is None or score < best_score:
+                        best_score = score
+                        best_slot = (d_str, start_slot)
+                        best_room = target_room
+
+                if not best_slot:
+                    break
+
+                d_str, s_idx = best_slot
+                final_schedule.append({
+                    'song': song,
+                    'song_title': song.title,
+                    'room': best_room,
+                    'date': d_str,
+                    'start': s_idx,
+                    'end': s_idx + slots_needed,
+                    'is_fixed': False,
+                })
+
+                for k in range(slots_needed):
+                    t = s_idx + k
+                    runtime_busy[d_str][t].add(f'room_{best_room.id}')
+                    runtime_busy[d_str][t].update(members)
+                    room_busy_slots[d_str][best_room.id].add(t)
+                    for uid in members:
+                        member_room_slots[d_str][t][uid] = best_room.id
+
+                selected_in_week.append({
+                    'date': d_str,
+                    'start': s_idx,
+                    'end': s_idx + slots_needed,
+                    'room': best_room,
+                })
+                week_candidates = [c for c in week_candidates if not (c[0] == d_str and c[1] == s_idx)]
+                assigned_in_week += 1
+
+            if assigned_in_week < required_count:
+                still_failed.append(w_idx)
+
+        return still_failed
+
     # 6. 주차별 순회 및 배정
     for item in ordered_song_items:
         song = item['obj']
@@ -1905,7 +2068,12 @@ def auto_schedule_match(
             selected_in_week = []
 
             # (B-0) 같은 날 연속/압축 패턴 우선 배정
-            if (not maximize_feasibility) and required_count > 1 and week_candidates:
+            if (
+                (not maximize_feasibility)
+                and (not separate_days_for_multi_sessions)
+                and required_count > 1
+                and week_candidates
+            ):
                 pattern = _find_contiguous_same_day_pattern(week_candidates, members, rooms, required_count)
                 if pattern is None:
                     pattern = _find_compact_same_day_pattern(week_candidates, members, rooms, required_count)
@@ -1971,6 +2139,12 @@ def auto_schedule_match(
                     return penalty
 
                 for d_str, start_slot in week_candidates:
+                    if (
+                        separate_days_for_multi_sessions
+                        and required_count > 1
+                        and _date_already_used(selected_in_week, d_str)
+                    ):
+                        continue
                     # 슬롯 범위
                     slot_range = range(start_slot, start_slot + slots_needed)
 
@@ -2040,8 +2214,36 @@ def auto_schedule_match(
         if failed_weeks:
             failed_songs.append({
                 'song': song,
-                'reason': f"시간 부족 ({', '.join(failed_weeks)} 실패)"
+                'reason': f"시간 부족 ({', '.join(failed_weeks)} 실패)",
+                'failed_week_indices': [int(label.replace('주차', '')) - 1 for label in failed_weeks],
             })
+
+    # 6-1. 후처리 재감사: 1차 그리디에서 놓친 곡이 있으면 현재 보드 기준으로 한 번 더 채운다.
+    if failed_songs:
+        while True:
+            progress = False
+            next_failed_songs = []
+            for failed in failed_songs:
+                missing_week_indices = failed.get('failed_week_indices')
+                if not missing_week_indices:
+                    next_failed_songs.append(failed)
+                    continue
+                song = failed.get('song')
+                item = song_analysis_map.get(getattr(song, 'id', None))
+                if not item:
+                    next_failed_songs.append(failed)
+                    continue
+
+                still_failed_indices = _schedule_missing_weeks_for_song(item, missing_week_indices)
+                if len(still_failed_indices) < len(missing_week_indices):
+                    progress = True
+                if still_failed_indices:
+                    failed['failed_week_indices'] = still_failed_indices
+                    failed['reason'] = f"시간 부족 ({', '.join(f'{w + 1}주차' for w in still_failed_indices)} 실패)"
+                    next_failed_songs.append(failed)
+            failed_songs = next_failed_songs
+            if not progress:
+                break
 
     # 7. 안전 후처리: 같은 곡 연속 구간 방 끊김 완화 (제약 유지)
     # - 중복/점유/정원 제약을 절대 깨지 않는 범위에서만
@@ -2061,9 +2263,7 @@ def auto_schedule_match(
         song_member_count = {}
         song_user_ids_map = defaultdict(set)
         for s in songs:
-            assignee_ids = set(
-                s.sessions.filter(assignee__isnull=False).values_list('assignee_id', flat=True)
-            )
+            assignee_ids = _song_unique_assignee_ids(s)
             song_member_count[s.id] = len(assignee_ids)
             song_user_ids_map[s.id] = assignee_ids
 
@@ -2423,6 +2623,30 @@ def auto_schedule_match(
 
     # 9. 결과 반환 (날짜순 정렬)
     final_schedule.sort(key=lambda x: (x['date'], x['start']))
+
+    if (not maximize_feasibility) and failed_songs:
+        retry_result = auto_schedule_match(
+            meeting=meeting,
+            duration_minutes=duration_minutes,
+            required_count=required_count,
+            priority_order=priority_order,
+            allowed_room_ids=allowed_room_ids,
+            preferred_room_ids=preferred_room_ids,
+            exclude_weekends=exclude_weekends,
+            room_efficiency_priority=room_efficiency_priority,
+            maximize_feasibility=True,
+            hour_start_only=hour_start_only,
+            separate_days_for_multi_sessions=separate_days_for_multi_sessions,
+            time_limit_start=time_limit_start,
+            time_limit_end=time_limit_end,
+            song_ids=song_ids,
+        )
+        if (
+            isinstance(retry_result, dict)
+            and retry_result.get('status') == 'success'
+            and len(retry_result.get('failed', []) or []) < len(failed_songs)
+        ):
+            return retry_result
 
     return {
         'status': 'success',
