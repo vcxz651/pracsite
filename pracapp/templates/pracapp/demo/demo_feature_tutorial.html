@@ -1,0 +1,1254 @@
+r{% extends "base.html" %}
+
+{% block content %}
+<style>
+  :root {
+    --session-gap: 4px;
+    --session-btn-font: 0.75rem;
+    --session-empty-h: 28px;
+    --meeting-border-strong: #a8b2bd;
+    --meeting-success-bg: #e8f5e9;
+    --meeting-success-strong: #198754;
+    --meeting-success-accent: #8fd3a2;
+    --meeting-success-accent-border: #74c58f;
+    --meeting-success-text: #143823;
+    --meeting-applied-bg: #dff3e6;
+    --meeting-applied-border: #b9dfc6;
+    --meeting-warning-bg: #fff8d8;
+    --meeting-warning-strong: #ffe2b3;
+    --meeting-danger-bg: #f4b8bf;
+    --meeting-neutral-btn-border: #cfd8e3;
+    --meeting-neutral-btn-bg: #ffffff;
+    --meeting-neutral-btn-text: #4b5563;
+    --meeting-neutral-btn-border-hover: #bac7d6;
+  }
+  .demo-tutorial-wrap {
+    max-width: 1280px;
+    margin: 0 auto 48px;
+  }
+  .demo-tutorial-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 16px;
+  }
+  .demo-tutorial-title {
+    font-size: clamp(1.45rem, 2.4vw, 2rem);
+    line-height: 1.2;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 8px;
+  }
+  .demo-tutorial-desc {
+    max-width: 760px;
+    color: #475569;
+    line-height: 1.55;
+    margin: 0;
+    font-size: 0.95rem;
+  }
+  .demo-step-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .demo-step-pill {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #334155;
+    background: #fff;
+  }
+  .demo-step-pill.is-active {
+    color: #fff;
+    background: #0d6efd;
+    border-color: #0d6efd;
+  }
+  .demo-step-panel {
+    display: none;
+  }
+  .demo-step-panel.is-active {
+    display: block;
+  }
+  .demo-step-grid {
+    display: block;
+  }
+  .demo-shot {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 420px;
+  }
+  .demo-shot-topbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .demo-shot-title {
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .demo-shot-badge {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    background: #f8f9fa;
+    color: #334155;
+    border: 1px solid #dee2e6;
+  }
+  .demo-shot-badge.warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .demo-shot-badge.ok {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .demo-toolbar-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .bg-orange {
+    background-color: var(--meeting-warning-strong) !important;
+  }
+  .tutorial-setlist {
+    margin-bottom: 0;
+  }
+  .tutorial-setlist-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .tutorial-setlist-head h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: #0f172a;
+  }
+  .session-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--session-gap);
+    align-items: start;
+    width: 100%;
+  }
+  .session-grid-wrapper {
+    overflow: visible !important;
+    width: 100%;
+    padding: 2px 0;
+  }
+  .session-grid > div {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: var(--session-empty-h);
+  }
+  .btn-truncate {
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 2px;
+    padding-right: 2px;
+    font-size: var(--session-btn-font);
+    font-weight: 700;
+    border-radius: 4px;
+  }
+  .session-assigned-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .session-assignee-name {
+    font-weight: 700;
+  }
+  .session-applicant-count-badge {
+    background-color: #f1f3f5;
+    color: #5c6770;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    font-size: 0.64rem;
+    font-weight: 600;
+    line-height: 1.1;
+    min-width: 1.15rem;
+    padding: 0.1rem 0.32rem;
+    vertical-align: middle;
+    flex: 0 0 auto;
+  }
+  .js-song-card {
+    position: relative;
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    padding-left: 45px !important;
+    border-color: var(--meeting-border-strong) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7), 0 8px 18px rgba(148, 163, 184, 0.06);
+  }
+  .js-song-card.bg-success.bg-opacity-10 {
+    background-color: var(--meeting-success-bg) !important;
+  }
+  .js-song-card.bg-warning.bg-opacity-10 {
+    background-color: var(--meeting-warning-bg) !important;
+  }
+  .js-song-card.bg-orange.bg-opacity-10 {
+    background-color: var(--meeting-warning-strong) !important;
+  }
+  .js-song-card.bg-danger.bg-opacity-10 {
+    background-color: var(--meeting-danger-bg) !important;
+  }
+  .js-song-card.song-card-fully-assigned {
+    background-color: var(--meeting-success-bg) !important;
+    color: inherit;
+  }
+  .song-order-badge {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #6b7280;
+    border-right: 1px solid var(--meeting-border-strong);
+    border-top-left-radius: inherit;
+    border-bottom-left-radius: inherit;
+  }
+  .song-main-row {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .song-meta-col {
+    flex: 0 1 185px;
+    width: auto;
+    max-width: 185px;
+    padding-left: 8px;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .song-session-col {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 8px;
+    display: flex;
+    align-items: center;
+  }
+  .song-title-text {
+    font-size: calc(1.1rem - 2px);
+    font-weight: 700;
+  }
+  .song-artist-text {
+    color: #6c757d !important;
+  }
+  .demo-shot .btn-outline-secondary {
+    color: var(--meeting-neutral-btn-text);
+    border-color: var(--meeting-neutral-btn-border);
+    background-color: var(--meeting-neutral-btn-bg);
+  }
+  .demo-shot .btn-success {
+    background-color: var(--meeting-success-accent);
+    border-color: var(--meeting-success-accent-border);
+    color: var(--meeting-success-text);
+  }
+  .demo-shot .btn-primary {
+    background-color: var(--meeting-applied-bg);
+    border-color: var(--meeting-applied-border);
+    color: var(--meeting-success-text);
+  }
+  .session-stats-card {
+    border: 1px solid rgba(219, 227, 234, 0.9);
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(31, 41, 55, 0.06);
+    background: #fff;
+    overflow: hidden;
+  }
+  .session-stats-panel-head {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid #eef2f6;
+  }
+  .coverage-summary-box {
+    border: 1px solid #dbe3ea;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
+    padding: 8px 10px;
+  }
+  .coverage-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    border-radius: 8px;
+    padding: 4px 7px;
+    cursor: pointer;
+  }
+  .coverage-summary-row + .coverage-summary-row {
+    margin-top: 2px;
+  }
+  .coverage-summary-row.state-fully-assigned {
+    background-color: var(--meeting-success-strong);
+    color: #f8fffb;
+  }
+  .coverage-summary-row.state-full {
+    background-color: var(--meeting-success-bg);
+  }
+  .coverage-summary-row.state-one-missing {
+    background-color: var(--meeting-warning-bg);
+  }
+  .coverage-summary-row.state-two-missing {
+    background-color: var(--meeting-warning-strong);
+  }
+  .coverage-summary-row.state-three-plus {
+    background-color: var(--meeting-danger-bg);
+  }
+  .demo-stat-list {
+    padding: 10px 14px 14px;
+    display: grid;
+    gap: 6px;
+  }
+  .member-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  .member-stat-row.hot {
+    background: rgba(254, 243, 199, 0.7);
+  }
+  .member-stat-row.cool {
+    background: rgba(219, 234, 254, 0.72);
+  }
+  .coverage-summary-row.is-active,
+  .member-stat-row.is-active {
+    box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.42);
+  }
+  .tutorial-step3-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+  .tutorial-mini-tools {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+  }
+  .tutorial-mini-setlist {
+    margin: 0;
+  }
+  .tutorial-mini-setlist .js-song-card + .js-song-card {
+    margin-top: 8px;
+  }
+  .tutorial-step-actions-inline {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+  .tutorial-inline-hint {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+  .tutorial-song-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  .applicant-stack {
+    display: grid;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .applicant-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    border: 1px solid #dbe7f3;
+    border-radius: 8px;
+    padding: 4px 6px;
+    background: #f7fbff;
+    font-size: 0.74rem;
+    color: #334155;
+    text-align: center;
+  }
+  .applicant-chip button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+    font-weight: 700;
+    width: 100%;
+    text-align: center;
+  }
+  .tutorial-applicants-panel {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid #dbe3ea;
+    border-radius: 12px;
+    background: #fbfdff;
+  }
+  .tutorial-applicant-group + .tutorial-applicant-group {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e5edf4;
+  }
+  .tutorial-applicant-group-title {
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+  .demo-fake-btn {
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border: 1px solid #ced4da;
+    background: #fff;
+    color: #334155;
+  }
+  .demo-fake-btn.primary {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+  }
+  .demo-fake-btn.soft {
+    background: #f8f9fa;
+    color: #334155;
+    border-color: #ced4da;
+  }
+  .demo-song-note {
+    color: #64748b;
+    font-size: 0.82rem;
+  }
+  .demo-modal-mock {
+    margin-top: 14px;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    background: #f8f9fa;
+    padding: 14px;
+  }
+  .demo-modal-head {
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 10px;
+  }
+  .demo-modal-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-top: 1px solid #e9ecef;
+  }
+  .demo-modal-row:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+  #tutorialSpotlight {
+    position: fixed;
+    inset: 0;
+    z-index: 1600;
+    display: none;
+    pointer-events: none;
+  }
+  #tutorialSpotlight.is-open {
+    display: block;
+  }
+  .tutorial-spotlight-hole {
+    position: fixed;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.62);
+    border: 2px solid rgba(255, 255, 255, 0.75);
+    display: none;
+  }
+  .tutorial-spotlight-hole.is-visible {
+    display: block;
+  }
+  .tutorial-spotlight-tooltip {
+    position: fixed;
+    z-index: 1601;
+    width: min(420px, calc(100vw - 32px));
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    pointer-events: auto;
+  }
+  .tutorial-spotlight-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .tutorial-spotlight-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 12px;
+  }
+  .tutorial-spotlight-tooltip p,
+  .tutorial-spotlight-tooltip li {
+    color: #475569;
+    line-height: 1.6;
+  }
+  .tutorial-spotlight-tooltip ul {
+    margin: 0 0 16px;
+    padding-left: 18px;
+  }
+  .demo-step-actions,
+  .tutorial-spotlight-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+  .demo-step-actions .btn,
+  .tutorial-spotlight-actions .btn {
+    border-radius: 999px;
+    font-weight: 700;
+    min-width: 132px;
+  }
+  @media (max-width: 992px) {
+    .demo-tutorial-head {
+      grid-template-columns: 1fr;
+      align-items: start;
+    }
+    .demo-step-grid {
+      display: block;
+    }
+    .demo-shot {
+      min-height: auto;
+    }
+    .tutorial-step3-grid {
+      grid-template-columns: 1fr;
+    }
+    .tutorial-spotlight-tooltip {
+      width: calc(100vw - 24px);
+      max-height: calc(100vh - 24px);
+      overflow-y: auto;
+    }
+  }
+</style>
+
+<div class="container mt-4 meeting-body demo-tutorial-wrap">
+  <div class="mb-4">
+    <div class="demo-tutorial-head">
+      <div>
+        <h1 class="demo-tutorial-title">매치 세팅 전, 핵심 흐름만 빠르게 이해합니다.</h1>
+        <p class="demo-tutorial-desc">
+          이 화면은 작은 선곡회의를 그대로 줄여 놓은 체험형 가이드입니다. 지원, 지원 마감, 배정, 배정 리모콘까지 직접 만져본 뒤
+          바로 실제 매치 세팅 화면으로 넘어갑니다.
+        </p>
+      </div>
+      <div class="demo-step-pills" aria-label="튜토리얼 단계">
+        <button type="button" class="demo-step-pill is-active" data-step-target="1">STEP 1</button>
+        <button type="button" class="demo-step-pill" data-step-target="2">STEP 2</button>
+        <button type="button" class="demo-step-pill" data-step-target="3">STEP 3</button>
+      </div>
+    </div>
+  </div>
+
+    <section class="demo-step-panel is-active" data-step-panel="1">
+      <div class="demo-step-grid">
+        <div class="demo-shot">
+          <div class="demo-shot-topbar">
+            <div class="demo-shot-title">선곡회의 상태 화면</div>
+          </div>
+          <div class="tutorial-setlist-head">
+            <h3>🎵 Setlist (5)</h3>
+          </div>
+          <ul class="list-group shadow-sm tutorial-setlist">
+            {% for card in tutorial_cards %}
+              <li class="list-group-item p-3 js-song-card {% if forloop.first %}bg-warning bg-opacity-10{% elif card.coverage_key == 'fully_assigned' or card.coverage_key == 'full' %}bg-success bg-opacity-10{% elif card.coverage_key == 'one' %}bg-warning bg-opacity-10{% elif card.coverage_key == 'two' %}bg-orange bg-opacity-10{% else %}bg-danger bg-opacity-10{% endif %}"
+                  {% if forloop.first %}id="tutorialStep1Card"{% endif %}
+                  data-song-key="step1-song-{{ forloop.counter0 }}">
+                <div class="song-order-badge">{{ card.order }}</div>
+                <div class="song-main-row mb-0">
+                  <div class="song-meta-col">
+                    <h5 class="fw-bold mb-0 song-title-text">{{ card.title }}</h5>
+                    <div class="text-muted small mt-1 song-artist-text">{{ card.artist }}</div>
+                  </div>
+                  <div class="song-session-col">
+                    <div class="session-grid-wrapper mb-0">
+                      <div class="session-grid">
+                        {% for slot in card.slots %}
+                          <div>
+                            {% if slot.is_empty %}
+                              <div class="empty-slot"></div>
+                            {% else %}
+                              {% if forloop.parentloop.first and forloop.counter == 2 %}
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                        id="tutorialApplySlotBtn"
+                                        data-demo-apply-slot
+                                        data-base-label="{{ slot.label }}"
+                                        data-my-applied="0"
+                                        data-step-scope="1"
+                                        data-song-key="step1-song-0"
+                                        title="{{ slot.label }} (지원자 0명)">
+                                  {{ slot.label }}
+                                  <span class="badge session-applicant-count-badge ms-1" id="tutorialApplySlotBadge">0</span>
+                                </button>
+                                <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list d-none"
+                                     id="tutorialStep1ApplyApplicantList"
+                                     data-default-names="{{ tutorial_step1_applicants|join:'|' }}"
+                                     data-step-scope="1"
+                                     data-song-key="step1-song-0"
+                                     data-slot-key="slot-{{ forloop.counter0 }}"
+                                     data-loaded="1"></div>
+                              {% else %}
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                        title="{{ slot.label }} (지원자 {{ slot.applicant_names|length }}명)">
+                                  {{ slot.label }}
+                                  {% if slot.applicant_names|length > 0 %}
+                                    <span class="badge session-applicant-count-badge ms-1">{{ slot.applicant_names|length }}</span>
+                                  {% endif %}
+                                </button>
+                                {% if slot.applicant_names %}
+                                  <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list d-none"
+                                       data-step-scope="1"
+                                       data-song-key="step1-song-{{ forloop.parentloop.counter0 }}"
+                                       data-slot-key="slot-{{ forloop.counter0 }}"
+                                       data-loaded="1">
+                                    {% for name in slot.applicant_names %}
+                                      <div class="applicant-chip">{{ name }}</div>
+                                    {% endfor %}
+                                  </div>
+                                {% endif %}
+                              {% endif %}
+                            {% endif %}
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="song-footer-row d-flex justify-content-end align-items-center mt-2">
+                  <button type="button"
+                          class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
+                          data-step-scope="1"
+                          data-song-key="step1-song-{{ forloop.counter0 }}"
+                          data-expanded="0">
+                    지원자 펼치기
+                  </button>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+          <div class="tutorial-inline-hint">현재는 `{{ tutorial_cards.0.title }}`의 `G1`만 직접 지원/취소 체험이 가능합니다.</div>
+          <div class="tutorial-step-actions-inline">
+            <button type="button" class="btn btn-outline-danger btn-sm" id="tutorialCloseApplicationsBtn" data-step-next>세션 지원 마감</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-step-panel" data-step-panel="2">
+      <div class="demo-step-grid">
+        <div class="demo-shot">
+          <div class="demo-shot-topbar">
+            <div class="demo-shot-title">세션 배정 / 강제 배정 예시</div>
+          </div>
+          <div class="tutorial-setlist-head">
+            <h3>🎵 Setlist (5)</h3>
+          </div>
+          <ul class="list-group shadow-sm tutorial-setlist">
+            {% for card in tutorial_cards %}
+              <li class="list-group-item p-3 js-song-card {{ card.status_class }}" data-song-key="step2-song-{{ forloop.counter0 }}">
+                <div class="song-order-badge">{{ card.order }}</div>
+                <div class="song-main-row mb-0">
+                  <div class="song-meta-col">
+                    <h5 class="fw-bold mb-0 song-title-text">{{ card.title }}</h5>
+                    <div class="text-muted small mt-1 song-artist-text">{{ card.artist }}</div>
+                  </div>
+                  <div class="song-session-col">
+                    <div class="session-grid-wrapper mb-0">
+                      <div class="session-grid">
+                        {% for slot in card.slots %}
+                          <div>
+                            {% if slot.is_empty %}
+                              <div class="empty-slot"></div>
+                            {% else %}
+                              {% if forloop.parentloop.first and forloop.counter == 1 %}
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                        id="tutorialAssignSlotBtn"
+                                        data-base-label="{{ slot.label }}"
+                                        title="{{ slot.label }} (지원자 {{ tutorial_step2_assign_choices|length }}명)">
+                                  {{ slot.label }}
+                                  {% if tutorial_step2_assign_choices %}
+                                    <span class="badge session-applicant-count-badge ms-1" id="tutorialAssignSlotBadge">{{ tutorial_step2_assign_choices|length }}</span>
+                                  {% endif %}
+                                </button>
+                                <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list d-none"
+                                     id="tutorialStep2AssignList"
+                                     data-step-scope="2"
+                                     data-song-key="step2-song-0"
+                                     data-slot-key="slot-{{ forloop.counter0 }}"
+                                     data-loaded="1">
+                                  {% for name in tutorial_step2_assign_choices %}
+                                    <div class="applicant-chip"><button type="button" data-assign-choice="{{ name }}">{{ name }}</button></div>
+                                  {% endfor %}
+                                </div>
+                              {% elif forloop.parentloop.first and forloop.counter == 2 %}
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                        data-demo-open-manage
+                                        title="{{ slot.label }} 관리">
+                                  {{ slot.label }}
+                                  {% if slot.applicant_names|length > 0 %}
+                                    <span class="badge session-applicant-count-badge ms-1">{{ slot.applicant_names|length }}</span>
+                                  {% endif %}
+                                </button>
+                                {% if slot.applicant_names %}
+                                  <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list d-none"
+                                       data-step-scope="2"
+                                       data-song-key="step2-song-0"
+                                       data-slot-key="slot-{{ forloop.counter0 }}"
+                                       data-loaded="1">
+                                    {% for name in slot.applicant_names %}
+                                      <div class="applicant-chip">{{ name }}</div>
+                                    {% endfor %}
+                                  </div>
+                                {% endif %}
+                              {% elif slot.assignee_name %}
+                                <button type="button" class="btn btn-sm btn-success btn-truncate w-100 js-session-slot-btn session-assigned-text"><span class="session-assigned-main">{{ slot.label }}: <span class="session-assignee-name">{{ slot.assignee_name }}</span></span></button>
+                                {% if slot.applicant_names %}
+                                  <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list d-none"
+                                       data-step-scope="2"
+                                       data-song-key="step2-song-{{ forloop.parentloop.counter0 }}"
+                                       data-slot-key="slot-{{ forloop.counter0 }}"
+                                       data-loaded="1">
+                                    {% for name in slot.applicant_names %}
+                                      <div class="applicant-chip">{{ name }}</div>
+                                    {% endfor %}
+                                  </div>
+                                {% endif %}
+                              {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-truncate w-100 js-session-slot-btn"
+                                        title="{{ slot.label }} (지원자 {{ slot.applicant_names|length }}명)">
+                                  {{ slot.label }}
+                                  {% if slot.applicant_names|length > 0 %}
+                                    <span class="badge session-applicant-count-badge ms-1">{{ slot.applicant_names|length }}</span>
+                                  {% endif %}
+                                </button>
+                                {% if slot.applicant_names %}
+                                  <div class="applicant-stack applicant-collapsible d-grid gap-1 js-applicant-list d-none"
+                                       data-step-scope="2"
+                                       data-song-key="step2-song-{{ forloop.parentloop.counter0 }}"
+                                       data-slot-key="slot-{{ forloop.counter0 }}"
+                                       data-loaded="1">
+                                    {% for name in slot.applicant_names %}
+                                      <div class="applicant-chip">{{ name }}</div>
+                                    {% endfor %}
+                                  </div>
+                                {% endif %}
+                              {% endif %}
+                            {% endif %}
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="song-footer-row d-flex justify-content-end align-items-center mt-2">
+                  <button type="button"
+                          class="btn btn-sm btn-outline-secondary js-song-applicants-toggle"
+                          data-step-scope="2"
+                          data-song-key="step2-song-{{ forloop.counter0 }}"
+                          data-expanded="0">
+                    지원자 펼치기
+                  </button>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+          <div class="demo-modal-mock d-none" id="tutorialManageModalMock">
+            <div class="demo-modal-head">강제 배정 모달 예시</div>
+            {% for name in tutorial_manage_primary_names %}
+              <div class="demo-modal-row">
+                <div>
+                  <strong>{{ name }}</strong>
+                  <div class="demo-song-note">해당 세션 지원자</div>
+                </div>
+                <div class="demo-toolbar-row">
+                  <span class="demo-fake-btn soft">지원자 추가</span>
+                  <span class="demo-fake-btn primary">배정하기</span>
+                </div>
+              </div>
+            {% endfor %}
+            {% for name in tutorial_manage_secondary_names %}
+              <div class="demo-modal-row">
+                <div>
+                  <strong>{{ name }}</strong>
+                  <div class="demo-song-note">지원자는 아니지만 강제 배정 가능</div>
+                </div>
+                <div class="demo-toolbar-row">
+                  <span class="demo-fake-btn">지원자 추가</span>
+                  <span class="demo-fake-btn">배정하기</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-step-panel" data-step-panel="3">
+      <div class="demo-step-grid">
+        <div class="demo-shot">
+          <div class="demo-shot-topbar">
+            <div class="demo-shot-title">배정 리모콘 / 배정 현황 예시</div>
+          </div>
+          <div class="tutorial-step3-grid">
+            <div class="session-stats-card">
+              <div class="session-stats-panel-head">
+                <div class="fw-bold text-center mb-2">배정 리모콘</div>
+                <div class="coverage-summary-box mt-2">
+                  <div class="coverage-summary-row state-fully-assigned" data-coverage-filter="fully_assigned"><span>완전 배정</span><strong>해당 곡만 보기</strong></div>
+                  <div class="coverage-summary-row state-full" data-coverage-filter="full"><span>지원 충족</span><strong>해당 곡만 보기</strong></div>
+                  <div class="coverage-summary-row state-one-missing" data-coverage-filter="one"><span>1개 부족</span><strong>해당 곡만 보기</strong></div>
+                  <div class="coverage-summary-row state-two-missing" data-coverage-filter="two"><span>2개 부족</span><strong>해당 곡만 보기</strong></div>
+                  <div class="coverage-summary-row state-three-plus" data-coverage-filter="three_plus"><span>3개 이상 부족</span><strong>해당 곡만 보기</strong></div>
+                </div>
+              </div>
+              <div class="demo-stat-list">
+                {% for row in tutorial_member_rows %}
+                  <div class="member-stat-row {% if row.count >= 3 %}hot{% elif row.count == 1 %}cool{% endif %}" data-member-sort="{{ row.name }}">
+                    <span>{{ row.name }}</span>
+                    <strong>{{ row.count }}곡</strong>
+                  </div>
+                {% empty %}
+                  <div class="member-stat-row"><span>배정 정보 없음</span><strong>0곡</strong></div>
+                {% endfor %}
+              </div>
+            </div>
+            <div>
+              <div class="tutorial-mini-tools">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="tutorialStep3ResetBtn">정렬/필터 초기화</button>
+              </div>
+              <ul class="list-group shadow-sm tutorial-mini-setlist" id="tutorialStep3Setlist">
+                {% for card in tutorial_cards %}
+                  <li class="list-group-item p-3 js-song-card {{ card.status_class }}"
+                      data-origin-order="{{ forloop.counter0 }}"
+                      data-coverage="{{ card.coverage_key }}"
+                      data-assigned-names="{{ card.assigned_names_csv }}">
+                    <div class="song-order-badge">{{ card.order }}</div>
+                    <div class="song-main-row mb-0">
+                      <div class="song-meta-col">
+                        <h5 class="fw-bold mb-0 song-title-text">{{ card.title }}</h5>
+                        <div class="text-muted small mt-1 song-artist-text">{{ card.artist }}</div>
+                      </div>
+                      <div class="song-session-col">
+                        <div class="session-grid-wrapper mb-0">
+                          <div class="session-grid">
+                            {% for slot in card.slots %}
+                              <div>
+                                {% if slot.is_empty %}
+                                  <div class="empty-slot"></div>
+                                {% else %}
+                                  {% if slot.assignee_name %}
+                                    <button type="button" class="btn btn-sm btn-success btn-truncate w-100"><span class="session-assigned-main">{{ slot.label }}: {{ slot.assignee_name }}</span></button>
+                                  {% else %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-truncate w-100">
+                                      {{ slot.label }}
+                                      {% if slot.applicant_names|length > 0 %}
+                                        <span class="badge session-applicant-count-badge ms-1">{{ slot.applicant_names|length }}</span>
+                                      {% endif %}
+                                    </button>
+                                  {% endif %}
+                                {% endif %}
+                              </div>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+</div>
+
+<div id="tutorialSpotlight" aria-live="polite">
+  <div class="tutorial-spotlight-hole" id="tutorialSpotlightHole"></div>
+  <div class="tutorial-spotlight-tooltip" id="tutorialSpotlightTooltip">
+    <div class="tutorial-spotlight-label" id="tutorialSpotlightLabel">STEP 1 / 3</div>
+    <h3 class="tutorial-spotlight-title" id="tutorialSpotlightTitle">환영합니다!</h3>
+    <ul id="tutorialSpotlightList"></ul>
+    <div class="tutorial-spotlight-actions">
+      <button type="button" class="btn btn-outline-secondary" id="tutorialSpotlightPrevBtn">이전</button>
+      <button type="button" class="btn btn-primary" id="tutorialSpotlightNextBtn">다음</button>
+      <button type="button" class="btn btn-primary d-none" id="tutorialSpotlightDoneBtn">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const pills = Array.from(document.querySelectorAll('.demo-step-pill'));
+    const panels = Array.from(document.querySelectorAll('.demo-step-panel'));
+    const applySlotBtn = document.querySelector('[data-demo-apply-slot]');
+    const spotlight = document.getElementById('tutorialSpotlight');
+    const spotlightHole = document.getElementById('tutorialSpotlightHole');
+    const spotlightTooltip = document.getElementById('tutorialSpotlightTooltip');
+    const spotlightLabel = document.getElementById('tutorialSpotlightLabel');
+    const spotlightTitle = document.getElementById('tutorialSpotlightTitle');
+    const spotlightList = document.getElementById('tutorialSpotlightList');
+    const spotlightPrevBtn = document.getElementById('tutorialSpotlightPrevBtn');
+    const spotlightNextBtn = document.getElementById('tutorialSpotlightNextBtn');
+    const spotlightDoneBtn = document.getElementById('tutorialSpotlightDoneBtn');
+    const step3Setlist = document.getElementById('tutorialStep3Setlist');
+    const step3ResetBtn = document.getElementById('tutorialStep3ResetBtn');
+    const coverageRows = Array.from(document.querySelectorAll('[data-coverage-filter]'));
+    const memberRows = Array.from(document.querySelectorAll('[data-member-sort]'));
+    const step1Card = document.getElementById('tutorialStep1Card');
+    const step1ApplyApplicantList = document.getElementById('tutorialStep1ApplyApplicantList');
+    const songApplicantsToggleButtons = Array.from(
+      document.querySelectorAll('.js-song-applicants-toggle[data-step-scope][data-song-key]')
+    );
+    const closeApplicationsBtn = document.getElementById('tutorialCloseApplicationsBtn');
+    const assignSlotBtn = document.getElementById('tutorialAssignSlotBtn');
+    const openManageInlineBtn = document.querySelector('[data-demo-open-manage]');
+    const manageModalMock = document.getElementById('tutorialManageModalMock');
+    const assignChoices = Array.from(document.querySelectorAll('[data-assign-choice]'));
+    if (!pills.length || !panels.length) return;
+
+    const spotlightSteps = [
+      {
+        panel: 1,
+        target: '',
+        label: 'STEP 1 / 3',
+        title: '환영합니다!',
+        items: [
+          '이 페이지는 실제 로직과 레이아웃을 흉내 낸 작은 선곡회의입니다.',
+          '여기서 지원, 지원 마감, 배정 준비 흐름을 직접 체험할 수 있습니다.',
+        ],
+      },
+      {
+        panel: 1,
+        target: '#tutorialApplySlotBtn',
+        label: 'STEP 2 / 3',
+        title: '세션을 클릭하면 지원이 가능합니다.',
+        items: [
+          '지금은 `ㄷㅅㅎㅅ`의 `G1`만 직접 지원/취소 체험이 가능합니다.',
+          '눌러보면 지원자 이름이 추가되고, 카드색도 경고에서 충족 상태로 바뀝니다.',
+        ],
+      },
+      {
+        panel: 1,
+        target: '#tutorialCloseApplicationsBtn',
+        label: 'STEP 3 / 3',
+        title: '모든 멤버의 세션 지원이 끝나면 지원 마감을 누르세요.',
+        items: [
+          '이 버튼을 누르면 배정 단계로 넘어가고, 다음 단계에서 이름 클릭 배정을 시작할 수 있습니다.',
+          '실제 화면처럼 카드 아래 오른쪽에 붙어 있으니 여기서 바로 이어가면 됩니다.',
+        ],
+      },
+    ];
+
+    let current = 1;
+    let spotlightIdx = 0;
+    let activeCoverage = '';
+    let activeMember = '';
+    const step1ApplySongKey = 'step1-song-0';
+    const tutorialDemoUserName = '{{ tutorial_demo_user_name|escapejs }}' || '체험 매니저';
+    const step1DefaultApplicantNames = step1ApplyApplicantList
+      ? String(step1ApplyApplicantList.dataset.defaultNames || '')
+          .split('|')
+          .map((name) => String(name || '').trim())
+          .filter(Boolean)
+      : [];
+    if (tutorialDemoUserName && !step1DefaultApplicantNames.includes(tutorialDemoUserName)) {
+      step1DefaultApplicantNames.push(tutorialDemoUserName);
+    }
+    const step1ApplicantCount = Math.max(1, step1DefaultApplicantNames.length);
+
+    function setSongApplicantsExpanded(stepScope, songKey, isOpen) {
+      const buttons = Array.from(
+        document.querySelectorAll(`.js-song-applicants-toggle[data-step-scope="${stepScope}"][data-song-key="${songKey}"]`)
+      );
+      const lists = Array.from(
+        document.querySelectorAll(`.js-applicant-list[data-step-scope="${stepScope}"][data-song-key="${songKey}"]`)
+      );
+      buttons.forEach((btn) => {
+        btn.dataset.expanded = isOpen ? '1' : '0';
+        btn.textContent = isOpen ? '지원자 접기' : '지원자 펼치기';
+      });
+      lists.forEach((list) => {
+        const hasItems = list.querySelector('.applicant-chip');
+        list.classList.toggle('d-none', !isOpen || !hasItems);
+      });
+    }
+
+    function renderApplicantChips(container, names) {
+      if (!container) return;
+      container.innerHTML = '';
+      names.forEach((name) => {
+        const chip = document.createElement('div');
+        chip.className = 'applicant-chip';
+        chip.textContent = String(name || '').trim();
+        if (chip.textContent) {
+          container.appendChild(chip);
+        }
+      });
+    }
+
+    function getStep3Cards() {
+      return step3Setlist ? Array.from(step3Setlist.querySelectorAll('.js-song-card')) : [];
+    }
+
+    function applyStep3View() {
+      if (!step3Setlist) return;
+      const cards = getStep3Cards();
+      const sorted = cards.slice().sort((a, b) => {
+        const aNames = String(a.dataset.assignedNames || '');
+        const bNames = String(b.dataset.assignedNames || '');
+        const aHas = activeMember && aNames.split('|').includes(activeMember) ? 1 : 0;
+        const bHas = activeMember && bNames.split('|').includes(activeMember) ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        return Number(a.dataset.originOrder || '0') - Number(b.dataset.originOrder || '0');
+      });
+      sorted.forEach((card) => step3Setlist.appendChild(card));
+      cards.forEach((card) => {
+        const matchesCoverage = !activeCoverage || String(card.dataset.coverage || '') === activeCoverage;
+        card.classList.toggle('d-none', !matchesCoverage);
+      });
+      coverageRows.forEach((row) => {
+        row.classList.toggle('is-active', String(row.dataset.coverageFilter || '') === activeCoverage);
+      });
+      memberRows.forEach((row) => {
+        row.classList.toggle('is-active', String(row.dataset.memberSort || '') === activeMember);
+      });
+    }
+
+    function renderStep(next) {
+      current = Math.max(1, Math.min(3, Number(next) || 1));
+      pills.forEach((pill) => {
+        const on = Number(pill.dataset.stepTarget || '0') === current;
+        pill.classList.toggle('is-active', on);
+      });
+      panels.forEach((panel) => {
+        const on = Number(panel.dataset.stepPanel || '0') === current;
+        panel.classList.toggle('is-active', on);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function positionSpotlight(step) {
+      if (!spotlight || !spotlightHole || !spotlightTooltip || !spotlightLabel || !spotlightTitle || !spotlightList || !spotlightPrevBtn || !spotlightNextBtn || !spotlightDoneBtn) return;
+      renderStep(step.panel || 1);
+      spotlight.classList.add('is-open');
+      spotlightLabel.textContent = step.label;
+      spotlightTitle.textContent = step.title;
+      spotlightList.innerHTML = step.items.map((item) => `<li>${item}</li>`).join('');
+      spotlightPrevBtn.classList.toggle('d-none', spotlightIdx <= 0);
+      spotlightNextBtn.classList.toggle('d-none', spotlightIdx >= spotlightSteps.length - 1);
+      spotlightDoneBtn.classList.toggle('d-none', spotlightIdx < spotlightSteps.length - 1);
+
+      const target = step.target ? document.querySelector(step.target) : null;
+      if (!target) {
+        spotlightHole.classList.remove('is-visible');
+        spotlightTooltip.style.left = '50%';
+        spotlightTooltip.style.top = '50%';
+        spotlightTooltip.style.transform = 'translate(-50%, -50%)';
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      spotlightHole.classList.add('is-visible');
+      spotlightHole.style.top = `${Math.max(8, rect.top - 6)}px`;
+      spotlightHole.style.left = `${Math.max(8, rect.left - 6)}px`;
+      spotlightHole.style.width = `${Math.max(24, rect.width + 12)}px`;
+      spotlightHole.style.height = `${Math.max(24, rect.height + 12)}px`;
+
+      let tooltipLeft = rect.left;
+      let tooltipTop = rect.bottom + 14;
+      if (tooltipLeft + 420 > window.innerWidth - 12) {
+        tooltipLeft = Math.max(12, window.innerWidth - 432);
+      }
+      if (tooltipTop + 220 > window.innerHeight - 12) {
+        tooltipTop = Math.max(12, rect.top - 230);
+      }
+      spotlightTooltip.style.transform = 'none';
+      spotlightTooltip.style.left = `${Math.max(12, tooltipLeft)}px`;
+      spotlightTooltip.style.top = `${Math.max(12, tooltipTop)}px`;
+    }
+
+    function renderSpotlight(nextIdx) {
+      spotlightIdx = Math.max(0, Math.min(spotlightSteps.length - 1, Number(nextIdx) || 0));
+      positionSpotlight(spotlightSteps[spotlightIdx]);
+    }
+
+    pills.forEach((pill) => {
+      pill.addEventListener('click', function () {
+        renderStep(pill.dataset.stepTarget);
+      });
+    });
+    document.querySelectorAll('[data-step-next]').forEach((btn) => {
+      btn.addEventListener('click', function () {
+        renderStep(current + 1);
+      });
+    });
+
+    if (spotlightPrevBtn) {
+      spotlightPrevBtn.addEventListener('click', function () {
+        renderSpotlight(spotlightIdx - 1);
+      });
+    }
+    if (spotlightNextBtn) {
+      spotlightNextBtn.addEventListener('click', function () {
+        renderSpotlight(spotlightIdx + 1);
+      });
+    }
+    if (spotlightDoneBtn) {
+      spotlightDoneBtn.addEventListener('click', function () {
+        if (spotlight) spotlight.classList.remove('is-open');
+      });
+    }
+    if (closeApplicationsBtn) {
+      closeApplicationsBtn.addEventListener('click', function () {
+        if (spotlight) spotlight.classList.remove('is-open');
+      });
+    }
+
+    songApplicantsToggleButtons.forEach((btn) => {
+      btn.addEventListener('click', function () {
+        const stepScope = String(btn.dataset.stepScope || '');
+        const songKey = String(btn.dataset.songKey || '');
+        const isOpen = btn.dataset.expanded === '1';
+        if (!stepScope || !songKey) return;
+        setSongApplicantsExpanded(stepScope, songKey, !isOpen);
+      });
+    });
+
+    if (applySlotBtn) {
+      applySlotBtn.addEventListener('click', function () {
+        const baseLabel = String(applySlotBtn.dataset.baseLabel || 'G').trim() || 'G';
+        const applied = String(applySlotBtn.dataset.myApplied || '0') === '1';
+        const nextApplied = !applied;
+        applySlotBtn.dataset.myApplied = nextApplied ? '1' : '0';
+        applySlotBtn.classList.toggle('btn-primary', nextApplied);
+        applySlotBtn.classList.toggle('btn-outline-secondary', !nextApplied);
+        applySlotBtn.innerHTML = nextApplied
+          ? `${baseLabel} <span class="badge session-applicant-count-badge ms-1" id="tutorialApplySlotBadge">${step1ApplicantCount}</span>`
+          : `${baseLabel} <span class="badge session-applicant-count-badge ms-1" id="tutorialApplySlotBadge">0</span>`;
+        applySlotBtn.title = `${baseLabel} (지원자 ${nextApplied ? step1ApplicantCount : 0}명)`;
+        if (step1ApplyApplicantList) {
+          renderApplicantChips(step1ApplyApplicantList, nextApplied ? step1DefaultApplicantNames : []);
+        }
+        if (nextApplied) {
+          setSongApplicantsExpanded('1', step1ApplySongKey, true);
+        } else {
+          const songBtn = document.querySelector(`.js-song-applicants-toggle[data-step-scope="1"][data-song-key="${step1ApplySongKey}"]`);
+          const keepOpen = songBtn && songBtn.dataset.expanded === '1';
+          if (step1ApplyApplicantList) {
+            step1ApplyApplicantList.classList.toggle('d-none', !keepOpen || !step1ApplyApplicantList.querySelector('.applicant-chip'));
+          }
+        }
+        if (step1Card) {
+          step1Card.classList.toggle('bg-warning', !nextApplied);
+          step1Card.classList.toggle('bg-success', nextApplied);
+        }
+      });
+    }
+
+    if (assignSlotBtn) {
+      assignSlotBtn.addEventListener('click', function () {});
+    }
+
+    function toggleManageModal(forceOpen) {
+      if (!manageModalMock) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : manageModalMock.classList.contains('d-none');
+      manageModalMock.classList.toggle('d-none', !shouldOpen);
+    }
+
+    if (openManageInlineBtn) {
+      openManageInlineBtn.addEventListener('click', function () {
+        toggleManageModal(true);
+      });
+    }
+
+    assignChoices.forEach((btn) => {
+      btn.addEventListener('click', function () {
+        if (!assignSlotBtn) return;
+        const baseLabel = String(assignSlotBtn.dataset.baseLabel || 'V').trim() || 'V';
+        const name = String(btn.dataset.assignChoice || '').trim() || '배정 멤버';
+        assignSlotBtn.classList.remove('btn-outline-secondary');
+        assignSlotBtn.classList.add('btn-success');
+        assignSlotBtn.title = `${baseLabel}: ${name}`;
+        assignSlotBtn.innerHTML = `<span class="session-assigned-main">${baseLabel}: <span class="session-assignee-name">${name}</span></span>`;
+      });
+    });
+
+    coverageRows.forEach((row) => {
+      row.addEventListener('click', function () {
+        const next = String(row.dataset.coverageFilter || '');
+        activeCoverage = activeCoverage === next ? '' : next;
+        applyStep3View();
+      });
+    });
+
+    memberRows.forEach((row) => {
+      row.addEventListener('click', function () {
+        const next = String(row.dataset.memberSort || '');
+        activeMember = activeMember === next ? '' : next;
+        applyStep3View();
+      });
+    });
+
+    if (step3ResetBtn) {
+      step3ResetBtn.addEventListener('click', function () {
+        activeCoverage = '';
+        activeMember = '';
+        applyStep3View();
+      });
+    }
+
+    applyStep3View();
+    window.addEventListener('resize', function () {
+      renderSpotlight(spotlightIdx);
+    });
+    renderSpotlight(0);
+  })();
+</script>
+{% endblock %}
