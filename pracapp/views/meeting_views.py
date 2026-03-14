@@ -554,7 +554,11 @@ class MeetingCreateView(UserPassesTestMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['is_modal'] = self.request.GET.get('modal') == '1'
+        is_modal = self.request.GET.get('modal') == '1'
+        context['is_modal'] = is_modal
+        if is_modal:
+            context['hide_base_chrome'] = True
+            context['show_demo_banner'] = False
         return context
 
 
@@ -598,7 +602,11 @@ class MeetingUpdateView(UserPassesTestMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['is_modal'] = self.request.GET.get('modal') == '1'
+        is_modal = self.request.GET.get('modal') == '1'
+        context['is_modal'] = is_modal
+        if is_modal:
+            context['hide_base_chrome'] = True
+            context['show_demo_banner'] = False
         return context
 
 
