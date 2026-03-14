@@ -20,6 +20,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'pracsite-production.up.railway.app',
     'pracsite-dev.up.railway.app',
+    'rockofschool.rocks',
+    'www.rockofschool.rocks',
 ]
 
 # Railway 자동 도메인 허용
